@@ -58,9 +58,9 @@ is assigned to its nearest shape. The user is responsible for ensuring
 
 Uses S3/S4 generics only. Table-like elements (\code{spatialMap}, points, shapes)
 use \code{nrow}, \code{colnames}, \code{[[}, and \code{[}. Spatial operations use
-the supplied \code{join} function, \code{\link[sf:st_as_sfc]{st_as_sfc}}, and
-\code{\link[sf:st_crs]{st_crs}}. Layer lists use \code{names}. Consistent with
-\code{\link{subsetByPolygon}}; see the Subset vignette.
+the supplied \code{join} function and
+\code{\link[sf:st_as_sfc]{st_as_sfc}}. Layer lists use \code{names}.
+Consistent with \code{\link{subsetByPolygon}}; see the Subset vignette.
 }
 
 \examples{

@@ -178,7 +178,6 @@ All generics below are S3 or S4: `nrow`, `colnames`, `rownames`, `dim`, `names`,
 | `st_intersects` (sf) | — | — | — | shapes | points, shapes |
 | `st_as_sfc` (sf) | — | — | — | shapes | points, shapes |
 | `st_bbox` (sf) | — | — | — | shapes | — |
-| `st_crs` (sf) | — | — | — | — | points |
 | `rownames` | colData | — | — | — | — |
 | `dim` | — | — | — | — | — |
 
@@ -266,8 +265,7 @@ not on your element.
 | `[[` | `element[[x_col]]`, `element[[y_col]]` | Extract coordinates |
 | `colnames` | `x_col %in% colnames(element)` | Check column presence |
 | `nrow` | `nrow(element) == 0` | Detect empty |
-| `st_crs` (sf) | `st_crs(polygon)` | Get CRS from query polygon |
-| `st_as_sfc` (sf) | `st_as_sfc(wkt_strings, crs = ...)` | Build points from WKT; `st_as_sfc.character` |
+| `st_as_sfc` (sf) | `st_as_sfc(wkt_strings)` | Build points from WKT; `st_as_sfc.character` |
 | `st_intersects` (sf) | `st_intersects(pts_sfc, polygon)` | Point-in-polygon; `st_intersects.sfc` |
 | `[` | `element[idx, , drop = FALSE]` | Subset rows |
 | `[[` | `element[["instance_id"]][idx]` | Get instance IDs |

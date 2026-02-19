@@ -59,7 +59,7 @@ NULL
 #' \code{nrow}, \code{colnames}, \code{[[}, \code{[}, \code{unique}, and
 #' \code{split} (from \pkg{BiocGenerics}). Layer lists use
 #' \code{names} and \code{length}. Spatial filtering additionally requires
-#' \code{sf::st_intersects} (and \code{st_as_sfc}, \code{st_crs}, \code{st_bbox}
+#' \code{sf::st_intersects} (and \code{st_as_sfc}, \code{st_bbox}
 #' for shapes / polygon). For spatial filtering, \code{instance_id} in points,
 #' shapes, and \code{spatialMap} must have matching types (no coercion). See
 #' the Subset vignette for a complete per-operation table and implementation
@@ -184,15 +184,14 @@ NULL
     which(keep)
 }
 
-#' @importFrom sf st_as_sfc st_crs st_intersects
+#' @importFrom sf st_as_sfc st_intersects
 .subsetPointsByPolygon <- function(pt, polygon, x_col, y_col) {
     if (is.null(pt) || nrow(pt) == 0L)
         return(integer(0))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
         return(integer(0))
     pts_sfc <- st_as_sfc(
-        paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")"),
-        crs = st_crs(polygon)
+        paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")")
     )
     keep <- lengths(st_intersects(pts_sfc, polygon)) > 0L
     which(keep)

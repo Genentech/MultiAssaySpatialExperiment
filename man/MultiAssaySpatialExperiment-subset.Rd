@@ -64,7 +64,7 @@ All subsetting uses S3/S4 generics only. Table-like elements
 \code{nrow}, \code{colnames}, \code{[[}, \code{[}, \code{unique}, and
 \code{split} (from \pkg{BiocGenerics}). Layer lists use
 \code{names} and \code{length}. Spatial filtering additionally requires
-\code{sf::st_intersects} (and \code{st_as_sfc}, \code{st_crs}, \code{st_bbox}
+\code{sf::st_intersects} (and \code{st_as_sfc}, \code{st_bbox}
 for shapes / polygon). For spatial filtering, \code{instance_id} in points,
 shapes, and \code{spatialMap} must have matching types (no coercion). See
 the Subset vignette for a complete per-operation table and implementation

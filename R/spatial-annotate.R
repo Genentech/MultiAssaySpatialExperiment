@@ -48,9 +48,9 @@ NULL
 #' @section Polymorphism:
 #' Uses S3/S4 generics only. Table-like elements (\code{spatialMap}, points, shapes)
 #' use \code{nrow}, \code{colnames}, \code{[[}, and \code{[}. Spatial operations use
-#' the supplied \code{join} function, \code{\link[sf:st_as_sfc]{st_as_sfc}}, and
-#' \code{\link[sf:st_crs]{st_crs}}. Layer lists use \code{names}. Consistent with
-#' \code{\link{subsetByPolygon}}; see the Subset vignette.
+#' the supplied \code{join} function and
+#' \code{\link[sf:st_as_sfc]{st_as_sfc}}. Layer lists use \code{names}.
+#' Consistent with \code{\link{subsetByPolygon}}; see the Subset vignette.
 #'
 #' @return
 #' \code{x} with \code{spatialMap} updated to include the new annotation column.
@@ -95,7 +95,7 @@ setGeneric("annotateWithRegions",
         join = st_intersects)
         standardGeneric("annotateWithRegions"))
 
-#' @importFrom sf st_as_sfc st_crs st_intersects
+#' @importFrom sf st_as_sfc st_intersects
 .pointToShapeMapping <- function(pt, shp, x_col, y_col, geom_col = "geometry",
                                  id_col = "instance_id", join = st_intersects) {
     if (is.null(pt) || nrow(pt) == 0L || is.null(shp) || nrow(shp) == 0L)
@@ -105,8 +105,7 @@ setGeneric("annotateWithRegions",
     if (!geom_col %in% colnames(shp) || !id_col %in% colnames(shp))
         return(structure(logical(0), names = character(0)))
     pts_sfc <- st_as_sfc(
-        paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")"),
-        crs = st_crs(shp[[geom_col]]))
+        paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")"))
     shp_geom <- shp[[geom_col]]
     res <- join(pts_sfc, shp_geom)
     n_pts <- nrow(pt)
