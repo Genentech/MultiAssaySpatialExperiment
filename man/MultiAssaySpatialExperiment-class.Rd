@@ -27,7 +27,6 @@
 \alias{imgData<-,MultiAssaySpatialExperiment,ANY-method}
 \alias{spatialMap,MultiAssaySpatialExperiment-method}
 \alias{spatialMap<-,MultiAssaySpatialExperiment-method}
-\alias{c,MultiAssaySpatialExperiment-method}
 \alias{show,MultiAssaySpatialExperiment-method}
 \title{MultiAssaySpatialExperiment objects}
 \description{
@@ -154,18 +153,6 @@ In the code snippets below, \code{x} is a MultiAssaySpatialExperiment object:
 }
 }
 
-\section{Combining}{
-
-\describe{
-  \item{\code{c(x, ..., sampleMap = NULL, mapFrom = NULL)}:}{
-    When \code{...} is a single MultiAssaySpatialExperiment, merges the two
-    objects (experiments, colData, sampleMap, spatial layers, imgData,
-    spatialMap). Experiment names must be unique across objects.
-    Otherwise delegates to \code{\link[MultiAssayExperiment]{c,MultiAssayExperiment-method}}.
-  }
-}
-}
-
 \section{Displaying}{
 
 The \code{show()} method prints the inherited MultiAssayExperiment summary
@@ -193,8 +180,8 @@ mase[, c("S1", "S2")]
 }
 \seealso{
 \itemize{
-  \item \code{\link[MultiAssayExperiment]{MultiAssayExperiment}} for the base class
   \item \link{MultiAssaySpatialExperiment-subset} for subsetting methods
+  \item \link{MultiAssaySpatialExperiment-combine} for combining methods
   \item \linkS4class{RasterLayerList}, \linkS4class{PointsLayerList},
         \linkS4class{ShapesLayerList} for spatial layer containers
 }

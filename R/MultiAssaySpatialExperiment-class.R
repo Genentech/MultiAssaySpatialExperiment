@@ -133,16 +133,6 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'   }
 #' }
 #'
-#' @section Combining:
-#' \describe{
-#'   \item{\code{c(x, ..., sampleMap = NULL, mapFrom = NULL)}:}{
-#'     When \code{...} is a single MultiAssaySpatialExperiment, merges the two
-#'     objects (experiments, colData, sampleMap, spatial layers, imgData,
-#'     spatialMap). Experiment names must be unique across objects.
-#'     Otherwise delegates to \code{\link[MultiAssayExperiment]{c,MultiAssayExperiment-method}}.
-#'   }
-#' }
-#'
 #' @section Displaying:
 #' The \code{show()} method prints the inherited MultiAssayExperiment summary
 #' followed by counts of spatial images, labels, points, shapes, and whether
@@ -202,14 +192,12 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #' spatialMap,MultiAssaySpatialExperiment-method
 #' spatialMap<-,MultiAssaySpatialExperiment-method
 #'
-#' c,MultiAssaySpatialExperiment-method
-#'
 #' show,MultiAssaySpatialExperiment-method
 #'
 #' @seealso
 #' \itemize{
-#'   \item \code{\link[MultiAssayExperiment]{MultiAssayExperiment}} for the base class
 #'   \item \link{MultiAssaySpatialExperiment-subset} for subsetting methods
+#'   \item \link{MultiAssaySpatialExperiment-combine} for combining methods
 #'   \item \linkS4class{RasterLayerList}, \linkS4class{PointsLayerList},
 #'         \linkS4class{ShapesLayerList} for spatial layer containers
 #' }
@@ -493,68 +481,6 @@ setMethod("spatialMap", "MultiAssaySpatialExperiment", function(x) slot(x, "spat
 #' @export
 setReplaceMethod("spatialMap", "MultiAssaySpatialExperiment", function(x, value) {
     replaceSlots(x, spatialMap = value, check = FALSE)
-})
-
-### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-### c concatenation
-###
-
-#' @importFrom MultiAssayExperiment experiments sampleMap
-#' @importFrom S4Vectors DataFrame metadata
-#' @importFrom SpatialExperiment imgData
-#' @importFrom SummarizedExperiment colData
-.mergeMASE <- function(x, y) {
-    if (!is(y, "MultiAssaySpatialExperiment"))
-        stop("'c' with two MultiAssaySpatialExperiment requires both to be ",
-             "MultiAssaySpatialExperiment")
-    if (any(names(x) %in% names(y)))
-        stop("Provide unique experiment names")
-    expz <- c(experiments(x), experiments(y))
-    sampz <- rbind(sampleMap(x), sampleMap(y))
-    coldx <- colData(x)
-    coldy <- colData(y)
-    cdatz <- merge(x = coldx, y = coldy,
-        by = c("row.names", intersect(names(coldx), names(coldy))),
-        all = TRUE, sort = FALSE, stringsAsFactors = FALSE)
-    rownames(cdatz) <- cdatz[["Row.names"]]
-    cdatz <- DataFrame(cdatz[, names(cdatz) != "Row.names", drop = FALSE])
-    metaz <- c(metadata(x), metadata(y))
-    imgx <- imgData(x)
-    imgy <- imgData(y)
-    new_img <- if (is.null(imgx) && is.null(imgy)) NULL
-    else if (is.null(imgx)) imgy
-    else if (is.null(imgy)) imgx
-    else rbind(imgx, imgy)
-    spx <- spatialMap(x)
-    spy <- spatialMap(y)
-    new_sp <- if (is.null(spx) && is.null(spy)) NULL
-    else if (is.null(spx)) spy
-    else if (is.null(spy)) spx
-    else rbind(spx, spy)
-    new("MultiAssaySpatialExperiment",
-        ExperimentList = expz,
-        colData = cdatz,
-        sampleMap = sampz,
-        metadata = metaz,
-        images = c(spatialImages(x), spatialImages(y)),
-        labels = c(spatialLabels(x), spatialLabels(y)),
-        points = c(spatialPoints(x), spatialPoints(y)),
-        shapes = c(spatialShapes(x), spatialShapes(y)),
-        imgData = new_img,
-        spatialMap = new_sp)
-}
-
-#' @exportMethod c
-setMethod("c", "MultiAssaySpatialExperiment", function(x, ..., sampleMap = NULL, mapFrom = NULL) {
-    args <- list(...)
-    if (!length(args))
-        stop("Provide experiments or a MultiAssaySpatialExperiment to concatenate")
-    if (identical(length(args), 1L)) {
-        input <- args[[1L]]
-        if (is(input, "MultiAssaySpatialExperiment"))
-            return(.mergeMASE(x, input))
-    }
-    callNextMethod()
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

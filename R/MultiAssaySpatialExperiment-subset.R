@@ -84,8 +84,7 @@ NULL
 #' @seealso
 #' \itemize{
 #'   \item \linkS4class{MultiAssaySpatialExperiment} for the main class
-#'   \item \code{\link[MultiAssayExperiment]{subsetBy}} for the base subsetting
-#'         API
+#'   \item \link{MultiAssaySpatialExperiment-combine} for combining methods
 #' }
 #'
 #' @keywords methods
