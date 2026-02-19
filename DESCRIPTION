@@ -6,14 +6,12 @@ Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
     resolved multi-omics data. Supports coercion to and from
     SpatialExperiment, SpatialFeatureExperiment, and SpatialData.
-Author: Patrick Aboyoun [aut, cre]
-Maintainer: Patrick Aboyoun <aboyounp@gmail.com>
 Authors@R:
     c(
         person("Patrick", "Aboyoun", role=c("aut", "cre"), email="aboyounp@gene.com"),
         person("Genentech, Inc.", role="cph")
     )
-License: Artistic-2.0
+License: MIT + file LICENSE
 Encoding: UTF-8
 Depends:
     R (>= 4.3.0),
