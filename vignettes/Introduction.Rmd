@@ -1,0 +1,174 @@
+---
+title: "Introduction to MultiAssaySpatialExperiment"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{Introduction to MultiAssaySpatialExperiment}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+# Why another spatial data structure?
+
+If you have spent a few decades designing databases, you have seen the same
+story many times: someone builds a system that works for one use case, and it
+spreads. Later, a new use case appears that does not quite fit. People bolt on
+workarounds, and the design gets messy. Eventually, someone steps back and asks:
+what would we build if we started from the problem we actually have?
+
+Spatial omics is at that stage. We already have excellent tools for
+*single-assay* spatial data: SpatialExperiment and SpatialFeatureExperiment
+handle one experiment at a time—one technology, one matrix, one set of spatial
+coordinates. They work well when your question is "what genes are expressed in
+this Visium section?" or "where are these MERFISH cells in tissue?" But
+increasingly, people ask questions that cut across assays: "I have RNA, protein,
+and chromatin from the same tissue—how do I link them and their spatial
+coordinates in one place?" That is a different problem. It needs a *multi-assay*
+structure that can carry spatial context and keep everything consistent when you
+subset, merge, or query.
+
+MultiAssayExperiment (MAE) solves the multi-assay part. It gives you a central
+mapping table—the `sampleMap`—that links assay columns to specimens. One source
+of truth, explicit foreign keys, and validity checks that keep the links
+correct. When you subset by specimen, the maps update. No orphaned rows. No
+hunting through metadata to figure out which assay column belongs to which
+sample.
+
+What MAE does not have is spatial geometry: coordinates for cells or spots, cell
+boundaries, tissue images. That is where MultiAssaySpatialExperiment (MASE)
+comes in. MASE extends MAE with spatial elements—points, shapes, images,
+labels—and a second central mapping table, the `spatialMap`, that links assay
+columns to those elements. Same philosophy as MAE: one place to look, one place
+to update, referential integrity enforced. When you subset by specimen or assay,
+the spatial maps and element lists stay in sync. You do not have to remember to
+clean up coordinates or drop orphaned geometries manually.
+
+The alternative—used by SpatialData and the scverse ecosystem—stores the linkage
+inside each table. Each assay carries its own metadata saying "I annotate region
+X, use instance_key Y." To find out which assays have spatial data, you loop
+over tables and peek at their metadata. To subset consistently, you must touch
+every table and hope you did not miss one. It works, but it is not the way you
+would design a database. MASE follows the Bioconductor approach: central mapping
+tables, explicit foreign keys, and validity checks that guarantee the links stay
+correct. If that sounds like good schema design to you, MASE is built for you.
+
+# When to use MASE
+
+Use MultiAssaySpatialExperiment when:
+
+- You have **multiple spatial assays** from the same or related tissue (e.g.,
+  transcriptomics, proteomics, ATAC-seq).
+- You need **one object** that holds the experiments, the specimen metadata, the
+  spatial elements (coordinates, shapes, images), and the links between them.
+- You want **subsetting and merging** that keep all links consistent—no manual
+  cleanup, no orphaned geometry.
+- You need to **convert** to or from SpatialExperiment,
+  SpatialFeatureExperiment, or SpatialData for downstream tools.
+
+If you have a single assay with spatial data, SpatialExperiment or
+SpatialFeatureExperiment may be enough. If you need on-disk,
+Python-interoperable storage, SpatialData has that niche. MASE sits in the
+middle: multi-assay, in-memory, and built on the
+same relational principles as MAE.
+
+# The structure: what MASE adds to MAE
+
+MASE inherits the core of MultiAssayExperiment: `ExperimentList` (your assays),
+`colData` (specimen metadata), and `sampleMap` (assay column → specimen). On top
+of that, it adds:
+
+| Slot | What it holds | How it links |
+|------|---------------|--------------|
+| **points** | Named sets of (x, y) coordinates | `spatialMap` links (assay, colname) → (region, instance_id) |
+| **shapes** | Named sets of polygons or lines | Same as points, via `spatialMap` |
+| **images** | Raster images (tissue photos, etc.) | Referenced by `imgData`, which links sample_id → image |
+| **labels** | Segmentation masks (pixel = instance id) | Via `spatialMap` when linking masks to assay rows |
+| **imgData** | Which image goes with which specimen | sample_id → `colData` rownames |
+| **spatialMap** | Assay column → spatial element row | (assay, colname) → (region, instance_id) |
+
+The experiments in `ExperimentList` can be SummarizedExperiment,
+SingleCellExperiment, SpatialExperiment, or SpatialFeatureExperiment. The
+spatial elements are shared across assays: multiple assays can reference the
+same points or shapes. The `spatialMap` is the central table that says which
+assay column maps to which row in which spatial element. One table, one source
+of truth. When you subset, it updates. Validity checks enforce that every row in
+`spatialMap` points to a valid `sampleMap` row and a valid row in the
+corresponding points or shapes element.
+
+# Quick start
+
+```{r quickstart}
+library(MultiAssaySpatialExperiment)
+```
+
+Construct a minimal MASE with one experiment and point coordinates:
+
+```{r construct}
+mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
+  dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+pts <- S4Vectors::DataFrame(
+  x = c(1, 2, 3, 4),
+  y = c(1, 2, 3, 4),
+  instance_id = paste0("S", 1:4))
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(assay1 = mat),
+  colData = S4Vectors::DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = S4Vectors::DataFrame(
+    assay = factor("assay1", "assay1"),
+    primary = paste0("S", 1:4),
+    colname = paste0("S", 1:4)
+  ),
+  points = PointsLayerList(coords = pts)
+)
+
+mase
+```
+
+Here, `sampleMap` says each assay column (S1, S2, S3, S4) maps to the specimen
+with that name. The `points` element "coords" has one row per column, with
+`instance_id` matching the colnames. When you add a `spatialMap`, it makes that
+link explicit and allows multiple assays to share the same spatial element. For
+this minimal example, the coordinates live in the points slot; a full
+`spatialMap` would add the formal (assay, colname, region, instance_id) rows.
+
+# Accessing spatial elements
+
+Use `spatialPoints`, `spatialShapes`, `spatialImages`, and `spatialLabels` to
+get the element lists, and the singular forms (e.g., `spatialPoint`) to get one
+element by name:
+
+```{r accessors}
+spatialPoints(mase)
+spatialPointNames(mase)
+spatialPoint(mase, "coords")
+```
+
+# Coercion
+
+MASE can convert to and from SpatialExperiment, SpatialFeatureExperiment, and
+SpatialData. When coercing from SpatialData, the per-table metadata (region,
+instance_key) is translated into the central `spatialMap`. When coercing back,
+`spatialMap` is used to reconstruct that metadata. See the *Coercion* vignette
+for details.
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```

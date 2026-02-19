@@ -1,0 +1,50 @@
+Package: MultiAssaySpatialExperiment
+Version: 0.9.0
+Date: 2026-02-18
+Title: Multi-Assay Experiment with Spatial Context
+Description: Extends MultiAssayExperiment with spatial context elements
+    (images, labels, points, shapes) for integrative analysis of spatially
+    resolved multi-omics data. Supports coercion to and from
+    SpatialExperiment, SpatialFeatureExperiment, and SpatialData.
+Author: Patrick Aboyoun [aut, cre]
+Maintainer: Patrick Aboyoun <aboyounp@gmail.com>
+Authors@R:
+    c(
+        person("Patrick", "Aboyoun", role=c("aut", "cre"), email="aboyounp@gene.com"),
+        person("Genentech, Inc.", role="cph")
+    )
+License: Artistic-2.0
+Encoding: UTF-8
+Depends:
+    R (>= 4.3.0),
+    methods,
+    MultiAssayExperiment
+Imports:
+    BiocGenerics,
+    BiocParallel,
+    S4Vectors,
+    SummarizedExperiment,
+    SingleCellExperiment,
+    SpatialExperiment,
+    sf
+Suggests:
+    knitr,
+    rmarkdown,
+    BiocStyle,
+    testthat,
+    SpatialFeatureExperiment,
+    SpatialData
+biocViews: Infrastructure, DataRepresentation
+VignetteBuilder: knitr
+RoxygenNote: 7.3.3
+Collate:
+    'SpatialGenerics.R'
+    'SpatialLayerList-class.R'
+    'MultiAssaySpatialExperiment-class.R'
+    'MultiAssaySpatialExperiment-SpatialData.R'
+    'MultiAssaySpatialExperiment-SpatialExperiment.R'
+    'MultiAssaySpatialExperiment-SpatialFeatureExperiment.R'
+    'MultiAssaySpatialExperiment-subset.R'
+    'spatial-aggregate.R'
+    'spatial-annotate.R'
+    'zzz.R'

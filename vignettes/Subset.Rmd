@@ -1,0 +1,338 @@
+---
+title: "Subsetting MultiAssaySpatialExperiment"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{Subsetting MultiAssaySpatialExperiment}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+# Overview
+
+MultiAssaySpatialExperiment (MASE) extends MultiAssayExperiment with spatial
+slots—points, shapes, images, labels, `imgData`, and `spatialMap`. When you
+subset a MASE, these slots must stay consistent with the assays and specimen
+metadata. MASE's subsetting methods handle that propagation automatically.
+
+This vignette describes each subsetting operation, shows examples, and provides
+an **advanced section for developers** who want to support alternative data
+representations (e.g., DuckDBDataFrame) in MASE's points and shapes slots.
+
+# Subsetting operations
+
+| Operation | What it filters | Spatial propagation |
+|-----------|-----------------|---------------------|
+| `subsetByColData(x, y)` | Specimens (primary identifiers) | `spatialMap`, `imgData` |
+| `subsetByRow(x, y, ...)` | Rows of experiments | Spatial layers unchanged (assay-level) |
+| `subsetByColumn(x, y)` | Assay columns | `spatialMap`, `imgData` |
+| `subsetByAssay(x, y)` | Assays | Images, labels, points, shapes, `spatialMap`, `imgData` |
+| `x[i, j, k, ..., drop]` | Row, column, assay indices | Composes the above |
+| `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` | Points/shapes by rectangle | Assays via `spatialMap` |
+| `subsetByPolygon(x, polygon, ...)` | Points/shapes by polygon | Assays via `spatialMap` |
+
+# Example: basic subsetting
+
+```{r basic-setup}
+library(MultiAssaySpatialExperiment)
+
+mat <- matrix(rnorm(25), nrow = 5, ncol = 5,
+  dimnames = list(paste0("G", 1:5), paste0("S", 1:5)))
+pts <- S4Vectors::DataFrame(
+  x = c(1, 2, 3, 4, 5),
+  y = c(1, 2, 3, 4, 5),
+  instance_id = paste0("S", 1:5))
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(assay1 = mat),
+  colData = S4Vectors::DataFrame(row.names = paste0("S", 1:5)),
+  sampleMap = S4Vectors::DataFrame(
+    assay = factor("assay1"),
+    primary = paste0("S", 1:5),
+    colname = paste0("S", 1:5)
+  ),
+  points = PointsLayerList(coords = pts),
+  spatialMap = S4Vectors::DataFrame(
+    assay = factor("assay1"),
+    colname = paste0("S", 1:5),
+    region = "coords",
+    instance_id = paste0("S", 1:5)
+  )
+)
+mase
+```
+
+## subsetByColData — filter by specimen
+
+Subset by primary identifiers (rownames of `colData`). Rows in `spatialMap` and
+`imgData` that reference dropped specimens are removed.
+
+```{r subsetByColData}
+mase[, c("S1", "S3", "S5")]
+```
+
+## subsetByColumn — filter assay columns
+
+Subset columns within each assay. When `y` is a list, each element applies to
+the corresponding assay (named or by position). `spatialMap` and `imgData` are
+filtered to retain only columns that remain.
+
+```{r subsetByColumn}
+mase[, list(assay1 = c("S2", "S4"))]
+```
+
+## subsetByAssay — filter assays
+
+Keep only selected assays. Images, labels, points, shapes, `spatialMap`, and
+`imgData` are trimmed to the retained assays. Points and shapes are filtered
+by region name (only regions referenced in `spatialMap` after the assay filter
+are kept).
+
+```{r subsetByAssay}
+mase[, , "assay1"]
+```
+
+## Bracket notation
+
+The `[i, j, k, drop]` operator composes the above:
+
+- `i` → rows (via `subsetByRow`)
+- `j` → columns; vector → `subsetByColData`, list → `subsetByColumn`
+- `k` → assays (via `subsetByAssay`)
+- `drop = TRUE` → remove empty assays
+
+```{r bracket}
+mase[1:3, c("S1", "S2"), "assay1", drop = FALSE]
+```
+
+# Spatial subsetting
+
+When you have `spatialMap` linking assay columns to spatial elements, you can
+subset by **bounding box** or **polygon**. Points and shapes within the region
+are kept; assays are filtered to retained instance_ids via `spatialMap`.
+
+## subsetByBoundingBox
+
+Filter by a rectangle `(xmin, xmax, ymin, ymax)`. Points need `x` and `y`
+columns (customizable via `x_col`, `y_col`). Shapes need a `geometry` column
+(sf `sfc`).
+
+```{r subsetByBoundingBox}
+m2 <- subsetByBoundingBox(mase, xmin = 1.5, xmax = 4.5, ymin = 1.5, ymax = 4.5)
+m2
+spatialPoints(m2)[["coords"]]
+ncol(experiments(m2)[["assay1"]])
+```
+
+## subsetByPolygon
+
+Filter by an sf polygon (`sfg`, `sfc`, or `sf`). Points and shapes intersecting
+the polygon are retained.
+
+```{r subsetByPolygon}
+library(sf)
+poly <- st_polygon(list(matrix(
+  c(1.5, 1.5, 4.5, 1.5, 4.5, 4.5, 1.5, 4.5, 1.5, 1.5),
+  ncol = 2, byrow = TRUE)))
+m3 <- subsetByPolygon(mase, poly)
+nrow(spatialPoints(m3)[["coords"]])
+ncol(experiments(m3)[["assay1"]])
+```
+
+# Advanced: implementation guide for developers
+
+MASE's subsetting uses only S3/S4 generics (verified via BiocGenerics and base R).
+Table-like elements (`spatialMap`, `sampleMap`, `imgData`, points, shapes) and
+layer lists are operated on through these generics. This section documents
+which generics are used for each operation.
+
+## Overview: generics by operation
+
+All generics below are S3 or S4: `nrow`, `colnames`, `rownames`, `dim`, `names`, `length`, `unique` from BiocGenerics; `split` (S3); `[[`, `[` (primitives); `st_*` from sf (S3).
+
+| Generic | subsetByColData | subsetByColumn | subsetByAssay | subsetByBbox | subsetByPolygon |
+|---------|-----------------|----------------|---------------|--------------|-----------------|
+| `[[` | spatialMap, sampleMap, imgData | spatialMap, experiments | spatialMap, sampleMap, imgData | points, shapes | points, shapes |
+| `[` | spatialMap, sampleMap, imgData | spatialMap | spatialMap, sampleMap, imgData, layer lists | points, shapes, spatialMap | points, shapes, spatialMap |
+| `nrow` | spatialMap, sampleMap, imgData | spatialMap | spatialMap, sampleMap, imgData | points, shapes, spatialMap | points, shapes, spatialMap |
+| `colnames` | spatialMap, imgData | spatialMap, experiments | spatialMap, imgData | points, shapes, spatialMap | points, shapes, spatialMap |
+| `names` | — | experiments | layer lists, experiments | layer lists | layer lists |
+| `length` | — | — | layer lists | — | — |
+| `unique` | — | — | — | spatialMap | spatialMap |
+| `split` | — | — | — | spatialMap | spatialMap |
+| `st_intersects` (sf) | — | — | — | shapes | points, shapes |
+| `st_as_sfc` (sf) | — | — | — | shapes | points, shapes |
+| `st_bbox` (sf) | — | — | — | shapes | — |
+| `st_crs` (sf) | — | — | — | — | points |
+| `rownames` | colData | — | — | — | — |
+| `dim` | — | — | — | — | — |
+
+*Note: `dim` is used in `[` when `drop = TRUE` for experiments. `rownames` is used on `colData` from MultiAssayExperiment.*
+
+**Instance ID type consistency (subsetByBoundingBox, subsetByPolygon):** Spatial filtering matches `instance_id` values between points/shapes elements and `spatialMap` using `%in%`. The package does not coerce types. Ensure `instance_id` in your points, shapes, and `spatialMap` have matching types (e.g., all character or all integer) so the comparison behaves as expected.
+
+## Generics used by subsetByColData
+
+**spatialMap, sampleMap, imgData** (table-like), **colData** (from MultiAssayExperiment):
+
+| Generic | Element | Call pattern | Purpose |
+|---------|---------|--------------|---------|
+| `nrow` | spatialMap, sampleMap, imgData | `nrow(x) == 0` | Detect empty |
+| `colnames` | spatialMap, imgData | `cols %in% colnames(x)` | Check column presence |
+| `[[` | spatialMap, sampleMap, imgData | `x[["assay"]]`, `x[["colname"]]`, `x[["sample_id"]]` | Extract columns |
+| `[` | spatialMap, sampleMap, imgData | `x[keys %in% other_keys, , drop = FALSE]` | Subset rows |
+| `rownames` | colData | `rownames(colData(x))` | Primary IDs for imgData filter |
+
+## Generics used by subsetByColumn
+
+**spatialMap** (table-like), **experiments** (list of assays):
+
+| Generic | Element | Call pattern | Purpose |
+|---------|---------|--------------|---------|
+| `nrow` | spatialMap | `nrow(spatialMap) == 0` | Detect empty |
+| `colnames` | spatialMap, experiments | `colnames(spatialMap)`, `colnames(experiments[[nm]])` | Column/assay names |
+| `[[` | spatialMap, experiments | `spatialMap[["assay"]]`, `experiments[[nm]]` | Extract columns, assays |
+| `[` | spatialMap | `spatialMap[keys %in% kept, , drop = FALSE]` | Subset rows |
+| `names` | experiments | `names(experiments)` | Assay names |
+
+## Generics used by subsetByAssay
+
+**spatialMap, sampleMap, imgData** (table-like), **layer lists** (points, shapes, images, labels):
+
+| Generic | Element | Call pattern | Purpose |
+|---------|---------|--------------|---------|
+| `nrow` | spatialMap, sampleMap, imgData | `nrow(x) == 0` | Detect empty |
+| `colnames` | spatialMap, imgData | `"assay" %in% colnames(x)` | Check columns |
+| `[[` | spatialMap, sampleMap | `x[["assay"]]`, `x[["primary"]]` | Extract columns |
+| `[` | spatialMap, sampleMap, imgData | `x[x[["assay"]] %in% assays, , drop = FALSE]` | Subset rows |
+| `names` | layer lists, experiments | `names(points)`, `names(experiments)` | Layer/assay names |
+| `length` | layer lists | `length(names(elements)) == 0` | Check empty |
+| `[` | layer lists | `elements[keep]` | Subset layers by name |
+
+## Generics used by subsetByBoundingBox
+
+**Points** (bbox filter):
+
+| Generic | Call pattern | Purpose |
+|---------|--------------|---------|
+| `[[` | `element[[x_col]]`, `element[[y_col]]` | Extract x, y columns for comparison |
+| `colnames` | `x_col %in% colnames(element)` | Check column presence |
+| `nrow` | `nrow(element) == 0` | Detect empty |
+| `[` | `element[idx, , drop = FALSE]` | Subset rows by integer indices |
+| `[[` | `element[["instance_id"]][idx]` | Get instance IDs of retained rows |
+
+The comparison `(xv >= xmin & xv <= xmax) & (yv >= ymin & yv <= ymax)` uses the
+vectors returned by `[[`; the result feeds `which()`. Your `[[` method must
+return something that supports `>=`, `<=`, and `&` with numeric scalars.
+
+**Shapes** (bbox filter):
+
+| Generic | Call pattern | Purpose |
+|---------|--------------|---------|
+| `[[` | `element[["geometry"]]` | Extract geometry column |
+| `colnames` | `"geometry" %in% colnames(element)` | Check geometry column |
+| `nrow` | `nrow(element) == 0` | Detect empty |
+| `st_bbox` (sf) | `st_bbox(c(xmin, ymin, xmax, ymax))` | Create bbox from numeric; `st_bbox.numeric` |
+| `st_as_sfc` (sf) | `st_as_sfc(bbox)` | Convert bbox to polygon; `st_as_sfc.bbox` |
+| `st_intersects` (sf) | `st_intersects(geom, box_sfc)` | Spatial predicate; `st_intersects.sfc` |
+| `[` | `element[idx, , drop = FALSE]` | Subset rows |
+| `[[` | `element[["instance_id"]][idx]` | Get instance IDs |
+
+The geometry column must be `sfc` (or dispatch to `st_intersects` for your
+type). `st_bbox` and `st_as_sfc` are called on a numeric vector and a bbox,
+not on your element.
+
+## Generics used by subsetByPolygon
+
+**Points** (polygon filter):
+
+| Generic | Call pattern | Purpose |
+|---------|--------------|---------|
+| `[[` | `element[[x_col]]`, `element[[y_col]]` | Extract coordinates |
+| `colnames` | `x_col %in% colnames(element)` | Check column presence |
+| `nrow` | `nrow(element) == 0` | Detect empty |
+| `st_crs` (sf) | `st_crs(polygon)` | Get CRS from query polygon |
+| `st_as_sfc` (sf) | `st_as_sfc(wkt_strings, crs = ...)` | Build points from WKT; `st_as_sfc.character` |
+| `st_intersects` (sf) | `st_intersects(pts_sfc, polygon)` | Point-in-polygon; `st_intersects.sfc` |
+| `[` | `element[idx, , drop = FALSE]` | Subset rows |
+| `[[` | `element[["instance_id"]][idx]` | Get instance IDs |
+
+Points are converted to WKT via `paste0("POINT(", x, " ", y, ")")`, then
+`st_as_sfc.character` builds an `sfc`. Your `[[` must return values that paste
+into valid numeric WKT.
+
+**Shapes** (polygon filter):
+
+| Generic | Call pattern | Purpose |
+|---------|--------------|---------|
+| `[[` | `element[["geometry"]]` | Extract geometry column |
+| `colnames` | `"geometry" %in% colnames(element)` | Check geometry column |
+| `nrow` | `nrow(element) == 0` | Detect empty |
+| `st_intersects` (sf) | `st_intersects(geom, polygon)` | Shape–polygon intersection; `st_intersects.sfc` |
+| `[` | `element[idx, , drop = FALSE]` | Subset rows |
+| `[[` | `element[["instance_id"]][idx]` | Get instance IDs |
+
+Again, the geometry column is passed to `st_intersects`. Implement
+`st_intersects.your_class` if your geometry is not `sfc`, or ensure the column
+coerces to `sfc`.
+
+## Summary: what to implement
+
+For **points and shapes** elements (extensible data in MASE):
+
+| Generic | Points (bbox) | Points (polygon) | Shapes (bbox) | Shapes (polygon) |
+|---------|---------------|------------------|---------------|------------------|
+| `[[` | ✓ | ✓ | ✓ | ✓ |
+| `[` | ✓ | ✓ | ✓ | ✓ |
+| `colnames` | ✓ | ✓ | ✓ | ✓ |
+| `nrow` | ✓ | ✓ | ✓ | ✓ |
+| `st_intersects` | — | — | ✓ | ✓ |
+| `st_as_sfc` | — | (for WKT) | — | — |
+| `st_bbox` | — | — | (for bbox) | — |
+
+For **points**, `[[` must return vectors compatible with numeric comparison
+(bbox) or pasteable to WKT (polygon). For **shapes**, `[[` must return geometry
+that works with `st_intersects`—either `sfc` or a type for which you add
+`st_intersects.your_class`.
+
+## Validity constraints
+
+`PointsLayerList` and `ShapesLayerList` validity require
+`is(element, "DataFrame")`. If your class extends `DataFrame`, it will pass.
+
+# Summary
+
+| Use case | Operation |
+|----------|-----------|
+| Filter by specimen | `subsetByColData` or `x[, j]` with character `j` |
+| Filter by assay columns | `subsetByColumn` or `x[, j]` with list `j` |
+| Filter by assay | `subsetByAssay` or `x[, , k]` |
+| Filter by spatial ROI (rectangle) | `subsetByBoundingBox` |
+| Filter by spatial ROI (polygon) | `subsetByPolygon` |
+| Compose row/col/assay | `x[i, j, k, drop]` |
+
+For new data representations (points or shapes), implement `[[`, `[`, `colnames`,
+and `nrow` for your class. For shapes with non-sfc geometry, add `st_intersects`
+(sf) methods so the spatial predicate works. All subsetting uses only S3/S4
+generics; see the overview table above for the complete list.
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```
