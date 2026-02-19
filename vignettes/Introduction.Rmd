@@ -167,6 +167,12 @@ instance_key) is translated into the central `spatialMap`. When coercing back,
 `spatialMap` is used to reconstruct that metadata. See the *Coercion* vignette
 for details.
 
+# Spatial annotation and aggregation
+
+To annotate measurement points with the regions (cells, segments) they fall in,
+and to aggregate assay values by region, use `annotateWithRegions` and
+`aggregateByRegion`. See the *Spatial annotation and aggregation* vignette.
+
 # Session info
 
 ```{r sessionInfo}

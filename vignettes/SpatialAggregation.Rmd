@@ -1,0 +1,238 @@
+---
+title: "Spatial annotation and aggregation"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{Spatial annotation and aggregation}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+# Overview
+
+Spatial omics often measures gene expression or other signals at discrete
+locations—spots, cell centroids, or nuclei—that lie within larger regions such
+as cells, tissue segments, or anatomical structures. A common workflow is to:
+
+1. **Annotate** each measurement point with the region (e.g., cell) it falls in.
+2. **Aggregate** assay values by region—summing counts per cell, averaging
+   expression per segment, or counting points per region.
+
+MultiAssaySpatialExperiment provides `annotateWithRegions` for step 1 and
+`aggregateByRegion` for step 2. Both use the central `spatialMap` table to link
+assay columns to spatial elements (points and shapes).
+
+# Prerequisites
+
+You need points (coordinates of measurements) and shapes (polygons defining
+regions). The points layer must have `instance_id` values that match
+`spatialMap`; the shapes layer must have `instance_id` and a `geometry`
+column. Run `annotateWithRegions` first—it adds a column to `spatialMap`
+linking each point to the shape that contains it. Then `aggregateByRegion`
+uses that column to group and aggregate assay values.
+
+# Example setup
+
+We construct a minimal MASE: four spots (transcriptomic measurements) with
+coordinates, two cell polygons, and a gene expression assay. The goal is to
+annotate each spot with its containing cell and then aggregate expression per
+cell.
+
+```{r setup-example}
+library(MultiAssaySpatialExperiment)
+library(sf)
+```
+
+## Points and shapes
+
+Four spots at coordinates (1.5, 1.5), (2.5, 1.5), (2.5, 2.5), and (3.5, 2.5).
+Their `instance_id` values (S1–S4) will link to assay columns.
+
+Two cell polygons:
+- **cell1**: axis-aligned box from (1, 1) to (2, 2)—contains S1.
+- **cell2**: box from (2, 1) to (3, 2)—contains S2.
+- **cell3**: box from (2, 2) to (3, 3)—contains S3.
+- S4 at (3.5, 2.5) falls outside all cells.
+
+```{r create-geometry}
+pts <- S4Vectors::DataFrame(
+  x = c(1.5, 2.5, 2.5, 3.5),
+  y = c(1.5, 1.5, 2.5, 2.5),
+  instance_id = paste0("S", 1:4))
+
+cell1 <- sf::st_polygon(list(matrix(c(1, 1, 2, 1, 2, 2, 1, 2, 1, 1), ncol = 2, byrow = TRUE)))
+cell2 <- sf::st_polygon(list(matrix(c(2, 1, 3, 1, 3, 2, 2, 2, 2, 1), ncol = 2, byrow = TRUE)))
+cell3 <- sf::st_polygon(list(matrix(c(2, 2, 3, 2, 3, 3, 2, 3, 2, 2), ncol = 2, byrow = TRUE)))
+
+shp_df <- S4Vectors::DataFrame(
+  instance_id = c("cell1", "cell2", "cell3"),
+  geometry = sf::st_sfc(cell1, cell2, cell3))
+```
+
+## Assay and spatialMap
+
+A 3-gene × 4-spot expression matrix. The `spatialMap` links each assay column
+(S1–S4) to the points layer "centroids" and its `instance_id`.
+
+```{r create-mase}
+expr <- matrix(c(10, 20, 5,  15,
+                 30, 10, 25, 5,
+                 5,  15, 20, 30),
+  nrow = 3, ncol = 4,
+  dimnames = list(paste0("Gene", 1:3), paste0("S", 1:4)))
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = expr),
+  colData = S4Vectors::DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = S4Vectors::DataFrame(
+    assay = factor("rna"),
+    primary = paste0("S", 1:4),
+    colname = paste0("S", 1:4)
+  ),
+  points = PointsLayerList(centroids = pts),
+  shapes = ShapesLayerList(cells = shp_df),
+  spatialMap = S4Vectors::DataFrame(
+    assay = factor("rna"),
+    colname = paste0("S", 1:4),
+    region = "centroids",
+    instance_id = paste0("S", 1:4)
+  )
+)
+mase
+```
+
+# annotateWithRegions: point-in-polygon
+
+`annotateWithRegions` performs a spatial join: for each point, it finds which
+shape (if any) contains it and records the shape's `instance_id`. That
+annotation is written to a new column in `spatialMap`, using the shapes layer
+name by default.
+
+```{r annotate}
+mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
+spatialMap(mase)
+```
+
+The new column `cells` shows: S1 → cell1, S2 → cell2, S3 → cell3, S4 → NA
+(no containing cell). You can pass `regionCol` to choose a different column
+name.
+
+# aggregateByRegion: aggregate by shape
+
+With the annotation in place, `aggregateByRegion` groups assay columns by
+region and applies an aggregation function.
+
+## Count points per region
+
+`FUN = "count"` returns the number of points in each shape:
+
+```{r aggregate-count}
+agg_count <- aggregateByRegion(mase, by = "cells", FUN = "count")
+agg_count
+```
+
+## Sum expression per region
+
+`FUN = "sum"` sums each gene's expression over spots that fall in the same
+cell. The result is a list of matrices (one per assay), with features as rows
+and region IDs as columns:
+
+```{r aggregate-sum}
+agg_sum <- aggregateByRegion(mase, by = "cells", FUN = "sum")
+agg_sum[["rna"]]
+```
+
+Interpretation: cell1 has one spot (S1), so the values are unchanged.
+cell2 has S2; cell3 has S3. Rows with `NA` in the `by` column (S4) are excluded.
+
+## Mean expression per region
+
+`FUN = "mean"` averages expression across spots in each cell. With one spot per
+cell, mean equals the original value; with multiple spots per cell, you get
+the mean per gene per cell:
+
+```{r aggregate-mean}
+agg_mean <- aggregateByRegion(mase, by = "cells", FUN = "mean")
+agg_mean[["rna"]]
+```
+
+# Multi-assay aggregation
+
+When you have multiple assays (e.g., RNA and protein from the same spots),
+`aggregateByRegion` aggregates all of them. Specify `assays` to limit which
+assays are processed:
+
+```{r multi-assay}
+protein <- matrix(1:12, nrow = 2, ncol = 4,
+  dimnames = list(paste0("P", 1:2), paste0("S", 1:4)))
+
+mase2 <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = expr, protein = protein),
+  colData = S4Vectors::DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = S4Vectors::DataFrame(
+    assay = factor(c(rep("rna", 4), rep("protein", 4))),
+    primary = rep(paste0("S", 1:4), 2),
+    colname = rep(paste0("S", 1:4), 2)
+  ),
+  points = PointsLayerList(centroids = pts),
+  shapes = ShapesLayerList(cells = shp_df),
+  spatialMap = S4Vectors::DataFrame(
+    assay = factor(c(rep("rna", 4), rep("protein", 4))),
+    colname = rep(paste0("S", 1:4), 2),
+    region = "centroids",
+    instance_id = rep(paste0("S", 1:4), 2)
+  )
+)
+```
+
+Both assays share the same spots (S1–S4) and `instance_id` in the points
+layer. After `annotateWithRegions`, you can aggregate both assays:
+
+```{r multi-agg}
+mase2 <- annotateWithRegions(mase2, points = "centroids", shapes = "cells")
+agg_both <- aggregateByRegion(mase2, by = "cells", FUN = "sum")
+names(agg_both)
+agg_both[["rna"]]
+agg_both[["protein"]]
+```
+
+# Custom coordinate columns
+
+If your points layer uses different column names for x and y (e.g., `X_centroid`,
+`Y_centroid`), pass `spatialCoordsNames`:
+
+```{r custom-coords}
+pts2 <- S4Vectors::DataFrame(
+  X_centroid = c(1.5, 2.5),
+  Y_centroid = c(1.5, 2.5),
+  instance_id = c("S1", "S2"))
+# annotateWithRegions(mase, points = "centroids", shapes = "cells",
+#   spatialCoordsNames = c("X_centroid", "Y_centroid"))
+```
+
+# See also
+
+- **Subset vignette**: `subsetByBoundingBox` and `subsetByPolygon` use similar
+  spatial logic and propagate to assays via `spatialMap`.
+- **Introduction vignette**: MASE structure and the role of `spatialMap`.
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```
