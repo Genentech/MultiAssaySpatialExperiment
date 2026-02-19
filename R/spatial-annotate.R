@@ -17,10 +17,9 @@ NULL
 #' Annotate points with shape regions
 #'
 #' @description
-#' Perform point-in-polygon spatial join between a points layer and a shapes
-#' layer. For each point that falls within a shape, record the shape's
-#' \code{instance_id}. This annotation is added to \code{spatialMap} and enables
-#' \code{\link{aggregateByRegion}}.
+#' Perform a spatial join between a points layer and a shapes layer. For each
+#' point, the matched shape's \code{instance_id} is recorded. This annotation
+#' is added to \code{spatialMap} and enables \code{\link{aggregateByRegion}}.
 #'
 #' @param x A \linkS4class{MultiAssaySpatialExperiment}.
 #' @param points Character. Name of the points layer (in \code{spatialPoints(x)}).
@@ -30,21 +29,27 @@ NULL
 #' @param regionCol Character or \code{NULL}. Name of the column to add to
 #'     \code{spatialMap} with the shape instance IDs. Default is the \code{shapes}
 #'     name.
+#' @param join Function. Spatial join to use, matching \code{\link[sf:st_join]{st_join}}.
+#'     Default \code{\link[sf:st_intersects]{st_intersects}} (point-in-polygon).
+#'     Use \code{\link[sf:st_nearest_feature]{st_nearest_feature}} to assign each
+#'     point to the nearest shape when no shape contains it.
 #'
 #' @details
-#' For each row in the points layer, \code{st_intersects} determines which shape
-#' (if any) contains it. The shape's \code{instance_id} is written to a new column
-#' in \code{spatialMap}. Only \code{spatialMap} rows that reference the given
+#' For each row in the points layer, \code{join} determines which shape (if any)
+#' matches. The shape's \code{instance_id} is written to a new column in
+#' \code{spatialMap}. Only \code{spatialMap} rows that reference the given
 #' \code{points} layer are updated; other rows get \code{NA} for the new column.
 #'
-#' Points not falling within any shape receive \code{NA}. The user is responsible
-#' for ensuring \code{instance_id} types match between points and shapes (no coercion).
+#' With \code{join = st_intersects} (default), points not falling within any
+#' shape receive \code{NA}. With \code{join = st_nearest_feature}, every point
+#' is assigned to its nearest shape. The user is responsible for ensuring
+#' \code{instance_id} types match between points and shapes (no coercion).
 #'
 #' @section Polymorphism:
 #' Uses S3/S4 generics only. Table-like elements (\code{spatialMap}, points, shapes)
 #' use \code{nrow}, \code{colnames}, \code{[[}, and \code{[}. Spatial operations use
-#' \code{\link[sf:geos_binary_pred]{st_intersects}}, \code{\link[sf:st_as_sfc]{st_as_sfc}},
-#' and \code{\link[sf:st_crs]{st_crs}}. Layer lists use \code{names}. Consistent with
+#' the supplied \code{join} function, \code{\link[sf:st_as_sfc]{st_as_sfc}}, and
+#' \code{\link[sf:st_crs]{st_crs}}. Layer lists use \code{names}. Consistent with
 #' \code{\link{subsetByPolygon}}; see the Subset vignette.
 #'
 #' @return
@@ -84,13 +89,15 @@ NULL
 #' annotateWithRegions,MultiAssaySpatialExperiment-method
 #'
 #' @export
+#' @importFrom sf st_intersects st_nearest_feature
 setGeneric("annotateWithRegions",
-    function(x, points, shapes, spatialCoordsNames = c("x", "y"), regionCol = NULL)
+    function(x, points, shapes, spatialCoordsNames = c("x", "y"), regionCol = NULL,
+        join = st_intersects)
         standardGeneric("annotateWithRegions"))
 
 #' @importFrom sf st_as_sfc st_crs st_intersects
 .pointToShapeMapping <- function(pt, shp, x_col, y_col, geom_col = "geometry",
-                                 id_col = "instance_id") {
+                                 id_col = "instance_id", join = st_intersects) {
     if (is.null(pt) || nrow(pt) == 0L || is.null(shp) || nrow(shp) == 0L)
         return(structure(logical(0), names = character(0)))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
@@ -100,13 +107,26 @@ setGeneric("annotateWithRegions",
     pts_sfc <- st_as_sfc(
         paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")"),
         crs = st_crs(shp[[geom_col]]))
-    hit <- st_intersects(pts_sfc, shp[[geom_col]])
+    shp_geom <- shp[[geom_col]]
+    res <- join(pts_sfc, shp_geom)
     n_pts <- nrow(pt)
     shp_ids <- shp[[id_col]]
     pt_to_shp <- vector("list", n_pts)
-    for (i in seq_len(n_pts)) {
-        idx <- hit[[i]]
-        pt_to_shp[[i]] <- if (length(idx) > 0L) shp_ids[idx[1L]] else NA
+    if (inherits(res, "sgbp") || (is.list(res) && length(res) == n_pts)) {
+        for (i in seq_len(n_pts)) {
+            idx <- res[[i]]
+            pt_to_shp[[i]] <- if (length(idx) > 0L) shp_ids[idx[1L]] else NA
+        }
+    } else if (is.integer(res) || is.numeric(res)) {
+        for (i in seq_len(n_pts)) {
+            idx <- res[i]
+            if (!is.na(idx) && idx >= 1L && idx <= length(shp_ids))
+                pt_to_shp[[i]] <- shp_ids[idx]
+            else
+                pt_to_shp[[i]] <- NA
+        }
+    } else {
+        stop("'join' must return an sgbp list or an integer vector")
     }
     pt_to_shp <- unlist(pt_to_shp, use.names = FALSE)
     pt_id <- if (id_col %in% colnames(pt)) pt[[id_col]] else seq_len(n_pts)
@@ -116,7 +136,8 @@ setGeneric("annotateWithRegions",
 #' @importFrom MultiAssayExperiment experiments
 #' @exportMethod annotateWithRegions
 setMethod("annotateWithRegions", "MultiAssaySpatialExperiment",
-function(x, points, shapes, spatialCoordsNames = c("x", "y"), regionCol = NULL) {
+function(x, points, shapes, spatialCoordsNames = c("x", "y"), regionCol = NULL,
+    join = st_intersects) {
     pts_el <- spatialPoints(x)[[points]]
     shps_el <- spatialShapes(x)[[shapes]]
     spmap <- spatialMap(x)
@@ -133,7 +154,7 @@ function(x, points, shapes, spatialCoordsNames = c("x", "y"), regionCol = NULL) 
     if (is.null(regionCol))
         regionCol <- shapes
 
-    pt_to_shp <- .pointToShapeMapping(pts_el, shps_el, x_col, y_col)
+    pt_to_shp <- .pointToShapeMapping(pts_el, shps_el, x_col, y_col, join = join)
     if (length(pt_to_shp) == 0L)
         return(x)
 

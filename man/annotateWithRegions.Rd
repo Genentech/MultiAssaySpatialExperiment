@@ -10,7 +10,8 @@ annotateWithRegions(
   points,
   shapes,
   spatialCoordsNames = c("x", "y"),
-  regionCol = NULL
+  regionCol = NULL,
+  join = st_intersects
 )
 }
 \arguments{
@@ -26,6 +27,11 @@ columns in the points layer (default \code{c("x", "y")}).}
 \item{regionCol}{Character or \code{NULL}. Name of the column to add to
 \code{spatialMap} with the shape instance IDs. Default is the \code{shapes}
 name.}
+
+\item{join}{Function. Spatial join to use, matching \code{\link[sf:st_join]{st_join}}.
+Default \code{\link[sf:st_intersects]{st_intersects}} (point-in-polygon).
+Use \code{\link[sf:st_nearest_feature]{st_nearest_feature}} to assign each
+point to the nearest shape when no shape contains it.}
 }
 \value{
 \code{x} with \code{spatialMap} updated to include the new annotation column.
@@ -33,26 +39,27 @@ If \code{spatialMap} is \code{NULL} or the required layers are missing,
 \code{x} is returned unchanged.
 }
 \description{
-Perform point-in-polygon spatial join between a points layer and a shapes
-layer. For each point that falls within a shape, record the shape's
-\code{instance_id}. This annotation is added to \code{spatialMap} and enables
-\code{\link{aggregateByRegion}}.
+Perform a spatial join between a points layer and a shapes layer. For each
+point, the matched shape's \code{instance_id} is recorded. This annotation
+is added to \code{spatialMap} and enables \code{\link{aggregateByRegion}}.
 }
 \details{
-For each row in the points layer, \code{st_intersects} determines which shape
-(if any) contains it. The shape's \code{instance_id} is written to a new column
-in \code{spatialMap}. Only \code{spatialMap} rows that reference the given
+For each row in the points layer, \code{join} determines which shape (if any)
+matches. The shape's \code{instance_id} is written to a new column in
+\code{spatialMap}. Only \code{spatialMap} rows that reference the given
 \code{points} layer are updated; other rows get \code{NA} for the new column.
 
-Points not falling within any shape receive \code{NA}. The user is responsible
-for ensuring \code{instance_id} types match between points and shapes (no coercion).
+With \code{join = st_intersects} (default), points not falling within any
+shape receive \code{NA}. With \code{join = st_nearest_feature}, every point
+is assigned to its nearest shape. The user is responsible for ensuring
+\code{instance_id} types match between points and shapes (no coercion).
 }
 \section{Polymorphism}{
 
 Uses S3/S4 generics only. Table-like elements (\code{spatialMap}, points, shapes)
 use \code{nrow}, \code{colnames}, \code{[[}, and \code{[}. Spatial operations use
-\code{\link[sf:geos_binary_pred]{st_intersects}}, \code{\link[sf:st_as_sfc]{st_as_sfc}},
-and \code{\link[sf:st_crs]{st_crs}}. Layer lists use \code{names}. Consistent with
+the supplied \code{join} function, \code{\link[sf:st_as_sfc]{st_as_sfc}}, and
+\code{\link[sf:st_crs]{st_crs}}. Layer lists use \code{names}. Consistent with
 \code{\link{subsetByPolygon}}; see the Subset vignette.
 }
 

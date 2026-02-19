@@ -56,4 +56,4 @@ agg <- aggregateByRegion(mase, by = "cells", FUN = "sum")
 
 ## Documentation
 
-See the vignettes: **Introduction**, **Subset**, and **Coercion**.
+See the vignettes: **Introduction**, **Subset**, **Coercion**, and **Spatial annotation and aggregation**.

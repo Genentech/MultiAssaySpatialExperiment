@@ -116,21 +116,35 @@ mase <- MultiAssaySpatialExperiment(
 mase
 ```
 
-# annotateWithRegions: point-in-polygon
+# annotateWithRegions: spatial join
 
 `annotateWithRegions` performs a spatial join: for each point, it finds which
-shape (if any) contains it and records the shape's `instance_id`. That
-annotation is written to a new column in `spatialMap`, using the shapes layer
-name by default.
+shape (if any) matches and records the shape's `instance_id`. That annotation
+is written to a new column in `spatialMap`, using the shapes layer name by
+default. The `join` argument follows the convention of
+[`sf::st_join`](https://r-spatial.github.io/sf/reference/st_join.html).
+
+By default, `join = st_intersects` (point-in-polygon): points inside a shape
+get that shape's ID; points outside all shapes get `NA`. Use
+`join = sf::st_nearest_feature` to assign each point to its nearest shape when
+no shape contains it.
 
 ```{r annotate}
+mase_orig <- mase
 mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
 spatialMap(mase)
 ```
 
 The new column `cells` shows: S1 → cell1, S2 → cell2, S3 → cell3, S4 → NA
-(no containing cell). You can pass `regionCol` to choose a different column
-name.
+(no containing cell). To assign S4 to its nearest cell instead:
+
+```{r annotate-nearest}
+mase_nn <- annotateWithRegions(mase_orig, points = "centroids", shapes = "cells",
+  join = sf::st_nearest_feature)
+spatialMap(mase_nn)
+```
+
+You can pass `regionCol` to choose a different column name.
 
 # aggregateByRegion: aggregate by shape
 
