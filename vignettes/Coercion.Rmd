@@ -1,0 +1,289 @@
+---
+title: "Coercion from SpatialExperiment, SpatialFeatureExperiment, and SpatialData"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{Coercion from SpatialExperiment, SpatialFeatureExperiment, and SpatialData}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+```{r load-optional-first, include = FALSE}
+## SpatialFeatureExperiment and SpatialData methods are registered only when
+## those packages are already loaded when MultiAssaySpatialExperiment loads.
+## Load them first so coercion to/from SFE and SpatialData is available.
+if (requireNamespace("SpatialFeatureExperiment", quietly = TRUE))
+  library(SpatialFeatureExperiment)
+if (requireNamespace("SpatialData", quietly = TRUE))
+  library(SpatialData)
+```
+
+# What coercion is doing
+
+When you move data between object types, you are effectively running an ETL
+step: extract from one representation, transform the structure, load into
+another. The structure changes. Some information is preserved, some is reshaped,
+and some may be dropped. Understanding that mapping helps you choose the right
+format for your workflow and avoid surprises.
+
+MASE supports coercion to and from three spatial representations:
+SpatialExperiment, SpatialFeatureExperiment, and SpatialData. Each has a
+different way of storing linkage between assays and spatial elements. The
+coercion logic translates between those models. This vignette explains the
+mappings in plain terms and what you gain or lose in each direction.
+
+# The three representations
+
+| Type | Linkage model | Best for |
+|------|---------------|----------|
+| **SpatialExperiment / SpatialFeatureExperiment** | Coordinates live inside the experiment (spatialCoords, colGeometries). Single assay. | One experiment, one technology, R-focused analysis |
+| **SpatialData** | Each table carries its own metadata (region, instance_key) pointing to a spatial element. Flat layers. | On-disk, Python-interop, OME-NGFF / Zarr |
+| **MASE** | Central mapping tables (sampleMap, spatialMap). Multiple assays share spatial elements. | Multi-assay, subsetting with referential integrity, Parquet export |
+
+# SpatialExperiment ↔ MASE
+
+SpatialExperiment (and its subclass SpatialFeatureExperiment) stores spatial
+coordinates inside the experiment: `spatialCoords` is a matrix with one row per
+column, and `imgData` links samples to images. There is no separate "points" or
+"shapes" table—the coordinates are part of the assay container.
+
+## SPE → MASE: wrapping a single experiment
+
+**What gets mapped:**
+
+- The SPE becomes the sole assay in MASE's `ExperimentList`.
+- `spatialCoords` (the matrix of x, y per column) is copied into a
+  `PointsLayerList` entry named "coordinates". Each row gets an `instance_id`
+  matching the assay column name.
+- `imgData` is passed through to MASE's `imgData` slot unchanged.
+- `sample_id` from colData (or `"sample01"` if absent) becomes the primary
+  identifier in `sampleMap`. Each assay column is linked to its specimen.
+
+**What you gain:** The multi-assay container. Even with one assay, you now have
+`sampleMap`, shared `points` and `imgData` slots, and the option to add more
+assays later. Subsetting by specimen will propagate correctly.
+
+**What you lose:** Nothing essential. The coordinates move from `spatialCoords`
+(inside the experiment) to the `points` slot (shared container). The data is the
+same; the packaging changes. Note: the SPE→MASE coercion does not populate
+`spatialMap` by default—the link between assay columns and the points element is
+implicit (matching row order and colnames). If you need explicit `spatialMap`
+rows for validity or for sharing points across assays, add them manually.
+
+## MASE → SPE: unwrapping to a single experiment
+
+**What gets mapped:**
+
+- The single assay is extracted from `ExperimentList`. It must be (or coerce to)
+  a SpatialExperiment or SpatialFeatureExperiment.
+- MASE's `imgData`, if present, overwrites the assay's `imgData`.
+- The assay is returned as-is. Its `spatialCoords` (or SFE geometries) stay
+  where they are—they were put there when the assay was created or when it was
+  wrapped from SPE.
+
+**What you gain:** A standard SPE or SFE for single-assay pipelines (e.g.,
+packages that expect one experiment).
+
+**What you lose:** All other assays. If MASE had RNA, protein, and ATAC, you
+keep only the one you extract. MASE's `spatialMap`, `points`, and `shapes` slots
+are not written back into the experiment—the assay already carries its own
+coordinates. If you built a MASE from scratch with points in the shared slot but
+the assay never had `spatialCoords`, coercing to SPE would give you an SPE whose
+spatial coordinates might be empty or derived from the assay's structure, not
+from MASE's points. In practice, coercion to SPE works best when the MASE was
+created by wrapping an SPE (or SFE) in the first place.
+
+# SpatialFeatureExperiment ↔ MASE
+
+SpatialFeatureExperiment extends SpatialExperiment with `sf`-based geometries
+(colGeometries, rowGeometries, annotGeometries), spatial graphs, and local
+spatial statistics. The coercion path is the same as for SPE: SFE is a subclass
+of SPE, so SFE→MASE uses the SPE coercion (wrap the experiment, copy
+`spatialCoords` to points). MASE→SFE extracts the single assay and requires it
+to be an SFE or SPE (which is then coerced to SFE).
+
+**What you gain / lose:** Same as SPE, with one caveat. SFE's richer geometries
+(cell boundaries, tissue outlines, spatial graphs) live inside the experiment,
+not in MASE's shared `points` or `shapes` slots. When you wrap an SFE in MASE,
+only the basic `spatialCoords` are copied to `points`. The colGeometries,
+annotGeometries, and spatial graphs stay in the assay. When you coerce back to
+SFE, you get the full experiment back. So you do not lose SFE-specific data; it
+just stays in the experiment layer rather than moving to MASE's shared geometry
+slots.
+
+# SpatialData ↔ MASE
+
+SpatialData uses a different design. Tables (SingleCellExperiments) and spatial
+elements (points, shapes, images, labels) are separate. Each table carries
+`int_metadata$spatialdata_attrs` with `region` (which element this table
+annotates) and `instance_key` (which colData column holds the instance id). The
+linkage is per-table. MASE, by contrast, has a central `spatialMap` that links
+(assay, colname) to (region, instance_id). Coercion is where we translate
+between those two models.
+
+## SpatialData → MASE: normalizing the linkage
+
+**What gets mapped:**
+
+- Each table in `tables(sd)` becomes one assay in MASE's `ExperimentList`. Table
+  names become assay names.
+- Points and shapes are materialized from PointFrame and ShapeFrame into
+  DataFrames (arrow datasets are collected into memory).
+- The per-table `spatialdata_attrs` (region, region_key, instance_key) are read
+  from each SCE's `int_metadata`. For tables that annotate a points or shapes
+  element, we build rows for the central `spatialMap`: (assay, colname, region,
+  instance_id).
+- The `sampleMap` is built so that each table's columns map to a primary equal
+  to the table name (one primary per table). `colData` has one row per table
+  name.
+
+**What you gain:** Central mapping tables. No more scanning each table's
+metadata to find linkage. Referential integrity checks. Subsetting and merging
+that keep maps in sync. The in-memory MAE/MASE structure.
+
+**What you lose:** Images and labels are not yet transferred—the SpatialData →
+MASE path leaves those slots empty (ZarrArray handling is future work). If
+points or shapes were on disk (Arrow), they are loaded into memory; large
+datasets may use more RAM. The coordinate transform graph from SpatialData's
+OME-NGFF layout is not yet carried over into MASE metadata.
+
+## MASE → SpatialData: denormalizing for interoperability
+
+**What gets mapped:**
+
+- Each assay in MASE becomes one table. Assay names become table names.
+- Points and shapes become PointFrame and ShapeFrame elements (in-memory
+  `data.frame`s). For disk-backed SpatialData, you would write these to
+  Arrow/Parquet separately.
+- For each assay that has rows in `spatialMap`, we add
+  `int_metadata$spatialdata_attrs` to the SCE: `region`, `region_key`,
+  `instance_key`. We also add `region_key` and `instance_key` columns to colData
+  if missing. The central map is "denormalized" back into per-table metadata;
+  exactly what SpatialData expects.
+- Images and labels are not transferred (would require ImageArray/LabelArray
+  conversion).
+
+**What you gain:** A SpatialData object for Python spatialdata compatibility,
+OME-NGFF tooling, and workflows that expect the flat, per-table linkage model.
+
+**What you lose:** Images and labels. The central `spatialMap` is distributed
+into each table's metadata—you no longer have one place to query linkage. The
+PointFrame and ShapeFrame elements are in-memory; you do not get automatic
+Arrow/Parquet writing.
+
+# Round-tripping
+
+**SPE → MASE → SPE:** Preserves the assay, spatialCoords (via points), and
+imgData. Works as expected when you started from an SPE.
+
+**SpatialData → MASE → SpatialData:** Tables, points, and shapes round-trip. The
+per-table `spatialdata_attrs` is reconstructed from `spatialMap` on the return
+leg. Images and labels do not round-trip (both directions drop them for now).
+
+# Summary table
+
+| Direction | Preserved | Gained | Lost or changed |
+|-----------|-----------|--------|-----------------|
+| SPE → MASE | Assay, coords (→ points), imgData | sampleMap, points slot, multi-assay container | — |
+| MASE → SPE | Single assay (with its own coords), imgData | SPE structure for single-assay tools | Other assays, explicit spatialMap not written back |
+| SD → MASE | Tables, points, shapes (materialized) | Central spatialMap, referential integrity | Images, labels, on-disk/lazy evaluation |
+| MASE → SD | Assays (→ tables), points, shapes | SpatialData structure, Python interop | Images, labels; central map becomes per-table metadata |
+
+# SpatialExperiment example
+
+```{r spe-to-mase}
+library(MultiAssaySpatialExperiment)
+library(SpatialExperiment)
+
+mat <- matrix(1:12, 3, 4)
+colnames(mat) <- paste0("cell", 1:4)
+spe <- SpatialExperiment(
+  assays = list(counts = mat),
+  spatialCoords = matrix(c(1:4, 5:8), 4, 2)
+)
+
+mase <- as(spe, "MultiAssaySpatialExperiment")
+mase
+spatialPoints(mase)
+```
+
+## MASE → SPE
+
+```{r mase-to-spe}
+spe2 <- as(mase, "SpatialExperiment")
+spe2
+validObject(spe2)
+```
+
+# SpatialFeatureExperiment example
+
+When SpatialFeatureExperiment is installed and loaded before MASE, SFE coerces to
+MASE via the SPE path (SFE extends SPE). Reverse coercion extracts the single
+assay and promotes it to SFE if needed. The vignette loads SFE in the setup so
+that MASE registers the coercion methods at load time.
+
+```{r sfe-coercion, eval = requireNamespace("SpatialFeatureExperiment", quietly = TRUE)}
+sfe <- SpatialFeatureExperiment(
+  assays = list(counts = matrix(1:8, 2, 4)),
+  spatialCoords = matrix(rnorm(8), 4, 2),
+  colData = S4Vectors::DataFrame(row.names = paste0("cell", 1:4))
+)
+mase_sfe <- as(sfe, "MultiAssaySpatialExperiment")
+sfe2 <- as(mase_sfe, "SpatialFeatureExperiment")
+validObject(sfe2)
+```
+
+# SpatialData example
+
+When SpatialData is installed and loaded before MASE, coercion to/from
+SpatialData is available. The vignette loads SpatialData in the setup so that
+MASE registers the coercion methods at load time.
+
+## SpatialData → MASE
+
+```{r sd-to-mase, eval = requireNamespace("SpatialData", quietly = TRUE)}
+library(SingleCellExperiment)
+sce <- SingleCellExperiment(
+  assays = list(counts = matrix(1:6, 2, 3)),
+  colData = S4Vectors::DataFrame(row.names = paste0("cell", 1:3))
+)
+sd <- SpatialData::SpatialData(
+  images = list(), labels = list(), points = list(), shapes = list(),
+  tables = list(assay1 = sce)
+)
+mase <- as(sd, "MultiAssaySpatialExperiment")
+mase
+```
+
+This minimal SpatialData has no points or shapes, and no `spatialdata_attrs` on
+the table, so `spatialMap` will be NULL. To see the full SD→MASE mapping with
+`spatialMap`, use a SpatialData object whose tables have
+`int_metadata$spatialdata_attrs` pointing to points or shapes elements.
+
+## MASE → SpatialData
+
+```{r mase-to-sd, eval = requireNamespace("SpatialData", quietly = TRUE)}
+sd2 <- as(mase, "SpatialData")
+SpatialData::tableNames(sd2)
+```
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```
