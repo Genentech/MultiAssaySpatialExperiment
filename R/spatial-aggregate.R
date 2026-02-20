@@ -96,6 +96,7 @@ setGeneric("aggregateByRegion",
     if (is.matrix(ex)) ex else assay(ex, 1L)
 }
 
+#' @importFrom MatrixGenerics rowSums rowMeans
 .aggregateMatrixByRegion <- function(mat, sm, by, FUN) {
     if (length(dim(mat)) != 2L)
         return(NULL)

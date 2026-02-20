@@ -21,6 +21,7 @@ Imports:
     BiocGenerics,
     BiocParallel,
     S4Vectors,
+    MatrixGenerics,
     SummarizedExperiment,
     SingleCellExperiment,
     SpatialExperiment,
