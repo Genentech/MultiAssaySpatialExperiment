@@ -202,16 +202,15 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'         \linkS4class{ShapesLayerList} for spatial layer containers
 #' }
 #'
-#' @importClassesFrom MultiAssayExperiment MultiAssayExperiment
-#' @importClassesFrom S4Vectors DataFrame_OR_NULL
-#'
 #' @keywords classes methods
-#'
-#' @exportClass MultiAssaySpatialExperiment
 #'
 #' @name MultiAssaySpatialExperiment-class
 NULL
 
+#' @importClassesFrom MultiAssayExperiment MultiAssayExperiment
+#' @importClassesFrom S4Vectors DataFrame_OR_NULL
+#' @importFrom S4Vectors SimpleList
+#' @exportClass MultiAssaySpatialExperiment
 setClass("MultiAssaySpatialExperiment", contains = "MultiAssayExperiment",
     slots = c(images   = "RasterLayerList",
               labels   = "RasterLayerList",

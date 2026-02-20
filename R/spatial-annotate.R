@@ -95,41 +95,23 @@ setGeneric("annotateWithRegions",
         join = st_intersects)
         standardGeneric("annotateWithRegions"))
 
-#' @importFrom sf st_as_sfc st_intersects
-.pointToShapeMapping <- function(pt, shp, x_col, y_col, geom_col = "geometry",
-                                 id_col = "instance_id", join = st_intersects) {
+#' @importFrom sf st_intersects
+.pointToShapeMapping <- function(pt, shp, x_col, y_col,
+                                 geom = "geometry",
+                                 id_col = "instance_id",
+                                 join = st_intersects) {
     if (is.null(pt) || nrow(pt) == 0L || is.null(shp) || nrow(shp) == 0L)
         return(structure(logical(0), names = character(0)))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
         return(structure(logical(0), names = character(0)))
-    if (!geom_col %in% colnames(shp) || !id_col %in% colnames(shp))
+    if (!geom %in% colnames(shp) || !id_col %in% colnames(shp))
         return(structure(logical(0), names = character(0)))
-    pts_sfc <- st_as_sfc(
-        paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")"))
-    shp_geom <- shp[[geom_col]]
-    res <- join(pts_sfc, shp_geom)
-    n_pts <- nrow(pt)
+    idx <- spatialMatch(pt, shp, coords = c(x_col, y_col),
+                        geom = geom, join = join)
     shp_ids <- shp[[id_col]]
-    pt_to_shp <- vector("list", n_pts)
-    if (inherits(res, "sgbp") || (is.list(res) && length(res) == n_pts)) {
-        for (i in seq_len(n_pts)) {
-            idx <- res[[i]]
-            pt_to_shp[[i]] <- if (length(idx) > 0L) shp_ids[idx[1L]] else NA
-        }
-    } else if (is.integer(res) || is.numeric(res)) {
-        for (i in seq_len(n_pts)) {
-            idx <- res[i]
-            if (!is.na(idx) && idx >= 1L && idx <= length(shp_ids))
-                pt_to_shp[[i]] <- shp_ids[idx]
-            else
-                pt_to_shp[[i]] <- NA
-        }
-    } else {
-        stop("'join' must return an sgbp list or an integer vector")
-    }
-    pt_to_shp <- unlist(pt_to_shp, use.names = FALSE)
-    pt_id <- if (id_col %in% colnames(pt)) pt[[id_col]] else seq_len(n_pts)
-    structure(pt_to_shp, names = as.character(pt_id))
+    mapped <- ifelse(is.na(idx), NA, shp_ids[idx])
+    pt_id <- if (id_col %in% colnames(pt)) pt[[id_col]] else seq_len(nrow(pt))
+    structure(mapped, names = as.character(pt_id))
 }
 
 #' @importFrom MultiAssayExperiment experiments

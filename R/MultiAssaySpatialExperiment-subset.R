@@ -184,43 +184,31 @@ NULL
     which(keep)
 }
 
-#' @importFrom sf st_as_sfc st_intersects
 .subsetPointsByPolygon <- function(pt, polygon, x_col, y_col) {
     if (is.null(pt) || nrow(pt) == 0L)
         return(integer(0))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
         return(integer(0))
-    pts_sfc <- st_as_sfc(
-        paste0("POINT(", pt[[x_col]], " ", pt[[y_col]], ")")
-    )
-    keep <- lengths(st_intersects(pts_sfc, polygon)) > 0L
-    which(keep)
+    which(spatialOverlaps(pt, polygon, coords = c(x_col, y_col)))
 }
 
-#' @importFrom sf st_as_sfc st_bbox st_intersects
+#' @importFrom sf st_as_sfc st_bbox
 .subsetShapesByBbox <- function(shp, xmin, xmax, ymin, ymax) {
     if (is.null(shp) || nrow(shp) == 0L)
         return(integer(0))
-    geom_col <- "geometry"
-    if (!geom_col %in% colnames(shp))
+    if (!"geometry" %in% colnames(shp))
         return(integer(0))
-    geom <- shp[[geom_col]]
-    bbox <- c(xmin = xmin, ymin = ymin, xmax = xmax, ymax = ymax)
-    box_sfc <- st_as_sfc(st_bbox(bbox))
-    keep <- lengths(st_intersects(geom, box_sfc)) > 0L
-    which(keep)
+    bbox_sfc <- st_as_sfc(st_bbox(c(xmin = xmin, ymin = ymin,
+                                     xmax = xmax, ymax = ymax)))
+    which(spatialOverlaps(shp, bbox_sfc, geom = "geometry"))
 }
 
-#' @importFrom sf st_intersects
 .subsetShapesByPolygon <- function(shp, polygon) {
     if (is.null(shp) || nrow(shp) == 0L)
         return(integer(0))
-    geom_col <- "geometry"
-    if (!geom_col %in% colnames(shp))
+    if (!"geometry" %in% colnames(shp))
         return(integer(0))
-    geom <- shp[[geom_col]]
-    keep <- lengths(st_intersects(geom, polygon)) > 0L
-    which(keep)
+    which(spatialOverlaps(shp, polygon, geom = "geometry"))
 }
 
 .getInstanceIds <- function(el, idx) {

@@ -46,4 +46,5 @@ Collate:
     'MultiAssaySpatialExperiment-subset.R'
     'spatial-aggregate.R'
     'spatial-annotate.R'
+    'spatial-operations.R'
     'zzz.R'

@@ -197,7 +197,7 @@ setValidity2("ShapesLayerList", .validShapesLayerList)
     listData
 }
 
-#' @importClassesFrom S4Vectors SimpleList
+#' @importFrom S4Vectors SimpleList
 #' @export
 RasterLayerList <- function(...) {
     listData <- list(...)
@@ -210,10 +210,10 @@ RasterLayerList <- function(...) {
                  "Did you mean 'spatialImages()' or similar?", call. = FALSE)
     }
     listData <- .normarg_simple_list(...)
-    new("RasterLayerList", as(listData, "SimpleList"))
+    new("RasterLayerList", do.call(SimpleList, listData))
 }
 
-#' @importClassesFrom S4Vectors SimpleList
+#' @importFrom S4Vectors SimpleList
 #' @export
 PointsLayerList <- function(...) {
     listData <- list(...)
@@ -226,12 +226,12 @@ PointsLayerList <- function(...) {
                  "Did you mean 'spatialPoints()' or similar?", call. = FALSE)
     }
     listData <- .normarg_simple_list(...)
-    new("PointsLayerList", as(listData, "SimpleList"))
+    new("PointsLayerList", do.call(SimpleList, listData))
 }
 
 #' @importClassesFrom MultiAssayExperiment MultiAssayExperiment
-#' @importClassesFrom S4Vectors DataFrame SimpleList
-#' @importFrom S4Vectors DataFrame
+#' @importClassesFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame SimpleList
 #' @export
 ShapesLayerList <- function(...) {
     listData <- list(...)
@@ -248,40 +248,46 @@ ShapesLayerList <- function(...) {
         if (is.data.frame(listData[[i]]) && !is(listData[[i]], "DataFrame"))
             listData[[i]] <- DataFrame(listData[[i]])
     }
-    new("ShapesLayerList", as(listData, "SimpleList"))
+    new("ShapesLayerList", do.call(SimpleList, listData))
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Coercion
 ###
 
+#' @importFrom S4Vectors SimpleList
 setAs("list", "RasterLayerList", function(from) {
-    new("RasterLayerList", as(from, "SimpleList"))
+    new("RasterLayerList", do.call(SimpleList, from))
 })
 
+#' @importFrom S4Vectors SimpleList
 setAs("List", "RasterLayerList", function(from) {
-    new("RasterLayerList", as(from, "SimpleList"))
+    new("RasterLayerList", do.call(SimpleList, as.list(from)))
 })
 
+#' @importFrom S4Vectors SimpleList
 setAs("list", "PointsLayerList", function(from) {
-    new("PointsLayerList", as(from, "SimpleList"))
+    new("PointsLayerList", do.call(SimpleList, from))
 })
 
+#' @importFrom S4Vectors SimpleList
 setAs("List", "PointsLayerList", function(from) {
-    new("PointsLayerList", as(from, "SimpleList"))
+    new("PointsLayerList", do.call(SimpleList, as.list(from)))
 })
 
-#' @importFrom S4Vectors DataFrame
+#' @importClassesFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame SimpleList
 setAs("list", "ShapesLayerList", function(from) {
     from <- lapply(from, function(el) {
         if (is.data.frame(el) && !is(el, "DataFrame"))
             DataFrame(el)
         else el
     })
-    new("ShapesLayerList", as(from, "SimpleList"))
+    new("ShapesLayerList", do.call(SimpleList, from))
 })
 
-#' @importFrom S4Vectors DataFrame
+#' @importClassesFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame SimpleList
 setAs("List", "ShapesLayerList", function(from) {
     from <- as.list(from)
     from <- lapply(from, function(el) {
@@ -289,7 +295,7 @@ setAs("List", "ShapesLayerList", function(from) {
             DataFrame(el)
         else el
     })
-    new("ShapesLayerList", as(from, "SimpleList"))
+    new("ShapesLayerList", do.call(SimpleList, from))
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
