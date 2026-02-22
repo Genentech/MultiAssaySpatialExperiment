@@ -43,7 +43,7 @@ Two modes are supported based on the arguments:
   \item{Coordinate mode}{When \code{coords} is provided, point geometries
     are constructed from those columns and tested against \code{y}.}
   \item{Geometry mode}{When \code{coords} is \code{NULL} (the default),
-    the column named by \code{sf_column_name} is used directly.}
+    the column named by \code{geom} is used directly.}
 }
 }
 \examples{
