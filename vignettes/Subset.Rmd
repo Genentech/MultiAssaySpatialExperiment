@@ -32,7 +32,8 @@ metadata. MASE's subsetting methods handle that propagation automatically.
 
 This vignette describes each subsetting operation, shows examples, and provides
 an **advanced section for developers** who want to support alternative data
-representations (e.g., DuckDBDataFrame) in MASE's points and shapes slots.
+representations (e.g., SQL-backed or disk-backed DataFrame implementations)
+in MASE's points and shapes slots.
 
 # Subsetting operations
 

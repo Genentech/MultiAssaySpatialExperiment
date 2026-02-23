@@ -38,9 +38,9 @@ The \code{DataFrame} method builds point geometries from the coordinate
 columns of \code{x}, applies the \code{join} function against the
 geometry column of \code{table}, and returns the first match per row.
 
-Downstream packages (e.g., BiocDuckDB) can define methods for their own
-\code{DataFrame} subclasses to push the spatial join to an alternative
-backend (e.g., a DuckDB SQL spatial join).
+Downstream packages can define methods for their own \code{DataFrame}
+subclasses to push the spatial join to an alternative backend (e.g.,
+SQL-based spatial joins, Arrow compute, in-memory acceleration).
 }
 \examples{
 library(sf)

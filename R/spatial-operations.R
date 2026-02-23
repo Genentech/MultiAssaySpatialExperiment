@@ -3,8 +3,9 @@
 ### -------------------------------------------------------------------------
 ###
 ### Exported S4 generics following the S4Vectors pattern.  MASE defines
-### these generics and provides DataFrame methods (sf path).  BiocDuckDB
-### imports the generics and provides DuckDBDataFrame methods (SQL path).
+### these generics and provides DataFrame methods (sf path).  Downstream
+### packages can import the generics and provide methods for their own
+### DataFrame subclasses (e.g., SQL-backed implementations).
 ###
 ### spatialOverlaps  — predicate (like is.na, duplicated); returns logical
 ### spatialMatch     — relational (like match); returns integer positions
@@ -46,9 +47,9 @@ NULL
 #'
 #' @details
 #' The \code{DataFrame} method uses \pkg{sf} functions (\code{st_as_sfc},
-#' \code{st_intersects}).  Downstream packages (e.g., BiocDuckDB) can define
-#' methods for their own \code{DataFrame} subclasses to use alternative
-#' backends (e.g., DuckDB SQL).
+#' \code{st_intersects}).  Downstream packages can define methods for their
+#' own \code{DataFrame} subclasses to use alternative backends (e.g., SQL
+#' databases, Arrow, HDF5).
 #'
 #' Two modes are supported based on the arguments:
 #' \describe{
@@ -132,9 +133,9 @@ setMethod("spatialOverlaps", "DataFrame",
 #' columns of \code{x}, applies the \code{join} function against the
 #' geometry column of \code{table}, and returns the first match per row.
 #'
-#' Downstream packages (e.g., BiocDuckDB) can define methods for their own
-#' \code{DataFrame} subclasses to push the spatial join to an alternative
-#' backend (e.g., a DuckDB SQL spatial join).
+#' Downstream packages can define methods for their own \code{DataFrame}
+#' subclasses to push the spatial join to an alternative backend (e.g.,
+#' SQL-based spatial joins, Arrow compute, in-memory acceleration).
 #'
 #' @seealso \code{\link{spatialOverlaps}} for the predicate analogue (like
 #'   \code{is.na}).

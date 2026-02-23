@@ -34,9 +34,9 @@ via \code{x[spatialOverlaps(x, y, ...), ]}.
 }
 \details{
 The \code{DataFrame} method uses \pkg{sf} functions (\code{st_as_sfc},
-\code{st_intersects}).  Downstream packages (e.g., BiocDuckDB) can define
-methods for their own \code{DataFrame} subclasses to use alternative
-backends (e.g., DuckDB SQL).
+\code{st_intersects}).  Downstream packages can define methods for their
+own \code{DataFrame} subclasses to use alternative backends (e.g., SQL
+databases, Arrow, HDF5).
 
 Two modes are supported based on the arguments:
 \describe{
