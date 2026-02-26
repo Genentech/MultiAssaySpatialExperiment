@@ -1,0 +1,78 @@
+%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '12px', primaryColor: '#9fc5e8' }}}%%
+
+erDiagram
+    "imgData(mase)" {
+        string sample_id FK "subject identifier"
+        string image_id "image file identifier"
+        float scaleFactor "pixels to spatial units"
+    }
+
+    "sampleMap(mase)" {
+        string assay FK "experimental assay identifier"
+        string primary FK "subject identifier"
+        string colname FK "column name in assay matrix"
+    }
+
+    "spatialMap(mase)" {
+        string assay FK "experimental assay identifier"
+        string colname FK "column name in assay matrix"
+        enum element_type "'points' or 'shapes'"
+        string region FK "spatial layer"
+        string instance_id FK "spatial element"
+    }
+    
+    "colData(mase)" {
+        string rowname PK "subject identifier"
+        string tissue
+        string condition
+    }
+    
+    "experiments(mase)" {
+        string name PK "assay name"
+        Experiment experiment "experimental assay"
+    }
+    
+    Experiment {
+        string rowname PK "feature name"
+        string colname PK "sample name"
+        Matrix-like assay "assay data"
+        DataFrame rowData "feature metadata"
+        DataFrame colData "sample metadata"
+    }
+    
+    "spatialPoints(mase)" {
+        string name PK "point layer name"
+        PointLayer region "points"
+    }
+    
+    PointLayer {
+        string instance_id PK "spatial element"
+        float x "coordinate"
+        float y "coordinate"
+        string cell_type
+    }
+    
+    "spatialShapes(mase)" {
+        string name PK "shape layer name"
+        ShapeLayer region "shapes"
+    }
+    
+    ShapeLayer {
+        string instance_id PK "spatial element"
+        geometry geometry "sf object"
+        float area
+    }
+    
+    %% Relationships
+    "colData(mase)" ||--o{ "imgData(mase)" : "rowname"
+    "colData(mase)" ||--o{ "sampleMap(mase)" : "primary"
+    "sampleMap(mase)" ||--o{ "spatialMap(mase)" : "assay,colname"
+    "sampleMap(mase)" }o--|| Experiment : "assay,colname"
+    "spatialMap(mase)" }o--|| "spatialPoints(mase)" : "element_type,region"
+    "spatialMap(mase)" }o--|| "spatialShapes(mase)" : "element_type,region"
+    "experiments(mase)" ||--|| Experiment : "name"
+    "experiments(mase)" ||--o{ "sampleMap(mase)" : "assay"
+    "spatialPoints(mase)" ||--|| PointLayer : "name"
+    "spatialShapes(mase)" ||--|| ShapeLayer : "name"
+    PointLayer ||--o{ "spatialMap(mase)" : "instance_id"
+    ShapeLayer ||--o{ "spatialMap(mase)" : "instance_id"

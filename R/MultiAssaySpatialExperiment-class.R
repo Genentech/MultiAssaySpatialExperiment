@@ -23,8 +23,9 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #' MultiAssaySpatialExperiment provides slots for spatial layers that complement
 #' the \code{ExperimentList}. The \code{sampleMap} links experiment columns to
 #' primary identifiers; the optional \code{spatialMap} provides instance-level
-#' mapping (\code{assay}, \code{colname}, \code{region}, \code{instance_id})
-#' linking experiment columns to rows in the spatial point or shape layers.
+#' mapping (\code{assay}, \code{colname}, \code{element_type}, \code{region},
+#' \code{instance_id}) linking experiment columns to rows in the spatial point
+#' or shape layers via explicit foreign key.
 #'
 #' @section Slots:
 #' \describe{
@@ -49,10 +50,42 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'     SpatialExperiments.
 #'   }
 #'   \item{\code{spatialMap}}{
-#'     Optional \code{DataFrame} for instance-level mapping:
-#'     (\code{assay}, \code{colname}, \code{region}, \code{instance_id})
-#'     linking experiment columns to spatial layer rows.
+#'     Optional \code{DataFrame} for instance-level mapping with required columns:
+#'     \describe{
+#'       \item{\code{assay}}{Experiment name (factor; must be in \code{names(experiments)})}
+#'       \item{\code{colname}}{Column identifier within that experiment}
+#'       \item{\code{element_type}}{Spatial slot discriminator; one of \code{"points"} or \code{"shapes"}}
+#'       \item{\code{region}}{Layer name within that element type (e.g., \code{"cells"}, \code{"nuclei"})}
+#'       \item{\code{instance_id}}{Row identifier in that layer (character or integer; no NAs)}
+#'     }
+#'     The \code{element_type} column disambiguates spatial layers with the same
+#'     name in different slots (e.g., \code{points$cells} vs. \code{shapes$cells}).
+#'     This explicit routing eliminates ambiguity and enables robust foreign key
+#'     validation.
 #'   }
+#' }
+#'
+#' @section Terminology and spatialdata alignment:
+#' MASE adopts terminology from Python spatialdata where practical while following
+#' Bioconductor S4 conventions:
+#' \itemize{
+#'   \item \code{element_type}: Matches spatialdata's element type discriminator
+#'     (values: \code{"points"}, \code{"shapes"}, \code{"images"}, \code{"labels"}).
+#'     Currently only \code{"points"} and \code{"shapes"} are supported in
+#'     \code{spatialMap} linkage; images and labels are reference layers accessed
+#'     via \code{spatialImages()} and \code{spatialLabels()}.
+#'   \item \code{region}: Corresponds to spatialdata's region (layer name within an
+#'     element type).
+#'   \item \code{instance_id}: Matches spatialdata's instance identifier (row ID
+#'     within a region). Recommended types: integer, character, or factor. Must be
+#'     unique within each (\code{element_type}, \code{region}) combination.
+#'   \item Class naming: MASE uses "Layer" suffix (\code{PointsLayerList},
+#'     \code{ShapesLayerList}) rather than "Element" to avoid R naming collisions.
+#'     See \code{?SpatialLayerList} for details.
+#'   \item Accessor naming: MASE uses \code{spatialPoints()}, \code{spatialShapes()}
+#'     (with "spatial" prefix) as S4 generics, while spatialdata uses bare attribute
+#'     access (\code{sdata.points}, \code{sdata.shapes}). This follows Bioconductor
+#'     conventions and avoids conflicts with base R functions.
 #' }
 #'
 #' @section Constructor:
@@ -236,85 +269,209 @@ setClass("MultiAssaySpatialExperiment", contains = "MultiAssayExperiment",
 ### Validity
 ###
 
-SPATIAL_MAP_COLS <- c("assay", "colname", "region", "instance_id")
+VALID_ELEMENT_TYPES <- c("points", "shapes")
+
+SPATIAL_MAP_COLS <- c("assay", "colname", "element_type", "region", "instance_id")
+
+## SPATIALMAP
+## 1.i. spatialMap must have required columns
+.checkSpatialMapColumns <- function(object) {
+    errors <- character()
+    spmap <- spatialMap(object)
+
+    if (!is.null(spmap) && nrow(spmap) > 0L) {
+        if (!all(SPATIAL_MAP_COLS %in% colnames(spmap))) {
+            msg <- sprintf(
+                "'spatialMap' must have columns: %s",
+                paste(SPATIAL_MAP_COLS, collapse = ", ")
+            )
+            errors <- c(errors, msg)
+        }
+    }
+
+    if (!length(errors)) NULL else errors
+}
+
+## 1.ii. spatialMap (assay, colname) must be found in sampleMap
+.checkSpatialMapFK <- function(object) {
+    errors <- character()
+    spmap <- spatialMap(object)
+
+    if (!is.null(spmap) && nrow(spmap) > 0L &&
+        all(c("assay", "colname") %in% colnames(spmap))) {
+        sm <- sampleMap(object)
+        if (nrow(sm) > 0L) {
+            sm_key <- paste(sm[["assay"]], sm[["colname"]], sep = "\r")
+            sp_key <- paste(spmap[["assay"]], spmap[["colname"]], sep = "\r")
+            bad <- !sp_key %in% sm_key
+            if (any(bad)) {
+                msg <- paste(
+                    "spatialMap (assay, colname) must be in sampleMap;",
+                    "found", sum(bad), "row(s) not in sampleMap"
+                )
+                errors <- c(errors, msg)
+            }
+        }
+    }
+
+    if (!length(errors)) NULL else errors
+}
+
+## 1.iii. spatialMap element_type must be valid
+.checkElementTypes <- function(object) {
+    errors <- character()
+    spmap <- spatialMap(object)
+
+    if (!is.null(spmap) && nrow(spmap) > 0L) {
+        if (!"element_type" %in% colnames(spmap)) {
+            errors <- c(errors, "'spatialMap' must have 'element_type' column")
+        } else {
+            invalid_types <- !spmap[["element_type"]] %in% VALID_ELEMENT_TYPES
+            if (any(invalid_types)) {
+                msg <- sprintf(
+                    "spatialMap$element_type contains invalid value(s): %s; must be one of: %s",
+                    paste(unique(spmap[["element_type"]][invalid_types]), collapse = ", "),
+                    paste(VALID_ELEMENT_TYPES, collapse = ", ")
+                )
+                errors <- c(errors, msg)
+            }
+        }
+    }
+
+    if (!length(errors)) NULL else errors
+}
+
+## 1.iv. spatialMap instance_id must not contain NAs and must reference valid
+## spatial layer rows
+.checkInstanceIds <- function(object) {
+    errors <- character()
+    spmap <- spatialMap(object)
+
+    if (!is.null(spmap) && nrow(spmap) > 0L &&
+        all(c("element_type", "region", "instance_id") %in% colnames(spmap))) {
+
+        ## Check NAs in spatialMap instance_id
+        if (anyNA(spmap[["instance_id"]])) {
+            errors <- c(errors, "spatialMap$instance_id contains NA values")
+        }
+
+        ## Validate (element_type, region, instance_id) foreign keys
+        ## Route by element_type to avoid ambiguity
+        for (et in unique(spmap[["element_type"]])) {
+            if (!et %in% VALID_ELEMENT_TYPES) next
+
+            et_rows <- spmap[["element_type"]] == et
+            et_spmap <- spmap[et_rows, , drop = FALSE]
+
+            ## Get the spatial slot for this element type
+            slot_data <- switch(et,
+                points = spatialPoints(object),
+                shapes = spatialShapes(object),
+                NULL  ## Extensibility: add "labels" = spatialLabels(object) here
+            )
+
+            if (is.null(slot_data)) next
+            slot_names <- names(slot_data)
+
+            ## Check each region in this element type
+            for (reg in unique(et_spmap[["region"]])) {
+                ## Region must exist in slot
+                if (!reg %in% slot_names) {
+                    msg <- sprintf(
+                        "spatialMap: region '%s' (element_type = '%s') not found in %s slot",
+                        reg, et, et
+                    )
+                    errors <- c(errors, msg)
+                    next
+                }
+
+                ## Get layer and validate instance_id values
+                layer <- slot_data[[reg]]
+                if (is.null(layer) || nrow(layer) == 0L) next
+
+                ## Check for NAs in layer instance_id column (if present)
+                if ("instance_id" %in% colnames(layer)) {
+                    if (anyNA(layer[["instance_id"]])) {
+                        msg <- sprintf(
+                            "instance_id column in %s$%s contains NA values",
+                            et, reg
+                        )
+                        errors <- c(errors, msg)
+                    }
+
+                    ## Warn if instance_id type is unusual (informational only)
+                    id_col <- layer[["instance_id"]]
+                    id_type <- class(id_col)[1L]
+                    recommended_types <- c("integer", "numeric", "character", 
+                                          "factor", "Rle")
+                    if (!id_type %in% recommended_types) {
+                        warning(wmsg(
+                            "instance_id in ", et, "$", reg, 
+                            " has unusual type: ", id_type, "; ",
+                            "recommend integer, character, or factor for ",
+                            "spatialdata interoperability"
+                        ), call. = FALSE)
+                    }
+                }
+
+                ## Check instance_id values exist in layer
+                region_rows <- et_spmap[["region"]] == reg
+                region_instances <- unique(et_spmap[["instance_id"]][region_rows])
+
+                ## Get layer instance IDs (from instance_id column or row numbers)
+                layer_ids <- if ("instance_id" %in% colnames(layer)) {
+                    as.character(layer[["instance_id"]])
+                } else {
+                    as.character(seq_len(nrow(layer)))
+                }
+
+                ## Check all spatialMap instance_id values exist in layer
+                missing <- !as.character(region_instances) %in% layer_ids
+                if (any(missing)) {
+                    msg <- sprintf(
+                        "spatialMap: instance_id value(s) not found in %s$%s: %s",
+                        et, reg,
+                        paste(as.character(region_instances[missing]), collapse = ", ")
+                    )
+                    errors <- c(errors, msg)
+                }
+            }
+        }
+    }
+
+    if (!length(errors)) NULL else errors
+}
+
+## IMGDATA
+## 2.i. imgData sample_id must be found in colData rownames
+.checkImgData <- function(object) {
+    errors <- character()
+    img <- imgData(object)
+
+    if (!is.null(img) && nrow(img) > 0L && "sample_id" %in% colnames(img)) {
+        primaries <- rownames(colData(object))
+        bad <- !img[["sample_id"]] %in% primaries
+        if (any(bad) && length(primaries) > 0L) {
+            msg <- paste(
+                "imgData sample_id must be in colData rownames (primary_id);",
+                "found", sum(bad), "row(s) not in colData"
+            )
+            errors <- c(errors, msg)
+        }
+    }
+
+    if (!length(errors)) NULL else errors
+}
 
 #' @importFrom MultiAssayExperiment sampleMap
 #' @importFrom SpatialExperiment imgData
 #' @importFrom SummarizedExperiment colData
 .validMultiAssaySpatialExperiment <- function(object) {
-    msg <- NULL
-
-    spmap <- spatialMap(object)
-    if (!is.null(spmap) && nrow(spmap) > 0L) {
-        if (!all(SPATIAL_MAP_COLS %in% colnames(spmap))) {
-            msg <- c(msg, sprintf(
-                "'spatialMap' must have columns: %s",
-                paste(SPATIAL_MAP_COLS, collapse = ", ")
-            ))
-        } else {
-            sm <- sampleMap(object)
-            if (nrow(sm) > 0L) {
-                sm_key <- paste(sm[["assay"]], sm[["colname"]], sep = "\r")
-                sp_key <- paste(spmap[["assay"]], spmap[["colname"]], sep = "\r")
-                bad <- !sp_key %in% sm_key
-                if (any(bad)) {
-                    msg <- c(msg, paste(
-                        "spatialMap (assay, colname) must be in sampleMap;",
-                        "found", sum(bad), "row(s) not in sampleMap"
-                    ))
-                }
-            }
-            pts <- spatialPoints(object)
-            shps <- spatialShapes(object)
-            pt_names <- names(pts)
-            shp_names <- names(shps)
-            valid_regions <- c(pt_names, shp_names)
-            for (i in seq_len(nrow(spmap))) {
-                reg <- spmap[["region"]][[i]]
-                if (!reg %in% valid_regions) next
-                inst <- spmap[["instance_id"]][[i]]
-                if (reg %in% pt_names) {
-                    el <- pts[[reg]]
-                    if (!is.null(el) && nrow(el) > 0L) {
-                        id_col <- if ("instance_id" %in% colnames(el))
-                            el[["instance_id"]] else seq_len(nrow(el))
-                        id_chr <- as.character(id_col)
-                        if (!as.character(inst) %in% id_chr)
-                            msg <- c(msg, sprintf(
-                                "spatialMap row %d: instance_id %s not in points[[%s]]",
-                                i, as.character(inst), reg
-                            ))
-                    }
-                } else {
-                    el <- shps[[reg]]
-                    if (!is.null(el) && nrow(el) > 0L) {
-                        id_col <- if ("instance_id" %in% colnames(el))
-                            el[["instance_id"]] else seq_len(nrow(el))
-                        id_chr <- as.character(id_col)
-                        if (!as.character(inst) %in% id_chr)
-                            msg <- c(msg, sprintf(
-                                "spatialMap row %d: instance_id %s not in shapes[[%s]]",
-                                i, as.character(inst), reg
-                            ))
-                    }
-                }
-            }
-        }
-    }
-
-    img <- imgData(object)
-    if (!is.null(img) && nrow(img) > 0L && "sample_id" %in% colnames(img)) {
-        primaries <- rownames(colData(object))
-        bad <- !img[["sample_id"]] %in% primaries
-        if (any(bad) && length(primaries) > 0L) {
-            msg <- c(msg, paste(
-                "imgData sample_id must be in colData rownames (primary_id);",
-                "found", sum(bad), "row(s) not in colData"
-            ))
-        }
-    }
-
-    msg
+    c(.checkSpatialMapColumns(object),
+      .checkSpatialMapFK(object),
+      .checkElementTypes(object),
+      .checkInstanceIds(object),
+      .checkImgData(object))
 }
 
 #' @importFrom S4Vectors setValidity2
@@ -479,7 +636,9 @@ setMethod("spatialMap", "MultiAssaySpatialExperiment", function(x) slot(x, "spat
 
 #' @export
 setReplaceMethod("spatialMap", "MultiAssaySpatialExperiment", function(x, value) {
-    replaceSlots(x, spatialMap = value, check = FALSE)
+    x <- replaceSlots(x, spatialMap = value, check = FALSE)
+    validObject(x)
+    x
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

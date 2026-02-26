@@ -1,5 +1,17 @@
+## Check if SpatialData coercion is registered (requires SpatialData to be loaded
+## before package was loaded)
+.has_spatialdata_coercion <- function() {
+    if (!requireNamespace("SpatialData", quietly = TRUE)) return(FALSE)
+    tryCatch({
+        methods::getMethod("coerce", c("SpatialData", "MultiAssaySpatialExperiment"))
+        TRUE
+    }, error = function(e) FALSE)
+}
+
 test_that("as(SpatialData, 'MultiAssaySpatialExperiment') works when SpatialData available", {
     skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
     library(SingleCellExperiment)
     sce <- SingleCellExperiment(
         list(counts = matrix(1:12, 3, 4)),
@@ -35,6 +47,8 @@ test_that("as(SpatialData, 'MultiAssaySpatialExperiment') works when SpatialData
 
 test_that("as(MultiAssaySpatialExperiment, 'SpatialData') works", {
     skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
     library(SingleCellExperiment)
     sce <- SingleCellExperiment(
         list(counts = matrix(1:12, 3, 4)),
@@ -63,6 +77,8 @@ test_that("as(MultiAssaySpatialExperiment, 'SpatialData') works", {
 
 test_that("SD-MASE-SD round-trip preserves tables and points", {
     skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
     library(SingleCellExperiment)
     sce <- SingleCellExperiment(
         list(counts = matrix(1:12, 3, 4)),
@@ -87,6 +103,8 @@ test_that("SD-MASE-SD round-trip preserves tables and points", {
 
 test_that("multi-table SpatialData coerces to multi-assay MASE", {
     skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
     library(SingleCellExperiment)
     sce1 <- SingleCellExperiment(
         list(counts = matrix(1:6, 2, 3)),
@@ -111,6 +129,8 @@ test_that("multi-table SpatialData coerces to multi-assay MASE", {
 
 test_that("as(SpatialData, 'MultiAssaySpatialExperiment') errors when no tables", {
     skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
     sd <- SpatialData::SpatialData(
         images = list(),
         labels = list(),
@@ -121,4 +141,145 @@ test_that("as(SpatialData, 'MultiAssaySpatialExperiment') errors when no tables"
     expect_error(as(sd, "MultiAssaySpatialExperiment"),
         "at least one table"
     )
+})
+
+test_that("SpatialData→MASE coercion includes element_type in spatialMap", {
+    skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    library(SingleCellExperiment)
+    
+    ## Create SCE with spatialdata_attrs metadata
+    sce <- SingleCellExperiment(
+        list(counts = matrix(1:12, 3, 4)),
+        colData = DataFrame(
+            rk = rep("cells", 4),
+            instance_id = paste0("cell", 1:4),
+            row.names = paste0("cell", 1:4)
+        )
+    )
+    int_metadata(sce)[["spatialdata_attrs"]] <- list(
+        region = "cells",
+        region_key = "rk",
+        instance_key = "instance_id"
+    )
+    
+    ## Create SpatialData with points$cells
+    sd <- SpatialData::SpatialData(
+        images = list(),
+        labels = list(),
+        points = list(
+            cells = SpatialData::PointFrame(data = data.frame(
+                x = 1:4, y = 2:5, instance_id = paste0("cell", 1:4)
+            ))
+        ),
+        shapes = list(),
+        tables = list(assay1 = sce)
+    )
+    
+    ## Convert to MASE
+    mase <- as(sd, "MultiAssaySpatialExperiment")
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    
+    ## Check spatialMap has element_type column
+    smap <- spatialMap(mase)
+    expect_true(!is.null(smap))
+    expect_true("element_type" %in% colnames(smap))
+    
+    ## Check element_type is "points" (region found in points slot)
+    expect_equal(unique(smap$element_type), "points")
+    expect_equal(unique(smap$region), "cells")
+})
+
+test_that("SpatialData→MASE coercion sets element_type=shapes for shape regions", {
+    skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    library(SingleCellExperiment)
+    
+    ## Create SCE with spatialdata_attrs metadata pointing to shapes
+    sce <- SingleCellExperiment(
+        list(counts = matrix(1:6, 2, 3)),
+        colData = DataFrame(
+            rk = rep("nuclei", 3),
+            instance_id = paste0("N", 1:3),
+            row.names = paste0("N", 1:3)
+        )
+    )
+    int_metadata(sce)[["spatialdata_attrs"]] <- list(
+        region = "nuclei",
+        region_key = "rk",
+        instance_key = "instance_id"
+    )
+    
+    ## Create SpatialData with shapes$nuclei (not points)
+    sd <- SpatialData::SpatialData(
+        images = list(),
+        labels = list(),
+        points = list(),
+        shapes = list(
+            nuclei = SpatialData::ShapeFrame(data = data.frame(
+                id = paste0("N", 1:3),
+                area = c(100, 150, 200)
+            ))
+        ),
+        tables = list(assay1 = sce)
+    )
+    
+    ## Convert to MASE
+    mase <- as(sd, "MultiAssaySpatialExperiment")
+    
+    ## Check spatialMap has element_type = "shapes"
+    smap <- spatialMap(mase)
+    expect_true(!is.null(smap))
+    expect_true("element_type" %in% colnames(smap))
+    expect_equal(unique(smap$element_type), "shapes")
+    expect_equal(unique(smap$region), "nuclei")
+})
+
+test_that("MASE→SD→MASE round-trip preserves element_type", {
+    skip_if_not_installed("SpatialData")
+    skip_if(!.has_spatialdata_coercion(), 
+            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    library(SingleCellExperiment)
+    
+    ## Create MASE with spatialMap including element_type
+    sce <- SingleCellExperiment(
+        list(counts = matrix(1:12, 3, 4)),
+        colData = DataFrame(row.names = paste0("cell", 1:4))
+    )
+    mase1 <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(assay1 = sce),
+        colData = DataFrame(row.names = "sample01"),
+        sampleMap = DataFrame(
+            assay = factor("assay1", "assay1"),
+            primary = "sample01",
+            colname = paste0("cell", 1:4)
+        ),
+        points = PointsLayerList(cells = DataFrame(
+            x = c(1, 2, 3, 4),
+            y = c(5, 6, 7, 8),
+            instance_id = paste0("cell", 1:4)
+        )),
+        spatialMap = DataFrame(
+            assay = factor(rep("assay1", 4), levels = "assay1"),
+            colname = paste0("cell", 1:4),
+            element_type = rep("points", 4),
+            region = rep("cells", 4),
+            instance_id = paste0("cell", 1:4)
+        )
+    )
+    
+    ## Convert to SpatialData and back
+    sd <- as(mase1, "SpatialData")
+    mase2 <- as(sd, "MultiAssaySpatialExperiment")
+    
+    ## Check element_type preserved
+    smap1 <- spatialMap(mase1)
+    smap2 <- spatialMap(mase2)
+    
+    expect_true(!is.null(smap2))
+    expect_true("element_type" %in% colnames(smap2))
+    expect_equal(smap2$element_type, smap1$element_type)
+    expect_equal(smap2$region, smap1$region)
 })

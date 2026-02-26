@@ -11,17 +11,23 @@ test_that("[ subsets MultiAssaySpatialExperiment with spatial propagation", {
         primary = c(paste0("S", 1:4), paste0("S", 1:5)),
         colname = c(paste0("S", 1:4), paste0("S", 1:5))
     )
+    pts <- DataFrame(
+        x = c(1, 2, 3), y = c(1, 2, 3),
+        instance_id = paste0("pt", 1:3)
+    )
     spmap <- DataFrame(
         assay = c("assay1", "assay1", "assay2"),
         colname = c("S1", "S2", "S3"),
-        region = "img1",
-        instance_id = 1:3
+        element_type = "points",
+        region = "coords",
+        instance_id = paste0("pt", 1:3)
     )
     imgdf <- DataFrame(sample_id = paste0("S", 1:3))
     mase <- MultiAssaySpatialExperiment(
         experiments = expList,
         colData = cd,
         sampleMap = sm,
+        points = PointsLayerList(coords = pts),
         images = RasterLayerList(assay1 = matrix(1:4, 2, 2)),
         spatialMap = spmap,
         imgData = imgdf
@@ -107,6 +113,7 @@ test_that("subsetByBoundingBox filters points and propagates to assays", {
         spatialMap = DataFrame(
             assay = factor("assay1"),
             colname = paste0("S", 1:5),
+            element_type = "points",
             region = "coords",
             instance_id = paste0("S", 1:5)
         )
@@ -135,6 +142,7 @@ test_that("subsetByPolygon filters points", {
         spatialMap = DataFrame(
             assay = factor("assay1"),
             colname = paste0("S", 1:5),
+            element_type = "points",
             region = "coords",
             instance_id = paste0("S", 1:5)
         )

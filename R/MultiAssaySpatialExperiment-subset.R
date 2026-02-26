@@ -116,16 +116,25 @@ NULL
     imgData[imgData[["sample_id"]] %in% primary_ids, , drop = FALSE]
 }
 
-.subsetSpatialLayersByRegion <- function(elements, spatialMap) {
+.subsetSpatialLayersByRegion <- function(elements, spatialMap, element_type) {
     nms <- names(elements)
     if (length(nms) == 0L)
         return(elements)
-    if (is.null(spatialMap) || nrow(spatialMap) == 0L || !"region" %in% colnames(spatialMap))
+    if (is.null(spatialMap) || nrow(spatialMap) == 0L)
         return(elements)
-    regions <- unique(spatialMap[["region"]])
+    if (!"region" %in% colnames(spatialMap) || !"element_type" %in% colnames(spatialMap))
+        return(elements)
+
+    ## Filter spatialMap to rows for this element_type only
+    et_rows <- spatialMap[["element_type"]] == element_type
+    if (!any(et_rows))
+        return(elements[integer(0L)])
+
+    regions <- unique(spatialMap[["region"]][et_rows])
     keep <- nms %in% regions
     if (!any(keep))
-        return(elements)
+        return(elements[integer(0L)])
+
     elements[keep]
 }
 
@@ -175,9 +184,9 @@ NULL
 
 .subsetPointsByBbox <- function(pt, xmin, xmax, ymin, ymax, x_col, y_col) {
     if (is.null(pt) || nrow(pt) == 0L)
-        return(integer(0))
+        return(integer(0L))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
-        return(integer(0))
+        return(integer(0L))
     xv <- pt[[x_col]]
     yv <- pt[[y_col]]
     keep <- (xv >= xmin & xv <= xmax) & (yv >= ymin & yv <= ymax)
@@ -186,18 +195,18 @@ NULL
 
 .subsetPointsByPolygon <- function(pt, polygon, x_col, y_col) {
     if (is.null(pt) || nrow(pt) == 0L)
-        return(integer(0))
+        return(integer(0L))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
-        return(integer(0))
+        return(integer(0L))
     which(spatialOverlaps(pt, polygon, coords = c(x_col, y_col)))
 }
 
 #' @importFrom sf st_as_sfc st_bbox
 .subsetShapesByBbox <- function(shp, xmin, xmax, ymin, ymax) {
     if (is.null(shp) || nrow(shp) == 0L)
-        return(integer(0))
+        return(integer(0L))
     if (!"geometry" %in% colnames(shp))
-        return(integer(0))
+        return(integer(0L))
     bbox_sfc <- st_as_sfc(st_bbox(c(xmin = xmin, ymin = ymin,
                                      xmax = xmax, ymax = ymax)))
     which(spatialOverlaps(shp, bbox_sfc, geom = "geometry"))
@@ -205,15 +214,15 @@ NULL
 
 .subsetShapesByPolygon <- function(shp, polygon) {
     if (is.null(shp) || nrow(shp) == 0L)
-        return(integer(0))
+        return(integer(0L))
     if (!"geometry" %in% colnames(shp))
-        return(integer(0))
+        return(integer(0L))
     which(spatialOverlaps(shp, polygon, geom = "geometry"))
 }
 
 .getInstanceIds <- function(el, idx) {
     if (length(idx) == 0L)
-        return(character(0))
+        return(character(0L))
     if ("instance_id" %in% colnames(el))
         el[["instance_id"]][idx]
     else
@@ -230,7 +239,7 @@ NULL
                 call. = FALSE)
         return(x)
     }
-    if (!all(c("assay", "colname", "region", "instance_id") %in% colnames(spmap)))
+    if (!all(c("assay", "colname", "element_type", "region", "instance_id") %in% colnames(spmap)))
         return(x)
     keep_sp <- logical(nrow(spmap))
     for (i in seq_len(nrow(spmap))) {
@@ -334,8 +343,8 @@ function(x, y) {
                                                      assay_names),
                  labels = .subsetSpatialLayersByAssay(spatialLabels(x),
                                                       assay_names),
-                 points = .subsetSpatialLayersByRegion(spatialPoints(x), spmap),
-                 shapes = .subsetSpatialLayersByRegion(spatialShapes(x), spmap),
+                 points = .subsetSpatialLayersByRegion(spatialPoints(x), spmap, "points"),
+                 shapes = .subsetSpatialLayersByRegion(spatialShapes(x), spmap, "shapes"),
                  spatialMap = spmap,
                  imgData = .subsetImgDataByAssay(imgData(x), sampleMap(x),
                                                  assay_names),

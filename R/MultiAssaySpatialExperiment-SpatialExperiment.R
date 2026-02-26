@@ -258,7 +258,7 @@ setMethod("spatialCoords", "MultiAssaySpatialExperiment",
     function(x, assay = 1L) {
         exps <- experiments(x)
         if (length(exps) == 0L)
-            return(matrix(numeric(0), 0L, 0L))
+            return(matrix(numeric(0L), 0L, 0L))
         exp <- exps[[assay]]
         if (is(exp, "SpatialExperiment"))
             return(spatialCoords(exp))
@@ -269,7 +269,7 @@ setMethod("spatialCoords", "MultiAssaySpatialExperiment",
             if (length(coord_cols) >= 2L)
                 return(as.matrix(coords[, coord_cols]))
         }
-        matrix(numeric(0), ncol(exp), 0L)
+        matrix(numeric(0L), ncol(exp), 0L)
     }
 )
 

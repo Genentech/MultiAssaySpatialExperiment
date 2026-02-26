@@ -80,7 +80,7 @@ NULL
 #'     shapes = ShapesLayerList(cells = shp_df),
 #'     spatialMap = S4Vectors::DataFrame(
 #'         assay = "assay1", colname = c("A", "B", "C"),
-#'         region = "centroids", instance_id = c("A", "B", "C")))
+#'         element_type = "points", region = "centroids", instance_id = c("A", "B", "C")))
 #' mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
 #' spatialMap(mase)
 #'
@@ -101,11 +101,11 @@ setGeneric("annotateWithRegions",
                                  id_col = "instance_id",
                                  join = st_intersects) {
     if (is.null(pt) || nrow(pt) == 0L || is.null(shp) || nrow(shp) == 0L)
-        return(structure(logical(0), names = character(0)))
+        return(structure(logical(0L), names = character(0L)))
     if (!x_col %in% colnames(pt) || !y_col %in% colnames(pt))
-        return(structure(logical(0), names = character(0)))
+        return(structure(logical(0L), names = character(0L)))
     if (!geom %in% colnames(shp) || !id_col %in% colnames(shp))
-        return(structure(logical(0), names = character(0)))
+        return(structure(logical(0L), names = character(0L)))
     idx <- spatialMatch(pt, shp, coords = c(x_col, y_col),
                         geom = geom, join = join)
     shp_ids <- shp[[id_col]]

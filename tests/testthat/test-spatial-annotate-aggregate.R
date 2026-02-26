@@ -24,7 +24,7 @@ test_that("annotateWithRegions adds cells column to spatialMap", {
         shapes = ShapesLayerList(cells = shp_df),
         spatialMap = S4Vectors::DataFrame(
             assay = "assay1", colname = c("A", "B", "C"),
-            region = "centroids", instance_id = c("A", "B", "C")))
+            element_type = "points", region = "centroids", instance_id = c("A", "B", "C")))
     mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
     spmap <- spatialMap(mase)
     expect_true("cells" %in% colnames(spmap))
@@ -54,7 +54,7 @@ test_that("aggregateByRegion sums assay values by shape", {
         shapes = ShapesLayerList(cells = shp_df),
         spatialMap = S4Vectors::DataFrame(
             assay = "assay1", colname = c("A", "B", "C"),
-            region = "centroids", instance_id = c("A", "B", "C")))
+            element_type = "points", region = "centroids", instance_id = c("A", "B", "C")))
     mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
     agg <- aggregateByRegion(mase, by = "cells", FUN = "sum")
     expect_type(agg, "list")
@@ -79,7 +79,7 @@ test_that("aggregateByRegion count returns DataFrame", {
         shapes = ShapesLayerList(cells = shp_df),
         spatialMap = S4Vectors::DataFrame(
             assay = "assay1", colname = c("A", "B"),
-            region = "centroids", instance_id = c("A", "B")))
+            element_type = "points", region = "centroids", instance_id = c("A", "B")))
     mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
     cnt <- aggregateByRegion(mase, by = "cells", FUN = "count")
     expect_s4_class(cnt, "DataFrame")
@@ -102,7 +102,7 @@ test_that("aggregateByRegion mean aggregates correctly", {
         shapes = ShapesLayerList(cells = shp_df),
         spatialMap = S4Vectors::DataFrame(
             assay = "assay1", colname = c("A", "B"),
-            region = "centroids", instance_id = c("A", "B")))
+            element_type = "points", region = "centroids", instance_id = c("A", "B")))
     mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
     agg <- aggregateByRegion(mase, by = "cells", FUN = "mean")
     expect_equal(agg[["assay1"]]["G1", "cell1"], 4)

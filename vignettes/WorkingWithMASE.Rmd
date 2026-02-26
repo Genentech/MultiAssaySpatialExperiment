@@ -1,0 +1,633 @@
+---
+title: "Working with MultiAssaySpatialExperiment"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{Working with MultiAssaySpatialExperiment}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+# Introduction
+
+This vignette covers the core operations for working with
+`MultiAssaySpatialExperiment` (MASE) objects:
+
+1. **Construction**: Building MASE objects from matrices, existing Bioconductor objects, or files
+2. **Subsetting**: Filtering by specimens, assays, columns, and spatial regions
+3. **Spatial operations**: Annotation and aggregation by spatial regions
+4. **Labels ↔ shapes**: Converting between raster masks and vector polygons
+
+**Prerequisite**: If you are new to MASE, read the **Introduction** vignette
+first to understand the MASE structure and components.
+
+```{r load_packages, message = FALSE, warning = FALSE}
+library(MultiAssaySpatialExperiment)
+library(SummarizedExperiment)
+library(SingleCellExperiment)
+library(S4Vectors)
+library(sf)
+```
+
+# Building MASE objects
+
+There are several approaches to constructing a MASE object:
+
+1. **Minimal MASE**: Start with assays + metadata, add spatial elements later
+2. **From scratch**: Build all components manually
+3. **From existing objects**: Convert SpatialExperiment, SingleCellExperiment, or other objects
+4. **Helper functions**: Quick construction for common use cases
+
+## Minimal MASE
+
+The simplest MASE has one experiment, specimen metadata (colData), and a sample
+mapping (sampleMap). No spatial elements are required initially.
+
+```{r minimal_mase}
+# Create a simple expression matrix
+counts <- matrix(rpois(50, lambda = 10), nrow = 10, ncol = 5,
+                dimnames = list(paste0("Gene", 1:10),
+                               paste0("Cell", 1:5)))
+
+# Specimen metadata
+specimens <- DataFrame(
+  patient_id = c("P1", "P1", "P1", "P2", "P2"),
+  tissue = c("cortex", "cortex", "cortex", "medulla", "medulla"),
+  row.names = paste0("Cell", 1:5)
+)
+
+# Sample map: link assay columns to specimens
+sample_map <- DataFrame(
+  assay = factor("rna", "rna"),
+  primary = paste0("Cell", 1:5),
+  colname = paste0("Cell", 1:5)
+)
+
+# Construct MASE
+mase_minimal <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = counts),
+  colData = specimens,
+  sampleMap = sample_map
+)
+
+mase_minimal
+```
+
+## Adding spatial coordinates
+
+To add point coordinates (e.g., cell centroids), create a `PointsLayerList` and
+a `spatialMap` linking assay columns to spatial instances.
+
+```{r add_points_with_map}
+# Suppose we have two assays: RNA and protein
+rna_counts <- matrix(rpois(50, 10), nrow = 10, ncol = 5,
+                    dimnames = list(paste0("Gene", 1:10), paste0("Cell", 1:5)))
+prot_counts <- matrix(rpois(15, 5), nrow = 3, ncol = 5,
+                     dimnames = list(paste0("Protein", 1:3), paste0("Cell", 1:5)))
+
+# Both assays share the same specimens
+specimens2 <- DataFrame(
+  patient_id = c("P1", "P1", "P1", "P2", "P2"),
+  row.names = paste0("Cell", 1:5)
+)
+
+# Sample map for two assays
+sample_map2 <- DataFrame(
+  assay = factor(rep(c("rna", "protein"), each = 5), c("rna", "protein")),
+  primary = rep(paste0("Cell", 1:5), 2),
+  colname = rep(paste0("Cell", 1:5), 2)
+)
+
+# Point coordinates (shared by both assays)
+coords2 <- DataFrame(
+  x = runif(5, 0, 100),
+  y = runif(5, 0, 100),
+  instance_id = paste0("Cell", 1:5)
+)
+
+# Spatial map: link assay columns to spatial points
+spatial_map2 <- DataFrame(
+  assay = factor(rep(c("rna", "protein"), each = 5), c("rna", "protein")),
+  colname = rep(paste0("Cell", 1:5), 2),
+  element_type = "points",
+  region = factor(rep("coords", 10), "coords"),
+  instance_id = rep(paste0("Cell", 1:5), 2)
+)
+
+# Construct MASE with spatialMap
+mase_with_map <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = rna_counts, protein = prot_counts),
+  colData = specimens2,
+  sampleMap = sample_map2,
+  points = PointsLayerList(coords = coords2),
+  spatialMap = spatial_map2
+)
+
+mase_with_map
+```
+
+## Adding spatial shapes
+
+Shapes (polygons) typically represent cell boundaries, tissue regions, or
+annotation areas. Use the `sf` package to create geometries.
+
+```{r add_shapes}
+# Create simple circular boundaries around each point
+centroids <- data.frame(
+  x = runif(5, 0, 100),
+  y = runif(5, 0, 100),
+  instance_id = paste0("Cell", 1:5)
+)
+
+# Convert to sf points, then buffer to circles
+centroids_sf <- st_as_sf(centroids, coords = c("x", "y"))
+circles <- st_buffer(centroids_sf, dist = 5)
+
+# Convert back to DataFrame with geometry column
+boundaries <- DataFrame(
+  geometry = st_geometry(circles),
+  instance_id = paste0("Cell", 1:5)
+)
+
+# Add to MASE
+mase_with_shapes <- mase_with_map
+spatialShapes(mase_with_shapes) <- ShapesLayerList(boundaries = boundaries)
+
+mase_with_shapes
+```
+
+## Building from multiple SingleCellExperiment objects
+
+Combine multiple `SingleCellExperiment` objects into a MASE:
+
+```{r from_sce}
+# Create two SingleCellExperiment objects (simulating different technologies)
+sce1 <- SingleCellExperiment(
+  assays = list(counts = matrix(rpois(40, 10), nrow = 10, ncol = 4,
+                               dimnames = list(paste0("Gene", 1:10),
+                                              paste0("Cell", 1:4)))),
+  colData = DataFrame(tech = "rna", cell_id = paste0("Cell", 1:4))
+)
+
+sce2 <- SingleCellExperiment(
+  assays = list(counts = matrix(rpois(12, 5), nrow = 3, ncol = 4,
+                               dimnames = list(paste0("Protein", 1:3),
+                                              paste0("Cell", 1:4)))),
+  colData = DataFrame(tech = "protein", cell_id = paste0("Cell", 1:4))
+)
+
+# Specimen metadata (shared)
+specimens_sce <- DataFrame(
+  patient = rep("P1", 4),
+  tissue = rep("cortex", 4),
+  row.names = paste0("Cell", 1:4)
+)
+
+# Sample maps
+samplemap_sce <- DataFrame(
+  assay = factor(rep(c("rna", "protein"), each = 4), c("rna", "protein")),
+  primary = rep(paste0("Cell", 1:4), 2),
+  colname = rep(paste0("Cell", 1:4), 2)
+)
+
+# Construct MASE
+mase_from_sce <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = sce1, protein = sce2),
+  colData = specimens_sce,
+  sampleMap = samplemap_sce
+)
+
+mase_from_sce
+```
+
+## Validation checklist
+
+Before constructing a MASE, ensure:
+
+1. **ExperimentList**:
+   - All experiments have unique column names
+   
+2. **colData**:
+   - Row names are specimen identifiers (primary IDs)
+   - No duplicate row names
+
+3. **sampleMap**:
+   - `assay` column matches names in ExperimentList
+   - `primary` column matches row names in colData
+   - `colname` column matches column names in experiments
+   - No duplicate (assay, colname) pairs
+
+4. **points/shapes** (if provided):
+   - `instance_id` column exists
+   - For points: `x`, `y` columns exist
+   - For shapes: `geometry` column exists (sfc)
+
+5. **spatialMap** (if provided):
+   - `assay` + `colname` exist in sampleMap
+   - `element_type` is "points" or "shapes"
+   - `region` matches names in points or shapes
+   - `instance_id` exists in the corresponding spatial element
+
+Check validity manually:
+
+```{r check_validity}
+validObject(mase_with_map)
+```
+
+# Subsetting operations
+
+MASE extends MultiAssayExperiment with spatial slots (points, shapes, images,
+labels, `imgData`, and `spatialMap`). When you subset a MASE, these slots are
+automatically updated to stay consistent with the assays and specimen metadata.
+
+## Overview of subsetting operations
+
+| Operation | What it filters | Spatial propagation |
+|-----------|-----------------|---------------------|
+| `subsetByColData(x, y)` | Specimens (primary identifiers) | `spatialMap`, `imgData` |
+| `subsetByRow(x, y, ...)` | Rows of experiments | Spatial layers unchanged |
+| `subsetByColumn(x, y)` | Assay columns | `spatialMap`, `imgData` |
+| `subsetByAssay(x, y)` | Assays | All spatial slots |
+| `x[i, j, k, ..., drop]` | Row, column, assay indices | Composes the above |
+| `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` | Points/shapes by rectangle | Assays via `spatialMap` |
+| `subsetByPolygon(x, polygon, ...)` | Points/shapes by polygon | Assays via `spatialMap` |
+
+## Basic subsetting
+
+```{r basic-subset-setup}
+# Create a simple MASE for subsetting examples
+mat <- matrix(rnorm(25), nrow = 5, ncol = 5,
+  dimnames = list(paste0("G", 1:5), paste0("S", 1:5)))
+pts <- DataFrame(
+  x = c(1, 2, 3, 4, 5),
+  y = c(1, 2, 3, 4, 5),
+  instance_id = paste0("S", 1:5))
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(assay1 = mat),
+  colData = DataFrame(row.names = paste0("S", 1:5)),
+  sampleMap = DataFrame(
+    assay = factor("assay1"),
+    primary = paste0("S", 1:5),
+    colname = paste0("S", 1:5)
+  ),
+  points = PointsLayerList(coords = pts),
+  spatialMap = DataFrame(
+    assay = factor("assay1"),
+    colname = paste0("S", 1:5),
+    element_type = "points",
+    region = "coords",
+    instance_id = paste0("S", 1:5)
+  )
+)
+```
+
+### Subset by specimen (colData)
+
+Filter by primary identifiers (rownames of `colData`):
+
+```{r subsetByColData}
+mase[, c("S1", "S3", "S5")]
+```
+
+### Subset by assay columns
+
+When subsetting by list, each element applies to the corresponding assay:
+
+```{r subsetByColumn}
+mase[, list(assay1 = c("S2", "S4"))]
+```
+
+### Bracket notation
+
+The `[i, j, k, drop]` operator composes row, column, and assay subsetting:
+
+```{r bracket}
+mase[1:3, c("S1", "S2"), "assay1", drop = FALSE]
+```
+
+## Spatial subsetting
+
+When you have `spatialMap` linking assay columns to spatial elements, you can
+subset by **bounding box** or **polygon**. Points and shapes within the region
+are kept; assays are filtered to retained instance_ids via `spatialMap`.
+
+### Subset by bounding box
+
+Filter by a rectangle `(xmin, xmax, ymin, ymax)`:
+
+```{r subsetByBoundingBox}
+m2 <- subsetByBoundingBox(mase, xmin = 1.5, xmax = 4.5, ymin = 1.5, ymax = 4.5)
+m2
+spatialPoints(m2)[["coords"]]
+ncol(experiments(m2)[["assay1"]])
+```
+
+### Subset by polygon
+
+Filter by an sf polygon:
+
+```{r subsetByPolygon}
+poly <- st_polygon(list(matrix(
+  c(1.5, 1.5, 4.5, 1.5, 4.5, 4.5, 1.5, 4.5, 1.5, 1.5),
+  ncol = 2, byrow = TRUE)))
+m3 <- subsetByPolygon(mase, poly)
+nrow(spatialPoints(m3)[["coords"]])
+ncol(experiments(m3)[["assay1"]])
+```
+
+### Multi-region queries
+
+Select data from multiple non-contiguous regions:
+
+```{r multiregion}
+# Define two regions of interest
+region1 <- st_polygon(list(matrix(c(1, 1, 2, 1, 2, 2, 1, 2, 1, 1), ncol = 2, byrow = TRUE)))
+region2 <- st_polygon(list(matrix(c(4, 4, 5, 4, 5, 5, 4, 5, 4, 4), ncol = 2, byrow = TRUE)))
+
+# Subset by each region
+m_r1 <- subsetByPolygon(mase, region1)
+m_r2 <- subsetByPolygon(mase, region2)
+
+cat("Region 1:", ncol(experiments(m_r1)[[1]]), "observations\n")
+cat("Region 2:", ncol(experiments(m_r2)[[1]]), "observations\n")
+```
+
+### Buffer-based queries
+
+Find all points within a distance from a reference point:
+
+```{r buffer_query}
+# Reference point
+ref_point <- st_point(c(3, 3))
+
+# Create buffer (e.g., 1.5 units radius)
+buffer_region <- st_buffer(ref_point, dist = 1.5)
+
+# Subset by buffer
+m_buffer <- subsetByPolygon(mase, buffer_region)
+m_buffer
+```
+
+# Spatial annotation and aggregation
+
+Spatial omics often measures signals at discrete locations (spots, cell
+centroids) that lie within larger regions (cells, tissue segments). A common
+workflow is to:
+
+1. **Annotate** each measurement point with the region it falls in
+2. **Aggregate** assay values by region (sum, mean, count)
+
+MASE provides `annotateWithRegions` for step 1 and `aggregateByRegion` for
+step 2. Both use the central `spatialMap` table to link assay columns to
+spatial elements.
+
+## Example setup
+
+We construct a minimal MASE with four spots (transcriptomic measurements),
+coordinates, two cell polygons, and a gene expression assay. The goal is to
+annotate each spot with its containing cell and then aggregate expression per
+cell.
+
+```{r setup-annotation}
+# Four spots at coordinates
+pts_agg <- DataFrame(
+  x = c(1.5, 2.5, 2.5, 3.5),
+  y = c(1.5, 1.5, 2.5, 2.5),
+  instance_id = paste0("S", 1:4))
+
+# Three cell polygons
+cell1 <- st_polygon(list(matrix(c(1, 1, 2, 1, 2, 2, 1, 2, 1, 1), ncol = 2, byrow = TRUE)))
+cell2 <- st_polygon(list(matrix(c(2, 1, 3, 1, 3, 2, 2, 2, 2, 1), ncol = 2, byrow = TRUE)))
+cell3 <- st_polygon(list(matrix(c(2, 2, 3, 2, 3, 3, 2, 3, 2, 2), ncol = 2, byrow = TRUE)))
+
+shp_df <- DataFrame(
+  instance_id = c("cell1", "cell2", "cell3"),
+  geometry = st_sfc(cell1, cell2, cell3))
+
+# Gene expression assay (3 genes × 4 spots)
+expr <- matrix(c(10, 20, 5,  15,
+                 30, 10, 25, 5,
+                 5,  15, 20, 30),
+  nrow = 3, ncol = 4,
+  dimnames = list(paste0("Gene", 1:3), paste0("S", 1:4)))
+
+# Construct MASE
+mase_agg <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = expr),
+  colData = DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = DataFrame(
+    assay = factor("rna"),
+    primary = paste0("S", 1:4),
+    colname = paste0("S", 1:4)
+  ),
+  points = PointsLayerList(centroids = pts_agg),
+  shapes = ShapesLayerList(cells = shp_df),
+  spatialMap = DataFrame(
+    assay = factor("rna"),
+    colname = paste0("S", 1:4),
+    element_type = "points",
+    region = "centroids",
+    instance_id = paste0("S", 1:4)
+  )
+)
+mase_agg
+```
+
+## Annotate with regions
+
+`annotateWithRegions` performs a spatial join: for each point, it finds which
+shape (if any) matches and records the shape's `instance_id` in a new column
+in `spatialMap`.
+
+```{r annotate}
+mase_agg_orig <- mase_agg
+mase_agg <- annotateWithRegions(mase_agg, points = "centroids", shapes = "cells")
+spatialMap(mase_agg)
+```
+
+The new column `cells` shows: S1 → cell1, S2 → cell2, S3 → cell3, S4 → NA
+(no containing cell). To assign S4 to its nearest cell instead, use
+`join = sf::st_nearest_feature`.
+
+## Aggregate by region
+
+With the annotation in place, `aggregateByRegion` groups assay columns by
+region and applies an aggregation function.
+
+### Count points per region
+
+`FUN = "count"` returns the number of points in each shape:
+
+```{r aggregate-count}
+agg_count <- aggregateByRegion(mase_agg, by = "cells", FUN = "count")
+agg_count
+```
+
+### Sum expression per region
+
+`FUN = "sum"` sums each gene's expression over spots in the same cell:
+
+```{r aggregate-sum}
+agg_sum <- aggregateByRegion(mase_agg, by = "cells", FUN = "sum")
+agg_sum[["rna"]]
+```
+
+### Mean expression per region
+
+`FUN = "mean"` averages expression across spots in each cell:
+
+```{r aggregate-mean}
+agg_mean <- aggregateByRegion(mase_agg, by = "cells", FUN = "mean")
+agg_mean[["rna"]]
+```
+
+## Aggregation strategies
+
+Different strategies serve different purposes:
+
+- **Sum**: Preserve total signal (RNA-seq, ATAC-seq counts)
+- **Mean**: Compare regions with different numbers of points (normalized comparison)
+- **Count**: Quality control, density analysis, normalization factor
+
+```{r compare_strategies}
+# Compare sum vs mean for Gene1
+data.frame(
+  cell = colnames(agg_sum[["rna"]]),
+  sum = agg_sum[["rna"]]["Gene1", ],
+  mean = agg_mean[["rna"]]["Gene1", ],
+  n_spots = agg_count
+)
+```
+
+## Visualizing aggregated data
+
+After aggregation, visualize results spatially:
+
+```{r vis_aggregated, fig.width = 8, fig.height = 4}
+# Get aggregated data for Gene1
+gene1_expr <- agg_sum[["rna"]]["Gene1", ]
+
+# Get cell polygons as sf
+cells_sf <- st_sf(
+  instance_id = shp_df$instance_id,
+  geometry = shp_df$geometry
+)
+
+# Add expression values
+cells_sf$Gene1_sum <- gene1_expr[cells_sf$instance_id]
+
+# Plot
+par(mfrow = c(1, 2))
+
+# Original points
+plot(pts_agg$x, pts_agg$y, 
+     pch = 16, cex = 2,
+     col = rainbow(4)[rank(expr["Gene1", ])],
+     main = "Gene1: Original spots",
+     xlab = "x", ylab = "y")
+text(pts_agg$x, pts_agg$y, paste0("S", 1:4), pos = 3, cex = 0.7)
+
+# Aggregated cells
+plot(st_geometry(cells_sf), 
+     col = rainbow(3)[rank(cells_sf$Gene1_sum)],
+     main = "Gene1: Aggregated by cell",
+     xlab = "x", ylab = "y")
+text(st_coordinates(st_centroid(cells_sf)), 
+     labels = round(cells_sf$Gene1_sum, 1),
+     cex = 0.8)
+```
+
+# Labels ↔ shapes interoperability
+
+MASE supports both **labels** (raster segmentation masks) and **shapes**
+(vector polygons). You can convert between them:
+
+- **Rasterization**: shapes → labels (convert polygons to a mask)
+- **Vectorization**: labels → shapes (extract polygon boundaries from a mask)
+
+## Rasterization: shapes → labels
+
+Convert cell boundary polygons to a segmentation mask:
+
+```{r rasterize}
+# Example: 3 cell polygons
+cell1_rast <- st_polygon(list(matrix(c(0, 0, 1, 0, 1, 1, 0, 1, 0, 0), ncol = 2, byrow = TRUE)))
+cell2_rast <- st_polygon(list(matrix(c(1, 0, 2, 0, 2, 1, 1, 1, 1, 0), ncol = 2, byrow = TRUE)))
+cell3_rast <- st_polygon(list(matrix(c(0, 1, 1, 1, 1, 2, 0, 2, 0, 1), ncol = 2, byrow = TRUE)))
+
+shapes_df <- DataFrame(
+  instance_id = c("cell1", "cell2", "cell3"),
+  geometry = st_sfc(cell1_rast, cell2_rast, cell3_rast)
+)
+
+cat("Rasterization workflow:\n")
+cat("1. Define target grid dimensions and extent\n")
+cat("2. For each polygon, determine which pixels it covers\n")
+cat("3. Assign polygon ID to those pixels\n")
+cat("4. Store as LabelsLayerList in MASE\n")
+cat("\nRecommended packages: stars::st_rasterize, terra::rasterize\n")
+```
+
+## Vectorization: labels → shapes
+
+Extract polygon boundaries from a segmentation mask:
+
+```{r vectorize}
+# Example label matrix (3 cells)
+label_matrix <- matrix(c(
+  1, 1, 2, 2,
+  1, 1, 2, 2,
+  3, 3, 0, 0,
+  3, 3, 0, 0
+), nrow = 4, byrow = TRUE)
+
+cat("Vectorization workflow:\n")
+cat("1. Load label matrix (from file or LabelsLayerList)\n")
+cat("2. Extract polygon boundaries for each unique label value\n")
+cat("3. Convert to sf polygons with instance_id\n")
+cat("4. Store as ShapesLayerList in MASE\n")
+cat("\nRecommended packages: stars::st_as_sf, sf::st_polygonize\n")
+```
+
+## Use cases
+
+**Rasterization (shapes → labels)**:
+
+- Generate training data for deep learning models (requires raster masks)
+- Perform fast pixel-based operations (convolution, morphology)
+- Memory-efficient storage for dense segmentations
+
+**Vectorization (labels → shapes)**:
+
+- Perform spatial operations (area, perimeter, centroid)
+- Spatial queries (point-in-polygon, overlap)
+- Visualization with ggplot2 + sf
+
+# Next steps
+
+- **Use cases**: See the **Use Cases** vignette for realistic workflows with
+  data readers and spatial transformations
+- **Introduction**: Review MASE structure, design principles, and terminology
+- **Cheatsheet**: Quick reference for common operations
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```

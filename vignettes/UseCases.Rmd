@@ -1,0 +1,953 @@
+---
+title: "MultiAssaySpatialExperiment Use Cases"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{MultiAssaySpatialExperiment Use Cases}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE,
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+# Introduction
+
+This vignette demonstrates realistic workflows using `MultiAssaySpatialExperiment`
+(MASE) for multi-assay spatial transcriptomics analysis. It is divided into two
+parts:
+
+**Part 1: Data Import** - Reading spatial omics data from vendor outputs (Xenium,
+Visium, CosMx, MERFISH) and converting from other Bioconductor spatial formats.
+
+**Part 2: Real-World Workflows** - Complete analysis examples integrating multiple
+technologies, spatial transformations, and deconvolution.
+
+**Scientific question**: How do cell-level and tissue-level spatial patterns
+complement each other? Can we leverage high-resolution Xenium data to deconvolve
+Visium spots and improve our understanding of tissue architecture?
+
+```{r load_packages, message = FALSE, warning = FALSE}
+library(MultiAssaySpatialExperiment)
+library(SummarizedExperiment)
+library(SingleCellExperiment)
+library(S4Vectors)
+library(sf)
+
+# For visualization
+library(ggplot2)
+set.seed(123)
+```
+
+# Part 1: Data Import
+
+MASE provides readers for major spatial omics platforms and coercion methods
+for interoperability with other Bioconductor spatial classes.
+
+## Reading Xenium data
+
+10x Genomics Xenium provides single-cell resolution subcellular imaging. The
+Xenium Explorer output directory contains:
+
+- `cell_feature_matrix.h5`: Cell × gene counts
+- `cells.parquet` or `cells.csv.gz`: Cell coordinates and metadata
+- `nucleus_boundaries.parquet`: Cell segmentation polygons (optional)
+- `transcripts.parquet`: Transcript-level coordinates (optional, large)
+
+### Basic usage
+
+```{r read_xenium, eval = FALSE}
+# Read Xenium data from output directory
+mase_xenium <- readXeniumMASE(
+  path = "path/to/xenium_output",
+  sample_id = "sample1",
+  load_cells = TRUE,
+  load_transcripts = FALSE  # Skip transcripts for faster loading
+)
+
+# The MASE object contains:
+# - experiments$rna: SingleCellExperiment with cell × gene matrix
+# - points$cell_centroids: Cell coordinates (x, y, z)
+# - shapes$cell_boundaries: Cell segmentation polygons (if load_cells = TRUE)
+# - spatialMap: Links assay columns to spatial elements
+```
+
+### Options
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `path` | required | Path to Xenium output directory |
+| `sample_id` | `NULL` | Sample identifier (uses directory name if NULL) |
+| `load_cells` | `TRUE` | Load cell segmentation polygons |
+| `load_transcripts` | `FALSE` | Load transcript-level coordinates (large!) |
+| `use_filtered` | `TRUE` | Use filtered feature matrix (vs. raw) |
+
+### When to load transcripts
+
+Transcript-level data (millions of points) is useful for:
+
+- Visualizing subcellular localization
+- Quality control (transcript counts per cell)
+- Custom aggregation strategies
+
+Skip transcripts (`load_transcripts = FALSE`) for faster loading and smaller
+memory footprint when working with cell-level data only.
+
+## Reading Visium data
+
+10x Genomics Visium provides spot-based spatial transcriptomics. Space Ranger
+output contains:
+
+- `filtered_feature_bc_matrix.h5`: Spot × gene counts
+- `spatial/tissue_positions.csv`: Spot coordinates
+- `spatial/scalefactors_json.json`: Image scale factors
+- `spatial/tissue_hires_image.png`: H&E image (optional)
+
+### Basic usage
+
+```{r read_visium, eval = FALSE}
+# Read Visium data
+mase_visium <- readVisiumMASE(
+  path = "path/to/spaceranger_output",
+  sample_id = "sample1",
+  images = TRUE,
+  load = "filtered"
+)
+
+# The MASE object contains:
+# - experiments$visium: SingleCellExperiment with spot × gene matrix
+# - points$spot_centroids: Spot coordinates (x, y in pixels or microns)
+# - images$hires: H&E image (if images = TRUE)
+# - imgData: Links specimens to images
+# - spatialMap: Links assay columns to spatial elements
+```
+
+### Visium HD support
+
+Visium HD provides higher resolution with multiple binning levels (2µm, 8µm,
+16µm). Specify the bin size:
+
+```{r read_visium_hd, eval = FALSE}
+# Read Visium HD at 8µm resolution
+mase_visium_hd <- readVisiumMASE(
+  path = "path/to/spaceranger_hd_output",
+  sample_id = "sample_hd",
+  bin_size = "8um",  # or "2um", "16um"
+  images = TRUE
+)
+```
+
+## Reading CosMx data
+
+NanoString CosMx provides subcellular resolution with compartment-specific
+segmentation (nucleus, membrane, cytoplasm). Output files include:
+
+- `*_exprMat_file.csv`: Expression matrix
+- `*_metadata_file.csv`: Cell metadata
+- `*_tx_file.csv`: Transcript coordinates
+- `CellComposite/`: Composite images
+
+### Basic usage
+
+```{r read_cosmx, eval = FALSE}
+# Read CosMx data
+mase_cosmx <- readCosMxMASE(
+  path = "path/to/cosmx_output",
+  sample_id = "cosmx_sample",
+  fov = "all"  # or specific FOV number(s)
+)
+
+# The MASE object contains:
+# - experiments$rna: SingleCellExperiment with cell × gene matrix
+# - points$cell_centroids: Cell coordinates
+# - shapes$cell_boundaries: Cell segmentation (includes compartments)
+# - spatialMap: Links assay columns to spatial elements
+```
+
+### FOV (Field of View) handling
+
+CosMx data is organized by FOVs. Options:
+
+- `fov = "all"`: Load all FOVs (combines into single MASE)
+- `fov = c(1, 3, 5)`: Load specific FOVs
+- `fov = 1`: Load single FOV
+
+## Reading MERFISH data
+
+Vizgen MERSCOPE MERFISH provides high-throughput spatial transcriptomics.
+Output directory contains:
+
+- `cell_by_gene.csv`: Cell × gene matrix
+- `cell_metadata.csv`: Cell coordinates and metadata
+- `detected_transcripts.csv`: Transcript coordinates
+- `cell_boundaries/`: Cell segmentation polygons (Parquet)
+
+### Basic usage
+
+```{r read_merfish, eval = FALSE}
+# Read MERFISH data
+mase_merfish <- readVizgenMASE(
+  path = "path/to/vizgen_output",
+  sample_id = "merfish_sample",
+  z_plane = "all"  # or specific z-plane(s) for 3D data
+)
+
+# The MASE object contains:
+# - experiments$rna: SingleCellExperiment with cell × gene matrix
+# - points$cell_centroids: Cell coordinates (x, y, z if 3D)
+# - shapes$cell_boundaries: Cell segmentation polygons
+# - spatialMap: Links assay columns to spatial elements
+```
+
+## Auto-detection wrapper
+
+If you have multiple samples from different platforms, use
+`readSpatialDirectoryMASE()` to automatically detect the technology:
+
+```{r read_auto, eval = FALSE}
+# Auto-detect technology and read
+mase_auto <- readSpatialDirectoryMASE(
+  path = "path/to/output",
+  sample_id = "auto_sample"
+)
+
+# Supported technologies:
+# - "xenium": Detected by presence of cell_feature_matrix.h5 + cells.parquet
+# - "visium": Detected by spaceranger directory structure
+# - "visium_hd": Detected by binned outputs
+# - "cosmx": Detected by *_exprMat_file.csv pattern
+# - "merfish": Detected by cell_by_gene.csv + cell_boundaries/
+```
+
+## Converting from other Bioconductor classes
+
+### From SpatialExperiment
+
+```{r from_spe, eval = FALSE}
+library(SpatialExperiment)
+
+# Load or create a SpatialExperiment
+# spe <- read10xVisium("path/to/visium")
+
+# Convert to MASE
+mase_from_spe <- as(spe, "MultiAssaySpatialExperiment")
+
+# The conversion:
+# - Places SPE assay(s) into experiments
+# - Copies colData to specimen metadata
+# - Extracts spatialCoords to points layer
+# - Creates appropriate sampleMap and spatialMap
+```
+
+### From SpatialFeatureExperiment
+
+```{r from_sfe, eval = FALSE}
+library(SpatialFeatureExperiment)
+
+# Load or create a SpatialFeatureExperiment
+# sfe <- read10xVisiumSFE("path/to/visium")
+
+# Convert to MASE
+mase_from_sfe <- as(sfe, "MultiAssaySpatialExperiment")
+
+# The conversion:
+# - Preserves all assays
+# - Converts colGeometries to points or shapes
+# - Preserves annotGeometries
+# - Creates spatialMap linking geometries to assay columns
+```
+
+### From SpatialData (Python)
+
+```{r from_spatialdata, eval = FALSE}
+library(SpatialData)
+
+# Load a SpatialData object (requires basilisk + Python spatialdata)
+# sdata <- readSpatialData("path/to/data.zarr")
+
+# Convert to MASE
+mase_from_sd <- as(sdata, "MultiAssaySpatialExperiment")
+
+# The conversion:
+# - Maps sdata.tables to experiments
+# - Maps sdata.points to points layer
+# - Maps sdata.shapes to shapes layer
+# - Determines element_type based on spatialdata structure
+# - Creates spatialMap with element_type column
+```
+
+See the **Coercion** vignette (if available) for detailed information on
+conversions, data mapping, and limitations.
+
+## Reading multiple samples
+
+For multi-sample experiments, read each sample separately and combine:
+
+```{r multi_sample_read, eval = FALSE}
+# Read sample 1 (Xenium)
+mase1 <- readXeniumMASE("path/to/sample1", sample_id = "P001_xenium")
+
+# Read sample 2 (Xenium)
+mase2 <- readXeniumMASE("path/to/sample2", sample_id = "P002_xenium")
+
+# Combine samples
+mase_multi <- c(mase1, mase2)
+
+# The combined MASE has:
+# - All experiments from both samples
+# - Updated colData with sample identifiers
+# - Preserved spatial elements from both samples
+# - Updated sampleMap and spatialMap
+```
+
+# Part 2: Real-World Workflows
+
+# Workflow 1: Xenium + Visium integration
+
+## Background
+
+A common experimental design combines:
+
+- **Xenium**: Single-cell resolution, subcellular localization, limited gene panel
+  (~300-500 genes)
+- **Visium**: Spot-level resolution (55 µm spots), whole transcriptome,
+  but multiple cells per spot
+
+By integrating both, we can:
+1. Use Xenium to identify cell types and their spatial organization
+2. Use Visium to capture broader transcriptomic programs
+3. Transfer cell type labels from Xenium to Visium spots
+4. Deconvolve Visium spots using Xenium cell proportions
+
+## Data preparation
+
+We will create synthetic data that mimics a real experiment. In practice, you
+would load your own data from:
+- Xenium: Cell-by-gene matrix + cell centroids
+- Visium: Spot-by-gene matrix + spot centroids
+
+```{r prepare_xenium}
+# Xenium data: single-cell resolution
+# Simulate 500 cells, 50 genes (subset of full panel)
+n_cells <- 500
+n_genes_xenium <- 50
+
+xenium_counts <- matrix(
+  rpois(n_cells * n_genes_xenium, lambda = 5),
+  nrow = n_genes_xenium,
+  ncol = n_cells,
+  dimnames = list(
+    paste0("Gene", 1:n_genes_xenium),
+    paste0("Cell", 1:n_cells)
+  )
+)
+
+# Cell centroids (tissue coordinates in micrometers)
+xenium_coords <- DataFrame(
+  x = runif(n_cells, 0, 1000),
+  y = runif(n_cells, 0, 1000),
+  instance_id = paste0("Cell", 1:n_cells)
+)
+
+# Cell type annotations (from clustering or known markers)
+cell_types <- sample(
+  c("Neuron", "Astrocyte", "Microglia", "Oligodendrocyte"),
+  n_cells,
+  replace = TRUE,
+  prob = c(0.5, 0.2, 0.15, 0.15)
+)
+
+# Create SingleCellExperiment
+xenium_sce <- SingleCellExperiment(
+  assays = list(counts = xenium_counts),
+  colData = DataFrame(
+    cell_type = cell_types,
+    tech = "xenium"
+  )
+)
+```
+
+```{r prepare_visium}
+# Visium data: spot-level resolution
+# Simulate 100 spots, 1000 genes (whole transcriptome, downsampled)
+n_spots <- 100
+n_genes_visium <- 1000
+
+# Create gene names: first 50 overlap with Xenium, rest are Visium-only
+visium_gene_names <- c(
+  paste0("Gene", 1:n_genes_xenium),  # Overlapping genes (50)
+  paste0("GeneV", 1:(n_genes_visium - n_genes_xenium))  # Visium-only (950)
+)
+
+visium_counts <- matrix(
+  rpois(n_spots * n_genes_visium, lambda = 10),
+  nrow = n_genes_visium,
+  ncol = n_spots,
+  dimnames = list(
+    visium_gene_names,
+    paste0("Spot", 1:n_spots)
+  )
+)
+
+# Spot centroids (same coordinate system as Xenium)
+visium_coords <- DataFrame(
+  x = runif(n_spots, 0, 1000),
+  y = runif(n_spots, 0, 1000),
+  instance_id = paste0("Spot", 1:n_spots)
+)
+
+# Create SummarizedExperiment
+visium_se <- SummarizedExperiment(
+  assays = list(counts = visium_counts),
+  colData = DataFrame(
+    tech = rep("visium", n_spots),
+    row.names = paste0("Spot", 1:n_spots)
+  )
+)
+```
+
+## Build MASE object
+
+Combine Xenium and Visium into a single MASE object:
+
+```{r build_mase}
+# Specimen metadata
+# In this case, both assays come from the same tissue section
+n_total <- n_cells + n_spots
+specimens <- DataFrame(
+  patient_id = rep("P001", n_total),
+  tissue = rep("mouse_brain", n_total),
+  section_id = rep("section_01", n_total),
+  row.names = c(paste0("Cell", 1:n_cells), paste0("Spot", 1:n_spots))
+)
+
+# Sample map: link assay columns to specimens
+sample_map <- DataFrame(
+  assay = factor(
+    c(rep("xenium", n_cells), rep("visium", n_spots)),
+    c("xenium", "visium")
+  ),
+  primary = c(paste0("Cell", 1:n_cells), paste0("Spot", 1:n_spots)),
+  colname = c(paste0("Cell", 1:n_cells), paste0("Spot", 1:n_spots))
+)
+
+# Spatial map: link assay columns to spatial coordinates
+spatial_map <- DataFrame(
+  assay = factor(
+    c(rep("xenium", n_cells), rep("visium", n_spots)),
+    c("xenium", "visium")
+  ),
+  colname = c(paste0("Cell", 1:n_cells), paste0("Spot", 1:n_spots)),
+  element_type = rep("points", n_total),
+  region = factor(
+    c(rep("xenium_coords", n_cells), rep("visium_coords", n_spots)),
+    c("xenium_coords", "visium_coords")
+  ),
+  instance_id = c(paste0("Cell", 1:n_cells), paste0("Spot", 1:n_spots))
+)
+
+# Construct MASE
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(
+    xenium = xenium_sce,
+    visium = visium_se
+  ),
+  colData = specimens,
+  sampleMap = sample_map,
+  points = PointsLayerList(
+    xenium_coords = xenium_coords,
+    visium_coords = visium_coords
+  ),
+  spatialMap = spatial_map
+)
+
+mase
+```
+
+## Exploratory analysis
+
+### Visualize spatial distribution
+
+```{r vis_spatial, fig.width = 10, fig.height = 5}
+# Extract coordinates
+xenium_pts <- spatialPoint(mase, "xenium_coords")
+visium_pts <- spatialPoint(mase, "visium_coords")
+
+# Plot both assays
+par(mfrow = c(1, 2))
+
+# Xenium cells colored by type
+plot(xenium_pts$x, xenium_pts$y,
+     col = as.factor(cell_types),
+     pch = 16, cex = 0.5,
+     main = "Xenium: Single cells",
+     xlab = "x (µm)", ylab = "y (µm)")
+legend("topright", legend = unique(cell_types),
+       col = 1:length(unique(cell_types)), pch = 16, cex = 0.7)
+
+# Visium spots
+plot(visium_pts$x, visium_pts$y,
+     pch = 21, bg = "lightblue", cex = 2,
+     main = "Visium: Spots (55 µm)",
+     xlab = "x (µm)", ylab = "y (µm)")
+```
+
+### Gene expression overlap
+
+Check which genes are shared between assays:
+
+```{r gene_overlap}
+xenium_genes <- rownames(experiments(mase)$xenium)
+visium_genes <- rownames(experiments(mase)$visium)
+
+shared_genes <- intersect(xenium_genes, visium_genes)
+cat("Shared genes:", length(shared_genes), "\n")
+cat("Xenium-only genes:", length(setdiff(xenium_genes, visium_genes)), "\n")
+cat("Visium-only genes:", length(setdiff(visium_genes, xenium_genes)), "\n")
+```
+
+## Spatial annotation: Cell types in Visium spots
+
+Use Xenium cell types to annotate Visium spots. For each spot, find which cells
+fall within it and calculate cell type proportions.
+
+```{r spatial_annotation}
+# Create circular regions for Visium spots (55 µm diameter = 27.5 µm radius)
+visium_circles <- st_buffer(
+  st_as_sf(as.data.frame(visium_pts), coords = c("x", "y")),
+  dist = 27.5
+)
+
+visium_shapes <- DataFrame(
+  geometry = st_geometry(visium_circles),
+  instance_id = visium_pts$instance_id
+)
+
+# Add shapes to MASE
+spatialShapes(mase) <- ShapesLayerList(visium_spots = visium_shapes)
+
+# For each Visium spot, find which Xenium cells are inside
+xenium_sf <- st_as_sf(as.data.frame(xenium_pts), coords = c("x", "y"))
+visium_sf <- st_sf(
+  instance_id = visium_shapes$instance_id,
+  geometry = visium_shapes$geometry
+)
+
+# Spatial intersection
+intersections <- st_intersects(visium_sf, xenium_sf)
+
+# Calculate cell type proportions per spot
+spot_cell_types <- lapply(seq_along(intersections), function(i) {
+  cell_indices <- intersections[[i]]
+  if (length(cell_indices) == 0) {
+    return(data.frame(
+      spot = visium_pts$instance_id[i],
+      Neuron = 0, Astrocyte = 0, Microglia = 0, Oligodendrocyte = 0,
+      n_cells = 0
+    ))
+  }
+  types <- cell_types[cell_indices]
+  props <- base::table(types) / length(types)
+  data.frame(
+    spot = visium_pts$instance_id[i],
+    Neuron = as.numeric(props["Neuron"]),
+    Astrocyte = as.numeric(props["Astrocyte"]),
+    Microglia = as.numeric(props["Microglia"]),
+    Oligodendrocyte = as.numeric(props["Oligodendrocyte"]),
+    n_cells = length(cell_indices),
+    stringsAsFactors = FALSE
+  )
+})
+
+spot_annotations <- do.call(rbind, spot_cell_types)
+spot_annotations[is.na(spot_annotations)] <- 0
+
+head(spot_annotations)
+```
+
+### Visualize deconvolution results
+
+```{r vis_deconv, fig.width = 10, fig.height = 8}
+# Plot cell type proportions per spot
+par(mfrow = c(2, 2))
+
+for (cell_type in c("Neuron", "Astrocyte", "Microglia", "Oligodendrocyte")) {
+  plot(visium_pts$x, visium_pts$y,
+       pch = 21, cex = 3,
+       bg = rgb(spot_annotations[[cell_type]], 0, 0, alpha = 0.7),
+       main = paste(cell_type, "proportion"),
+       xlab = "x (µm)", ylab = "y (µm)")
+}
+```
+
+## Spatial aggregation: Summarize Xenium by regions
+
+Aggregate Xenium gene expression by tissue regions (e.g., cortical layers).
+First, define regions, then use `aggregateByRegion()`.
+
+```{r define_regions}
+# Define two regions: "cortex" (y > 500) and "subcortex" (y <= 500)
+# In practice, these would be anatomical annotations
+region_polygons <- list(
+  cortex = st_polygon(list(cbind(
+    c(0, 1000, 1000, 0, 0),
+    c(500, 500, 1000, 1000, 500)
+  ))),
+  subcortex = st_polygon(list(cbind(
+    c(0, 1000, 1000, 0, 0),
+    c(0, 0, 500, 500, 0)
+  )))
+)
+
+regions_sf <- st_sf(
+  region_id = c("cortex", "subcortex"),
+  geometry = st_sfc(region_polygons)
+)
+
+# Convert to DataFrame for MASE
+regions_df <- DataFrame(
+  geometry = st_geometry(regions_sf),
+  instance_id = c("cortex", "subcortex")
+)
+
+# Add to MASE
+spatialShapes(mase) <- ShapesLayerList(
+  visium_spots = visium_shapes,
+  regions = regions_df
+)
+```
+
+```{r aggregate_by_region, eval = FALSE}
+# Aggregate Xenium expression by region
+# This requires implementing aggregateByRegion() - shown conceptually
+
+# Step 1: Annotate cells with region
+# xenium_sf is from earlier
+regions_annotation <- st_intersects(xenium_sf, regions_sf)
+cell_regions <- sapply(regions_annotation, function(x) {
+  if (length(x) == 0) return(NA)
+  regions_sf$region_id[x[1]]
+})
+
+# Step 2: Aggregate counts by region
+xenium_by_region <- lapply(c("cortex", "subcortex"), function(region) {
+  cells_in_region <- which(cell_regions == region)
+  if (length(cells_in_region) == 0) {
+    return(rep(0, nrow(xenium_sce)))
+  }
+  rowSums(assay(xenium_sce, "counts")[, cells_in_region, drop = FALSE])
+})
+
+xenium_regional <- do.call(cbind, xenium_by_region)
+colnames(xenium_regional) <- c("cortex", "subcortex")
+
+head(xenium_regional)
+```
+
+## Comparative analysis
+
+Compare gene expression patterns between Xenium and Visium for shared genes.
+
+```{r compare_assays}
+# Extract counts for shared genes
+xenium_shared <- assay(experiments(mase)$xenium, "counts")[shared_genes, ]
+visium_shared <- assay(experiments(mase)$visium, "counts")[shared_genes, ]
+
+# Calculate mean expression per gene
+xenium_means <- rowMeans(xenium_shared)
+visium_means <- rowMeans(visium_shared)
+
+# Plot correlation
+plot(log1p(xenium_means), log1p(visium_means),
+     pch = 16, col = rgb(0, 0, 0, 0.5),
+     xlab = "log1p(mean Xenium counts)",
+     ylab = "log1p(mean Visium counts)",
+     main = "Gene expression correlation")
+abline(0, 1, col = "red", lty = 2)
+
+# Correlation
+cor_val <- cor(xenium_means, visium_means, method = "spearman")
+text(0.5, max(log1p(visium_means)) * 0.9,
+     paste("Spearman rho =", round(cor_val, 3)),
+     pos = 4)
+```
+
+## Integration insights
+
+Key findings from this analysis:
+
+1. **Spatial resolution**: Xenium provides single-cell resolution, while Visium
+   captures tissue-level patterns with multiple cells per spot.
+
+2. **Gene overlap**: Shared genes allow direct comparison and validation between
+   technologies.
+
+3. **Cell type deconvolution**: Xenium cell type information can be transferred
+   to Visium spots, revealing cellular composition.
+
+4. **Regional patterns**: Both assays can be aggregated by anatomical regions
+   for comparative analysis.
+
+5. **Complementary data**: Xenium's high resolution complements Visium's broad
+   transcriptomic coverage.
+
+# Workflow 2: Coordinate transformation and alignment
+
+When integrating data from different spatial platforms, coordinate systems often
+differ. This workflow demonstrates how to align Xenium and Visium data using
+spatial transformations.
+
+## Background
+
+Xenium and Visium may use different coordinate systems:
+
+- **Xenium**: Microns (µm) from a reference origin
+- **Visium**: Grid indices (row/column) or pixel coordinates
+
+To overlay them, you need to:
+
+1. Convert Visium grid indices to physical coordinates (microns)
+2. Apply transformations (translation, scaling, rotation) to align modalities
+3. Store transformed coordinates in MASE
+
+## Converting Visium grid to microns
+
+Visium spots are arranged in a hexagonal grid. Each spot is ~55 µm diameter,
+with center-to-center spacing of ~100 µm.
+
+```{r vis_to_microns}
+# Visium spot coordinates (grid indices from Space Ranger)
+visium_grid <- DataFrame(
+  row_idx = c(0, 0, 1, 1, 2, 2),
+  col_idx = c(0, 1, 0, 1, 0, 1),
+  instance_id = paste0("Spot", 1:6)
+)
+
+# Convert to microns (approximate)
+# Spot spacing: ~100 µm horizontally, ~87 µm vertically (hexagonal)
+visium_microns <- DataFrame(
+  x = visium_grid$col_idx * 100,  # Column → x
+  y = visium_grid$row_idx * 87,   # Row → y (hexagonal offset)
+  instance_id = visium_grid$instance_id
+)
+
+visium_microns
+```
+
+## Applying affine transformations
+
+For precise alignment, use affine transformations (translation, rotation, scaling):
+
+```{r affine_transform}
+# Define affine matrix: translate by (50, 30), scale by 1.2, no rotation
+# Format: 2x3 matrix [a b c; d e f] where:
+#   x' = a*x + b*y + c
+#   y' = d*x + e*y + f
+
+affine_matrix <- matrix(c(
+  1.2, 0.0, 50,   # x' = 1.2*x + 0*y + 50 (scale + translate)
+  0.0, 1.2, 30    # y' = 0*x + 1.2*y + 30 (scale + translate)
+), nrow = 2, byrow = TRUE)
+
+# Apply transformation
+apply_affine <- function(pts, mat) {
+  x_new <- mat[1, 1] * pts$x + mat[1, 2] * pts$y + mat[1, 3]
+  y_new <- mat[2, 1] * pts$x + mat[2, 2] * pts$y + mat[2, 3]
+  DataFrame(x = x_new, y = y_new, instance_id = pts$instance_id)
+}
+
+# Simulate Xenium coordinates
+xenium_original <- DataFrame(
+  x = c(100, 150, 200, 250, 300),
+  y = c(100, 150, 200, 150, 100),
+  instance_id = paste0("Cell", 1:5)
+)
+
+# Transform Xenium to align with Visium
+xenium_aligned <- apply_affine(xenium_original, affine_matrix)
+
+xenium_aligned
+```
+
+## Landmark-based alignment
+
+When you have known landmarks (tissue features visible in both modalities), use
+them to compute an optimal transformation:
+
+```{r landmark_alignment}
+# Example: three landmarks in both Xenium and Visium
+# In practice, these would be manually identified features (blood vessels, etc.)
+
+xenium_landmarks <- matrix(c(
+  100, 100,
+  200, 150,
+  300, 200
+), ncol = 2, byrow = TRUE)
+
+visium_landmarks <- matrix(c(
+  50, 50,
+  150, 100,
+  250, 150
+), ncol = 2, byrow = TRUE)
+
+cat("Landmark-based alignment workflow:\n")
+cat("1. Identify 3+ corresponding landmarks in both modalities\n")
+cat("2. Compute affine/rigid transformation using:\n")
+cat("   - Procrustes analysis (for rigid transformations)\n")
+cat("   - Least squares fitting (for affine transformations)\n")
+cat("   - Or use packages like RNiftyReg, imager, or EBImage\n")
+cat("3. Apply transformation to all points\n")
+cat("4. Validate alignment visually\n")
+cat("5. Store transformed coordinates in MASE\n")
+```
+
+## Storing transformed coordinates
+
+Store both original and aligned coordinates as separate layers for flexibility:
+
+```{r store_transformed_coords}
+# Create MASE with both coordinate systems
+# Original Xenium coordinates
+pts_original <- PointsLayerList(xenium_original = xenium_original)
+
+# Aligned Xenium coordinates
+pts_aligned <- PointsLayerList(xenium_aligned = xenium_aligned)
+
+# Visium coordinates
+pts_visium <- PointsLayerList(visium_coords = visium_microns)
+
+# You can store all in the same MASE object
+# This allows:
+# - Comparing original vs aligned coordinates
+# - Refining alignment iteratively
+# - Switching between coordinate systems as needed
+```
+
+## Visualizing alignment
+
+Check alignment quality visually:
+
+```{r vis_alignment, fig.width = 10, fig.height = 5}
+par(mfrow = c(1, 2))
+
+# Before alignment
+plot(xenium_original$x, xenium_original$y,
+     pch = 16, col = "red", cex = 1.5,
+     main = "Before alignment",
+     xlab = "x (µm)", ylab = "y (µm)",
+     xlim = c(0, 400), ylim = c(0, 350))
+points(visium_microns$x, visium_microns$y,
+       pch = 21, bg = "blue", cex = 3)
+legend("topright", legend = c("Xenium (cells)", "Visium (spots)"),
+       col = c("red", "blue"), pch = c(16, 21), pt.cex = c(1.5, 2))
+
+# After alignment
+plot(xenium_aligned$x, xenium_aligned$y,
+     pch = 16, col = "red", cex = 1.5,
+     main = "After alignment",
+     xlab = "x (µm)", ylab = "y (µm)",
+     xlim = c(0, 400), ylim = c(0, 350))
+points(visium_microns$x, visium_microns$y,
+       pch = 21, bg = "blue", cex = 3)
+legend("topright", legend = c("Xenium (aligned)", "Visium (spots)"),
+       col = c("red", "blue"), pch = c(16, 21), pt.cex = c(1.5, 2))
+```
+
+# Workflow 3: Multi-sample analysis
+
+MASE excels at managing multiple tissue sections or patients. Here's a brief
+example:
+
+```{r multi_sample, eval = FALSE}
+# Suppose we have data from 3 patients
+# Each with Xenium + Visium
+
+# Specimen metadata
+specimens_multi <- DataFrame(
+  patient_id = c(rep("P001", 150), rep("P002", 120), rep("P003", 180)),
+  tissue = "mouse_brain",
+  condition = c(rep("control", 150), rep("treated", 120), rep("treated", 180)),
+  row.names = paste0("Sample", 1:450)
+)
+
+# Build sampleMap linking all assays to specimens
+# ... (similar to single-sample example)
+
+# With MASE, you can:
+# - Subset by patient: mase[, colData(mase)$patient_id == "P001", ]
+# - Subset by condition: mase[, colData(mase)$condition == "control", ]
+# - Analyze spatial patterns per patient
+# - Compare conditions across patients
+```
+
+# Workflow 4: Iterative analysis pattern
+
+A typical analysis workflow:
+
+```{r workflow, eval = FALSE}
+# 1. Load data and build MASE
+mase <- build_mase_from_files("xenium.h5", "visium.h5")
+
+# 2. Quality control: subset to high-quality cells/spots
+mase_qc <- mase[, colData(mase)$qc_pass, ]
+
+# 3. Spatial filtering: focus on region of interest
+roi <- define_roi_polygon(x_range = c(100, 500), y_range = c(200, 600))
+mase_roi <- subsetByPolygon(mase_qc, roi)
+
+# 4. Spatial annotation
+mase_annotated <- annotateWithRegions(mase_roi, anatomical_regions)
+
+# 5. Aggregation for downstream analysis
+mase_aggregated <- aggregateByRegion(mase_annotated, cell_type_column = "cell_type")
+
+# 6. Differential expression by region
+# (use standard Bioconductor tools on aggregated data)
+
+# 7. Visualization and export
+plot_spatial(mase_annotated, color_by = "cell_type")
+export_for_napari(mase_annotated, "output.zarr")
+```
+
+# Summary
+
+`MultiAssaySpatialExperiment` provides a unified framework for:
+
+- **Integrating** multiple spatial assays (Xenium, Visium, MERFISH, etc.)
+- **Managing** specimen metadata and spatial coordinates consistently
+- **Linking** assay columns to spatial elements via `sampleMap` and `spatialMap`
+- **Subsetting** by specimen, region, or spatial query
+- **Annotating** and **aggregating** spatial data
+- **Analyzing** multi-assay, multi-sample spatial experiments
+
+The relational database design ensures:
+- **Referential integrity**: All links stay consistent during subsetting
+- **Flexibility**: Add or remove assays/spatial elements as needed
+- **Interoperability**: Convert to/from other Bioconductor spatial classes
+
+For more examples and advanced workflows, see:
+- **Introduction** vignette: MASE structure and basics
+- **Construction** vignette: Building MASE objects
+- **Subset** vignette: Subsetting operations
+- **Spatial Aggregation** vignette: Detailed aggregation methods
+- **Advanced Topics** vignette: Coordinate systems, custom operations
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```

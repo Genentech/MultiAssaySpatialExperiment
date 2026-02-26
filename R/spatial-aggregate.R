@@ -77,7 +77,7 @@ NULL
 #'     shapes = ShapesLayerList(cells = shp_df),
 #'     spatialMap = S4Vectors::DataFrame(
 #'         assay = "assay1", colname = c("A", "B", "C"),
-#'         region = "centroids", instance_id = c("A", "B", "C")))
+#'         element_type = "points", region = "centroids", instance_id = c("A", "B", "C")))
 #' mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
 #' agg <- aggregateByRegion(mase, by = "cells", FUN = "sum")
 #' agg[["assay1"]]

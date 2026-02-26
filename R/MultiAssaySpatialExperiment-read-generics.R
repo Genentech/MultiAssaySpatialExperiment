@@ -1,0 +1,128 @@
+### =========================================================================
+### S4 Generics for MASE File Format Readers
+### -------------------------------------------------------------------------
+###
+
+#' Read Parquet Files for MASE
+#'
+#' @param file_path Character path to Parquet file
+#' @param col_select Optional character vector of column names to select
+#' @param ... Additional arguments passed to format-specific methods
+#'
+#' @return DataFrame
+#'
+#' @export
+setGeneric("readParquetForMASE",
+    function(file_path, ...) standardGeneric("readParquetForMASE"))
+
+#' @rdname readParquetForMASE
+#' @importFrom S4Vectors DataFrame wmsg
+#' @export
+setMethod("readParquetForMASE", "character",
+    function(file_path, col_select = NULL, ...) {
+        if (!requireNamespace("arrow", quietly = TRUE))
+            stop(wmsg("Package 'arrow' required for Parquet reading. ",
+                      "Install with: install.packages('arrow')"))
+
+        df <- arrow::read_parquet(file_path, col_select = col_select, ...)
+        DataFrame(df, check.names = FALSE)
+    })
+
+#' Read GeoParquet Files for MASE
+#'
+#' @param file_path Character path to GeoParquet file
+#' @param ... Additional arguments passed to format-specific methods
+#'
+#' @return sf object or equivalent object
+#'
+#' @export
+setGeneric("readGeoParquetForMASE",
+    function(file_path, ...) standardGeneric("readGeoParquetForMASE"))
+
+#' @rdname readGeoParquetForMASE
+#' @importFrom S4Vectors wmsg
+#' @export
+setMethod("readGeoParquetForMASE", "character",
+    function(file_path, ...) {
+        if (!requireNamespace("sfarrow", quietly = TRUE))
+            stop(wmsg("Package 'sfarrow' required for GeoParquet reading. ",
+                      "Install with: install.packages('sfarrow')"))
+
+        sfarrow::st_read_parquet(file_path, ...)
+    })
+
+#' Read HDF5 Files for MASE
+#'
+#' @param file_path Character path to HDF5 file
+#' @param type Character: "10x" for 10x HDF5, "anndata" for h5ad
+#' @param ... Additional arguments passed to format-specific methods
+#'
+#' @return SummarizedExperiment
+#'
+#' @export
+setGeneric("readHDF5ForMASE",
+    function(file_path, type = c("10x", "anndata"), ...) 
+        standardGeneric("readHDF5ForMASE"))
+
+#' @rdname readHDF5ForMASE
+#' @export
+setMethod("readHDF5ForMASE", c("character", "character"),
+    function(file_path, type = c("10x", "anndata"), ...) {
+        type <- match.arg(type)
+        switch(type,
+            "10x" = {
+                if (!requireNamespace("DropletUtils", quietly = TRUE))
+                    stop(wmsg("Package 'DropletUtils' required for 10x HDF5 reading. ",
+                              "Install with: BiocManager::install('DropletUtils')"))
+                DropletUtils::read10xCounts(file_path, ...)
+            },
+            "anndata" = {
+                if (!requireNamespace("zellkonverter", quietly = TRUE))
+                    stop(wmsg("Package 'zellkonverter' required for anndata HDF5 reading. ",
+                              "Install with: BiocManager::install('zellkonverter')"))
+                ## Convert to SummarizedExperiment
+                sce <- zellkonverter::readH5AD(file_path, ...)
+                as(sce, "SummarizedExperiment")
+            }
+        )
+    })
+
+#' Read GeoJSON Files for MASE
+#'
+#' @param file_path Character path to GeoJSON file
+#' @param quiet Logical, suppress sf reading messages
+#' @param ... Additional arguments passed to format-specific methods
+#'
+#' @return sf or equivalent object
+#'
+#' @export
+setGeneric("readGeoJSONForMASE",
+    function(file_path, ...) standardGeneric("readGeoJSONForMASE"))
+
+#' @rdname readGeoJSONForMASE
+#' @importFrom sf st_read
+#' @export
+setMethod("readGeoJSONForMASE", "character",
+    function(file_path, quiet = TRUE, ...) {
+        st_read(file_path, quiet = quiet, ...)
+    })
+
+#' Read CSV Files for MASE
+#'
+#' @param file_path Character path to CSV file
+#' @param ... Additional arguments passed to format-specific methods
+#'
+#' @return DataFrame
+#'
+#' @export
+setGeneric("readCSVForMASE",
+    function(file_path, ...) standardGeneric("readCSVForMASE"))
+
+#' @rdname readCSVForMASE
+#' @importFrom S4Vectors DataFrame
+#' @importFrom utils read.csv
+#' @export
+setMethod("readCSVForMASE", "character",
+    function(file_path, ...) {
+        DataFrame(read.csv(file_path, ...), check.names = FALSE)
+    })

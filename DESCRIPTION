@@ -1,6 +1,6 @@
 Package: MultiAssaySpatialExperiment
 Version: 0.9.0
-Date: 2026-02-22
+Date: 2026-02-24
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
@@ -18,6 +18,7 @@ Depends:
     methods,
     MultiAssayExperiment
 Imports:
+    tools,
     BiocGenerics,
     BiocParallel,
     S4Vectors,
@@ -25,14 +26,22 @@ Imports:
     SummarizedExperiment,
     SingleCellExperiment,
     SpatialExperiment,
-    sf
+    sf    
 Suggests:
     knitr,
     rmarkdown,
     BiocStyle,
     testthat,
+    arrow,
+    DropletUtils,
+    jsonlite,
+    sfarrow,
+    terra,
+    ggplot2,
+    RBioFormats,
+    SpatialData,
     SpatialFeatureExperiment,
-    SpatialData
+    zellkonverter
 biocViews: Infrastructure, DataRepresentation
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
@@ -44,6 +53,15 @@ Collate:
     'MultiAssaySpatialExperiment-SpatialExperiment.R'
     'MultiAssaySpatialExperiment-SpatialFeatureExperiment.R'
     'MultiAssaySpatialExperiment-combine.R'
+    'MultiAssaySpatialExperiment-read-components.R'
+    'MultiAssaySpatialExperiment-read-config.R'
+    'MultiAssaySpatialExperiment-read-cosmx.R'
+    'MultiAssaySpatialExperiment-read-generics.R'
+    'MultiAssaySpatialExperiment-read-helpers.R'
+    'MultiAssaySpatialExperiment-read-merscope.R'
+    'MultiAssaySpatialExperiment-read-visium.R'
+    'MultiAssaySpatialExperiment-read-visiumhd.R'
+    'MultiAssaySpatialExperiment-read-xenium.R'
     'MultiAssaySpatialExperiment-subset.R'
     'spatial-aggregate.R'
     'spatial-annotate.R'

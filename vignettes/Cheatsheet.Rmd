@@ -1,0 +1,402 @@
+---
+title: "MultiAssaySpatialExperiment Cheatsheet"
+author: "Patrick Aboyoun"
+date: "`r format(Sys.Date(), '%b %d, %Y')`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 2
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{MultiAssaySpatialExperiment Cheatsheet}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Quick reference
+
+MultiAssaySpatialExperiment (MASE) is a Bioconductor container for multi-assay
+spatial omics data. It extends `MultiAssayExperiment` with spatial layers:
+points, shapes, images, labels, and spatial mapping.
+
+```{r load}
+library(MultiAssaySpatialExperiment)
+```
+
+# Constructors
+
+## Create MASE from scratch
+
+```{r constructor}
+# Minimal MASE with one assay
+mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
+  dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = mat),
+  colData = DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = DataFrame(
+    assay = factor("rna"),
+    primary = paste0("S", 1:4),
+    colname = paste0("S", 1:4)
+  )
+)
+```
+
+## Add spatial layers
+
+```{r add_spatial}
+library(sf)
+
+# Points layer (coordinates)
+pts <- DataFrame(
+  x = c(1, 2, 3, 4),
+  y = c(1, 2, 3, 4),
+  instance_id = paste0("S", 1:4)
+)
+
+# Shapes layer (polygons)
+poly1 <- st_polygon(list(matrix(c(0, 0, 1, 0, 1, 1, 0, 1, 0, 0), ncol = 2, byrow = TRUE)))
+shapes <- DataFrame(
+  instance_id = "region1",
+  geometry = st_sfc(poly1)
+)
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = mat),
+  colData = DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = DataFrame(
+    assay = factor("rna"),
+    primary = paste0("S", 1:4),
+    colname = paste0("S", 1:4)
+  ),
+  points = PointsLayerList(coords = pts),
+  shapes = ShapesLayerList(cells = shapes),
+  spatialMap = DataFrame(
+    assay = factor("rna"),
+    colname = paste0("S", 1:4),
+    element_type = "points",
+    region = "coords",
+    instance_id = paste0("S", 1:4)
+  )
+)
+```
+
+## Read from vendor outputs
+
+```{r read_data}
+# Read Xenium data
+mase_xenium <- readXeniumMASE(
+  path = "path/to/xenium_output",
+  sample_id = "sample1",
+  load_cells = TRUE,
+  load_transcripts = FALSE
+)
+
+# Read Visium data
+mase_visium <- readVisiumMASE(
+  path = "path/to/spaceranger_output",
+  sample_id = "sample1",
+  images = TRUE,
+  load = "filtered"
+)
+
+# Read Visium HD data
+mase_visium_hd <- readVisiumMASE(
+  path = "path/to/spaceranger_hd_output",
+  sample_id = "sample_hd",
+  bin_size = "8um"  # or "2um", "16um"
+)
+
+# Read CosMx data
+mase_cosmx <- readCosMxMASE(
+  path = "path/to/cosmx_output",
+  sample_id = "cosmx_sample",
+  fov = "all"  # or specific FOV number(s)
+)
+
+# Read MERFISH data
+mase_merfish <- readVizgenMASE(
+  path = "path/to/vizgen_output",
+  sample_id = "merfish_sample",
+  z_plane = "all"  # or specific z-plane(s)
+)
+
+# Auto-detect technology and read
+mase_auto <- readSpatialDirectoryMASE(
+  path = "path/to/output",
+  sample_id = "auto_sample"
+)
+```
+
+# Accessors
+
+## Inherited from MultiAssayExperiment
+
+| Accessor | Returns |
+|----------|---------|
+| `experiments(mase)` | List of assays (ExperimentList) |
+| `colData(mase)` | Specimen metadata (DataFrame) |
+| `sampleMap(mase)` | Links specimens to assay columns (DataFrame) |
+| `metadata(mase)` | Study-level metadata (list) |
+
+## MASE-specific spatial accessors
+
+| Accessor | Returns |
+|----------|---------|
+| `spatialPoints(mase)` | Points layers (PointsLayerList) |
+| `spatialShapes(mase)` | Shapes layers (ShapesLayerList) |
+| `spatialImages(mase)` | Images layers (RasterLayerList) |
+| `spatialLabels(mase)` | Labels layers (RasterLayerList) |
+| `spatialMap(mase)` | Links assay columns to spatial elements (DataFrame) |
+| `imgData(mase)` | Image metadata (DataFrame) |
+
+## Extract individual layers
+
+```{r extract_layers}
+# Get all points layers
+pts_all <- spatialPoints(mase)
+
+# Get specific layer by name
+coords <- spatialPoints(mase)[["coords"]]
+
+# Get shapes
+cells <- spatialShapes(mase)[["cells"]]
+```
+
+## Setters
+
+```{r setters}
+# Replace points layer
+spatialPoints(mase)[["coords"]] <- new_pts
+
+# Replace entire points list
+spatialPoints(mase) <- PointsLayerList(coords = pts, nuclei = nuclei_pts)
+
+# Same pattern for shapes, images, labels, spatialMap, imgData
+```
+
+# Subsetting
+
+## By row, column, assay
+
+```{r subset_bracket}
+# Bracket notation: mase[rows, cols, assays]
+mase[1:3, , ]                  # First 3 features
+mase[, c("S1", "S2"), ]        # Specimens S1, S2
+mase[, , "rna"]                # Assay "rna"
+mase[1:3, c("S1", "S2"), "rna"] # Combined
+```
+
+## By spatial region
+
+```{r subset_spatial}
+# Bounding box
+mase_roi <- subsetByBoundingBox(mase, xmin = 0, xmax = 100, ymin = 0, ymax = 100)
+
+# Polygon
+library(sf)
+poly <- st_polygon(list(matrix(c(0, 0, 100, 0, 100, 100, 0, 100, 0, 0), ncol = 2, byrow = TRUE)))
+mase_poly <- subsetByPolygon(mase, poly)
+```
+
+## By assay
+
+```{r subset_assay}
+# Keep only specific assays
+mase_rna <- subsetByAssay(mase, "rna")
+```
+
+## By colData (specimens)
+
+```{r subset_coldata}
+# Keep specific specimens
+mase_subset <- subsetByColData(mase, c("S1", "S3"))
+```
+
+# Operations
+
+## Combining
+
+```{r combine}
+# Combine two MASE objects (c method)
+mase_combined <- c(mase1, mase2)
+```
+
+## Data extraction
+
+```{r extract}
+# Long format (for plotting, analysis)
+long_df <- longFormat(mase)
+
+# Wide format
+wide_df <- wideFormat(mase)
+
+# Complete cases (specimens with data in all assays)
+complete_specimens <- complete.cases(mase)
+```
+
+## Intersecting
+
+```{r intersect}
+# Keep rows (features) present in all assays
+mase_intersect_rows <- intersectRows(mase)
+
+# Keep columns (specimens) present in all assays
+mase_intersect_cols <- intersectColumns(mase)
+```
+
+## Replicates
+
+```{r replicates}
+# Merge technical replicates
+mase_merged <- mergeReplicates(mase, replicates = c("S1", "S1_rep"), simplify = mean)
+```
+
+# Spatial operations
+
+## Annotate with regions
+
+```{r annotate}
+# Link points to shapes (spatial join)
+mase <- annotateWithRegions(mase, points = "coords", shapes = "cells")
+
+# spatialMap now has a "cells" column showing which cell each point is in
+spatialMap(mase)
+```
+
+## Aggregate by region
+
+```{r aggregate}
+# Sum expression per cell
+agg_sum <- aggregateByRegion(mase, by = "cells", FUN = "sum")
+
+# Mean expression per cell
+agg_mean <- aggregateByRegion(mase, by = "cells", FUN = "mean")
+
+# Count points per cell
+agg_count <- aggregateByRegion(mase, by = "cells", FUN = "count")
+```
+
+# Coercion
+
+## To/from SpatialExperiment
+
+```{r coerce_spe}
+# MASE → SpatialExperiment (first assay only)
+spe <- as(mase, "SpatialExperiment")
+
+# SpatialExperiment → MASE
+mase_from_spe <- as(spe, "MultiAssaySpatialExperiment")
+```
+
+## To/from SingleCellExperiment
+
+```{r coerce_sce}
+# MASE → SingleCellExperiment (first assay)
+sce <- as(mase, "SingleCellExperiment")
+
+# SingleCellExperiment → MASE
+mase_from_sce <- as(sce, "MultiAssaySpatialExperiment")
+```
+
+## To/from SummarizedExperiment
+
+```{r coerce_se}
+# MASE → SummarizedExperiment (first assay)
+se <- as(mase, "SummarizedExperiment")
+
+# SummarizedExperiment → MASE
+mase_from_se <- as(se, "MultiAssaySpatialExperiment")
+```
+
+# Methods list
+
+```{r methods_list}
+# All methods for MASE
+methods(class = "MultiAssaySpatialExperiment")
+
+# Inherited MultiAssayExperiment methods
+methods(class = "MultiAssayExperiment")
+```
+
+# Quick workflows
+
+## Workflow 1: Build MASE from SE
+
+```{r workflow_se}
+# Start with SummarizedExperiment
+se <- SummarizedExperiment(assays = list(counts = mat))
+
+# Add spatial coordinates
+coords <- DataFrame(x = runif(4), y = runif(4), instance_id = paste0("S", 1:4))
+
+# Coerce to MASE
+mase <- as(se, "MultiAssaySpatialExperiment")
+spatialPoints(mase) <- PointsLayerList(coords = coords)
+```
+
+## Workflow 2: Spatial query + aggregation
+
+```{r workflow_spatial}
+# 1. Subset to region of interest
+mase_roi <- subsetByBoundingBox(mase, xmin = 0, xmax = 500, ymin = 0, ymax = 500)
+
+# 2. Annotate points with cell boundaries
+mase_roi <- annotateWithRegions(mase_roi, points = "transcripts", shapes = "cells")
+
+# 3. Aggregate transcripts per cell
+cell_expr <- aggregateByRegion(mase_roi, by = "cells", FUN = "sum")
+
+# 4. Downstream analysis (clustering, DE, etc.)
+# Use cell_expr as a regular matrix/SummarizedExperiment
+```
+
+## Workflow 3: Multi-assay spatial integration
+
+```{r workflow_multiassay}
+# MASE with RNA + protein assays
+mase_multi <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = rna_mat, protein = protein_mat),
+  colData = coldata,
+  sampleMap = samplemap,
+  points = PointsLayerList(coords = coords),
+  spatialMap = spatialmap
+)
+
+# Both assays share the same spatial coordinates
+# Analyze co-localization, correlation, etc.
+rna_expr <- experiments(mase_multi)$rna
+protein_expr <- experiments(mase_multi)$protein
+
+# Spatial correlation per gene-protein pair
+# (custom analysis code here)
+```
+
+# See also
+
+| Topic | Vignette |
+|-------|----------|
+| Getting started | `Introduction` |
+| Object construction | `Construction` |
+| Subsetting operations | `Subset` |
+| Spatial annotation & aggregation | `SpatialAggregation` |
+| Multi-modal workflows | `UseCases` |
+| Coordinate systems, segmentation | `AdvancedTopics` |
+| Coercion between classes | `Coercion` |
+
+# Session info
+
+```{r sessionInfo, eval = TRUE}
+sessionInfo()
+```

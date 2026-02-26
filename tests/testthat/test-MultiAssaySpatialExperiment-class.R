@@ -122,20 +122,41 @@ test_that("spatialLabels<-, spatialPoints<-, spatialShapes<- work", {
 })
 
 test_that("imgData<- and spatialMap<- work", {
-    mase <- MultiAssaySpatialExperiment()
+    ## Create MASE with experiment and colData
+    mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("G1", "c"))
+    pts <- DataFrame(x = 1, y = 2, instance_id = "1")
+    expList <- ExperimentList(a = mat)
+    cd <- DataFrame(row.names = "S1")
+    sm <- DataFrame(
+        assay = factor("a", "a"),
+        primary = "S1",
+        colname = "c"
+    )
+    
+    mase <- MultiAssaySpatialExperiment(
+        experiments = expList,
+        colData = cd,
+        sampleMap = sm,
+        points = PointsLayerList(r1 = pts)
+    )
+    
+    ## Test imgData setter
     idf <- DataFrame(sample_id = "S1", data_id = "img1")
     imgData(mase) <- idf
     expect_equal(imgData(mase), idf)
     expect_true(validObject(mase))
 
+    ## Test spatialMap setter (now with valid region reference)
     smap <- DataFrame(
         assay = factor("a", "a"),
         colname = "c",
+        element_type = "points",
         region = "r1",
-        instance_id = 1L
+        instance_id = "1"
     )
     spatialMap(mase) <- smap
     expect_equal(spatialMap(mase), smap)
+    expect_true(validObject(mase))
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -248,4 +269,183 @@ test_that("spatialImageNames, spatialLabelNames, spatialPointNames, spatialShape
     expect_equal(spatialLabelNames(mase), "cells")
     expect_equal(spatialPointNames(mase), "transcripts")
     expect_equal(spatialShapeNames(mase), "regions")
+})
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Phase 4: Validation (E4 - instance_id strengthening)
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+test_that("spatialMap validation detects NA in spatialMap instance_id", {
+    mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
+        dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+    pts <- DataFrame(x = c(1, 2, 3, 4), y = c(5, 6, 7, 8), 
+                    instance_id = paste0("S", 1:4))
+    expList <- ExperimentList(assay1 = mat)
+    cd <- DataFrame(row.names = paste0("S", 1:4))
+    sm <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        primary = paste0("S", 1:4),
+        colname = paste0("S", 1:4)
+    )
+    
+    ## spatialMap with NA instance_id should fail
+    smap_na <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        colname = paste0("S", 1:4),
+        element_type = rep("points", 4),
+        region = rep("transcripts", 4),
+        instance_id = c("S1", "S2", NA, "S4")
+    )
+    
+    expect_error(
+        MultiAssaySpatialExperiment(
+            experiments = expList,
+            colData = cd,
+            sampleMap = sm,
+            points = PointsLayerList(transcripts = pts),
+            spatialMap = smap_na
+        ),
+        "spatialMap.*instance_id.*NA"
+    )
+})
+
+test_that("spatialMap validation detects NA in layer instance_id column", {
+    mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
+        dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+    
+    ## Layer with NA in instance_id column
+    pts_na <- DataFrame(x = c(1, 2, 3, 4), y = c(5, 6, 7, 8), 
+                       instance_id = c("S1", "S2", NA, "S4"))
+    
+    expList <- ExperimentList(assay1 = mat)
+    cd <- DataFrame(row.names = paste0("S", 1:4))
+    sm <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        primary = paste0("S", 1:4),
+        colname = paste0("S", 1:4)
+    )
+    smap <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        colname = paste0("S", 1:4),
+        element_type = rep("points", 4),
+        region = rep("transcripts", 4),
+        instance_id = paste0("S", 1:4)
+    )
+    
+    expect_error(
+        MultiAssaySpatialExperiment(
+            experiments = expList,
+            colData = cd,
+            sampleMap = sm,
+            points = PointsLayerList(transcripts = pts_na),
+            spatialMap = smap
+        ),
+        "instance_id column in points.*transcripts.*NA"
+    )
+})
+
+test_that("instance_id type warning for unusual types", {
+    mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
+        dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+    
+    ## Layer with logical instance_id (unusual type)
+    pts_logical <- DataFrame(x = c(1, 2, 3, 4), y = c(5, 6, 7, 8), 
+                            instance_id = c(TRUE, FALSE, TRUE, FALSE))
+    
+    expList <- ExperimentList(assay1 = mat)
+    cd <- DataFrame(row.names = paste0("S", 1:4))
+    sm <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        primary = paste0("S", 1:4),
+        colname = paste0("S", 1:4)
+    )
+    smap <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        colname = paste0("S", 1:4),
+        element_type = rep("points", 4),
+        region = rep("transcripts", 4),
+        instance_id = c("TRUE", "FALSE", "TRUE", "FALSE")
+    )
+    
+    ## Should warn about unusual type but not error
+    expect_warning(
+        MultiAssaySpatialExperiment(
+            experiments = expList,
+            colData = cd,
+            sampleMap = sm,
+            points = PointsLayerList(transcripts = pts_logical),
+            spatialMap = smap
+        ),
+        "instance_id in points.*transcripts.*unusual type.*logical"
+    )
+})
+
+test_that("instance_id recommended types work without warnings", {
+    mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
+        dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+    expList <- ExperimentList(assay1 = mat)
+    cd <- DataFrame(row.names = paste0("S", 1:4))
+    sm <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        primary = paste0("S", 1:4),
+        colname = paste0("S", 1:4)
+    )
+    
+    ## Test integer instance_id
+    pts_int <- DataFrame(x = c(1, 2, 3, 4), y = c(5, 6, 7, 8), 
+                        instance_id = 1:4)
+    smap_int <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        colname = paste0("S", 1:4),
+        element_type = rep("points", 4),
+        region = rep("transcripts", 4),
+        instance_id = as.character(1:4)
+    )
+    ## Should not produce warnings for recommended types
+    mase_int <- suppressWarnings(
+        MultiAssaySpatialExperiment(
+            experiments = expList, colData = cd, sampleMap = sm,
+            points = PointsLayerList(transcripts = pts_int),
+            spatialMap = smap_int
+        )
+    )
+    expect_s4_class(mase_int, "MultiAssaySpatialExperiment")
+    
+    ## Test character instance_id
+    pts_char <- DataFrame(x = c(1, 2, 3, 4), y = c(5, 6, 7, 8), 
+                         instance_id = paste0("S", 1:4))
+    smap_char <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        colname = paste0("S", 1:4),
+        element_type = rep("points", 4),
+        region = rep("transcripts", 4),
+        instance_id = paste0("S", 1:4)
+    )
+    mase_char <- suppressWarnings(
+        MultiAssaySpatialExperiment(
+            experiments = expList, colData = cd, sampleMap = sm,
+            points = PointsLayerList(transcripts = pts_char),
+            spatialMap = smap_char
+        )
+    )
+    expect_s4_class(mase_char, "MultiAssaySpatialExperiment")
+    
+    ## Test factor instance_id
+    pts_factor <- DataFrame(x = c(1, 2, 3, 4), y = c(5, 6, 7, 8), 
+                           instance_id = factor(paste0("S", 1:4)))
+    smap_factor <- DataFrame(
+        assay = factor(rep("assay1", 4), levels = "assay1"),
+        colname = paste0("S", 1:4),
+        element_type = rep("points", 4),
+        region = rep("transcripts", 4),
+        instance_id = paste0("S", 1:4)
+    )
+    mase_factor <- suppressWarnings(
+        MultiAssaySpatialExperiment(
+            experiments = expList, colData = cd, sampleMap = sm,
+            points = PointsLayerList(transcripts = pts_factor),
+            spatialMap = smap_factor
+        )
+    )
+    expect_s4_class(mase_factor, "MultiAssaySpatialExperiment")
 })

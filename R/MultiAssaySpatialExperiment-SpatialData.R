@@ -20,6 +20,10 @@ NULL
     if (inherits(dat, "arrow_dplyr_query"))
         dat <- get("collect", asNamespace("dplyr"))(dat)
     df <- as.data.frame(dat)
+    ## Ensure instance_id column exists (rename 'id' if present)
+    if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df)) {
+        colnames(df)[colnames(df) == "id"] <- "instance_id"
+    }
     DataFrame(df)
 }
 
@@ -29,6 +33,10 @@ NULL
     if (inherits(dat, "arrow_dplyr_query"))
         dat <- get("collect", asNamespace("dplyr"))(dat)
     df <- as.data.frame(dat)
+    ## Ensure instance_id column exists (rename 'id' if present)
+    if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df)) {
+        colnames(df)[colnames(df) == "id"] <- "instance_id"
+    }
     DataFrame(df)
 }
 
@@ -76,12 +84,21 @@ NULL
         } else {
             inst <- seq_len(ncol(sce))
         }
+        
+        ## Determine element_type by searching which spatialdata slot contains the region
+        ## This aligns with spatialdata's implicit search behavior
         in_pts <- region %in% names(pts)
         in_shps <- region %in% names(shps)
+        
         if (in_pts || in_shps) {
+            ## Set element_type based on which slot contains the region
+            ## If in both (ambiguous), points takes precedence (matching spatialdata behavior)
+            element_type <- if (in_pts) "points" else "shapes"
+            
             spmap_rows[[length(spmap_rows) + 1L]] <- DataFrame(
                 assay = factor(rep(ass, length(colnms)), tnames),
                 colname = colnms,
+                element_type = rep(element_type, length(colnms)),
                 region = rep(region, length(colnms)),
                 instance_id = inst
             )
@@ -175,6 +192,14 @@ NULL
     spmap <- spatialMap(from)
     rk <- "rk"
     ik <- "instance_id"
+    
+    ## Note: spatialMap element_type is used during MASE construction/validation
+    ## to route regions to correct MASE slots (points vs shapes). When converting
+    ## to SpatialData, we simply place each region in its corresponding spatialdata
+    ## slot, and the spatialdata_attrs metadata in each table stores only the
+    ## region name (not element_type), because spatialdata searches across all
+    ## slots to resolve region references.
+    
     tbl_list <- lapply(seq_along(exps), function(k) {
         exp <- exps[[k]]
         if (!is(exp, "SingleCellExperiment"))
@@ -325,7 +350,7 @@ NULL
 
     setMethod("layer", c("MultiAssaySpatialExperiment", "numeric"),
         function(x, i) {
-            if (length(i) != 1L || i <= 0 || i > 5L || i != round(i))
+            if (length(i) != 1L || i <= 0L || i > 5L || i != round(i))
                 stop("invalid 'i'; should be an integer in [1, 5], or a ",
                      "string in ", dQuote(paste(.LAYERS, collapse = "/")))
             SpatialData::layer(x, .LAYERS[i])
@@ -344,7 +369,7 @@ NULL
             n <- length(y)
             if (n == 0L) stop("there aren't any ", dQuote(i))
             if (is.infinite(j)) j <- n
-            if (length(j) != 1L || j <= 0 || j > n || j != round(j))
+            if (length(j) != 1L || j <= 0L || j > n || j != round(j))
                 stop("invalid 'j'; should be a scalar integer or ",
                      "a string specifying an element in layer 'i'")
             j <- names(y)[j]

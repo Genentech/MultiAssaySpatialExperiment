@@ -37,8 +37,9 @@ with spatial context: raster data (images, labels), points, and shapes.
 MultiAssaySpatialExperiment provides slots for spatial layers that complement
 the \code{ExperimentList}. The \code{sampleMap} links experiment columns to
 primary identifiers; the optional \code{spatialMap} provides instance-level
-mapping (\code{assay}, \code{colname}, \code{region}, \code{instance_id})
-linking experiment columns to rows in the spatial point or shape layers.
+mapping (\code{assay}, \code{colname}, \code{element_type}, \code{region},
+\code{instance_id}) linking experiment columns to rows in the spatial point
+or shape layers via explicit foreign key.
 }
 \section{Slots}{
 
@@ -64,10 +65,44 @@ linking experiment columns to rows in the spatial point or shape layers.
     SpatialExperiments.
   }
   \item{\code{spatialMap}}{
-    Optional \code{DataFrame} for instance-level mapping:
-    (\code{assay}, \code{colname}, \code{region}, \code{instance_id})
-    linking experiment columns to spatial layer rows.
+    Optional \code{DataFrame} for instance-level mapping with required columns:
+    \describe{
+      \item{\code{assay}}{Experiment name (factor; must be in \code{names(experiments)})}
+      \item{\code{colname}}{Column identifier within that experiment}
+      \item{\code{element_type}}{Spatial slot discriminator; one of \code{"points"} or \code{"shapes"}}
+      \item{\code{region}}{Layer name within that element type (e.g., \code{"cells"}, \code{"nuclei"})}
+      \item{\code{instance_id}}{Row identifier in that layer (character or integer; no NAs)}
+    }
+    The \code{element_type} column disambiguates spatial layers with the same
+    name in different slots (e.g., \code{points$cells} vs. \code{shapes$cells}).
+    This explicit routing eliminates ambiguity and enables robust foreign key
+    validation.
   }
+}
+}
+
+\section{Terminology and spatialdata alignment}{
+
+MASE adopts terminology from Python spatialdata where practical while following
+Bioconductor S4 conventions:
+\itemize{
+  \item \code{element_type}: Matches spatialdata's element type discriminator
+    (values: \code{"points"}, \code{"shapes"}, \code{"images"}, \code{"labels"}).
+    Currently only \code{"points"} and \code{"shapes"} are supported in
+    \code{spatialMap} linkage; images and labels are reference layers accessed
+    via \code{spatialImages()} and \code{spatialLabels()}.
+  \item \code{region}: Corresponds to spatialdata's region (layer name within an
+    element type).
+  \item \code{instance_id}: Matches spatialdata's instance identifier (row ID
+    within a region). Recommended types: integer, character, or factor. Must be
+    unique within each (\code{element_type}, \code{region}) combination.
+  \item Class naming: MASE uses "Layer" suffix (\code{PointsLayerList},
+    \code{ShapesLayerList}) rather than "Element" to avoid R naming collisions.
+    See \code{?SpatialLayerList} for details.
+  \item Accessor naming: MASE uses \code{spatialPoints()}, \code{spatialShapes()}
+    (with "spatial" prefix) as S4 generics, while spatialdata uses bare attribute
+    access (\code{sdata.points}, \code{sdata.shapes}). This follows Bioconductor
+    conventions and avoids conflicts with base R functions.
 }
 }
 
