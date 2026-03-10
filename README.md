@@ -14,7 +14,7 @@
 - **Instance-level mapping**: Link assay columns to specific spatial features via `spatialMap`
 - **Built-in readers**: Load data from Xenium, Visium, Visium HD, MERSCOPE, and CosMx
 - **Spatial operations**: Annotate, aggregate, subset by spatial criteria
-- **Full interoperability**: Coercion to/from SpatialExperiment, SpatialFeatureExperiment, and SpatialData
+- **Full interoperability**: Coercion to/from SpatialExperiment and SpatialFeatureExperiment
 
 ## Installation
 
@@ -90,11 +90,6 @@ mase <- as(spe, "MultiAssaySpatialExperiment")
 # From SpatialFeatureExperiment
 sfe <- SpatialFeatureExperiment(...)
 mase <- as(sfe, "MultiAssaySpatialExperiment")
-
-# From SpatialData
-library(SpatialData)
-sd <- SpatialData(...)
-mase <- as(sd, "MultiAssaySpatialExperiment")
 ```
 
 ## Core Features
@@ -188,19 +183,6 @@ mase <- MultiAssaySpatialExperiment(
 )
 ```
 
-### For SpatialData users
-
-**Problem**: SpatialData uses Zarr/Parquet on-disk format. Need Bioconductor S4 objects for existing workflows.
-
-**Solution**: MASE provides Bioconductor-native representation with full coercion. Work in SpatialData's standardized format, analyze in Bioconductor's ecosystem.
-
-```r
-# Round-trip between ecosystems
-sd <- SpatialData(...)
-mase <- as(sd, "MultiAssaySpatialExperiment")  # For Bioconductor analysis
-sd2 <- as(mase, "SpatialData")                 # Back to SpatialData format
-```
-
 ## Architecture
 
 ### Core Components
@@ -280,9 +262,8 @@ browseVignettes("MultiAssaySpatialExperiment")
 - `spatialMap()`, `imgData()`
 
 **Coercion**:
-- `as(x, "MultiAssaySpatialExperiment")`: From SPE/SFE/SpatialData
+- `as(x, "MultiAssaySpatialExperiment")`: From SPE/SFE
 - `as(mase, "SpatialExperiment")`: To SPE
-- `as(mase, "SpatialData")`: To SpatialData format
 
 ## Design Principles
 
@@ -332,7 +313,7 @@ Add new platforms without modifying core code.
 - **13 test files**: Comprehensive unit and integration tests
 - **4 vignettes**: From quick start to advanced workflows
 - **5 technology readers**: Production-ready
-- **3 coercion methods**: SPE ↔ MASE ↔ SpatialData
+- **3 coercion methods**: SPE ↔ MASE
 
 ## Development Status
 
@@ -341,7 +322,7 @@ Add new platforms without modifying core code.
 - ✅ Core class implementation complete
 - ✅ Spatial operations (annotate, aggregate, subset)
 - ✅ Reader architecture (5 technologies)
-- ✅ Full interoperability (SPE, SFE, SpatialData)
+- ✅ Full interoperability (SPE, SFE)
 - ✅ Comprehensive documentation
 - ⏳ Bioconductor submission planned
 
@@ -362,5 +343,3 @@ Copyright (c) 2023-2026 Genentech, Inc.
 - [MultiAssayExperiment](https://bioconductor.org/packages/MultiAssayExperiment): Parent class for multi-assay data
 - [SpatialExperiment](https://bioconductor.org/packages/SpatialExperiment): Single-assay spatial data
 - [SpatialFeatureExperiment](https://bioconductor.org/packages/SpatialFeatureExperiment): Geometry-aware single-assay
-- [SpatialData](https://github.com/scverse/spatialdata): Python spatial data framework
-- [spatialdata-io](https://github.com/scverse/spatialdata-io): Technology readers for SpatialData

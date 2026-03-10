@@ -2,7 +2,7 @@
 ### Package load / unload
 ### -------------------------------------------------------------------------
 ###
-### .onLoad registers SFE and SpatialData methods/coercions when those
+### .onLoad registers SFE methods/coercions when those
 ### packages are already loaded (isNamespaceLoaded).
 ###
 ### -------------------------------------------------------------------------
@@ -15,9 +15,5 @@
     if (isNamespaceLoaded("SpatialFeatureExperiment")) {
         .register_SFE_coercion()
         .register_SFE_methods()
-    }
-    if (isNamespaceLoaded("SpatialData")) {
-        .register_SpatialData_coercion()
-        .register_SpatialData_methods()
     }
 }

@@ -83,15 +83,6 @@ to update, referential integrity enforced. When you subset by specimen or assay,
 the spatial maps and element lists stay in sync. You do not have to remember to
 clean up coordinates or drop orphaned geometries manually.
 
-The alternative—used by `SpatialData` and the scverse ecosystem—stores the linkage
-inside each table. Each assay carries its own metadata saying "I annotate region
-X, use instance_key Y." To find out which assays have spatial data, you loop
-over tables and peek at their metadata. To subset consistently, you must touch
-every table and hope you did not miss one. It works, but it is not the way you
-would design a database. MASE follows the Bioconductor approach: central mapping
-tables, explicit foreign keys, and validity checks that guarantee the links stay
-correct. If that sounds like good schema design to you, MASE is built for you.
-
 # When to use MASE
 
 Use `MultiAssaySpatialExperiment` when:
@@ -102,14 +93,8 @@ Use `MultiAssaySpatialExperiment` when:
   spatial elements (coordinates, shapes, images), and the links between them.
 - You want **subsetting and merging** that keep all links consistent—no manual
   cleanup, no orphaned geometry.
-- You need to **convert** to or from `SpatialExperiment`,
-  `SpatialFeatureExperiment`, or `SpatialData` for downstream tools.
-
-If you have a single assay with spatial data, `SpatialExperiment` or
-`SpatialFeatureExperiment` may be enough. If you need on-disk,
-Python-interoperable storage, `SpatialData` has that niche. MASE sits in the
-middle: multi-assay, in-memory, and built on the same relational principles as
-MAE.
+- You need to **convert** to or from `SpatialExperiment` or
+  `SpatialFeatureExperiment` for downstream tools.
 
 # Anatomy of a MultiAssaySpatialExperiment
 
@@ -417,12 +402,6 @@ MASE can convert to and from other Bioconductor spatial classes:
 - `as(mase, "SpatialFeatureExperiment")` — coerce to SpatialFeatureExperiment
 - `as(sfe, "MultiAssaySpatialExperiment")` — coerce from
   SpatialFeatureExperiment
-- `as(mase, "SpatialData")` — coerce to SpatialData (Python-compatible)
-- `as(sd, "MultiAssaySpatialExperiment")` — coerce from SpatialData
-
-When coercing from `SpatialData`, the per-table metadata (region, instance_key)
-is translated into MASE's central `spatialMap`. When coercing back,
-`spatialMap` is used to reconstruct that metadata.
 
 See the **Use Cases** vignette for coercion examples.
 
@@ -435,7 +414,7 @@ After reading this introduction, proceed to:
    
 2. **Use Cases**: Complete workflows for:
    - Reading data from Xenium, Visium, CosMx, MERFISH
-   - Converting from SpatialExperiment, SpatialFeatureExperiment, SpatialData
+   - Converting from SpatialExperiment or SpatialFeatureExperiment
    - Multi-assay integration (Xenium + Visium)
    - Coordinate transformations and alignment
    - Multi-sample analysis

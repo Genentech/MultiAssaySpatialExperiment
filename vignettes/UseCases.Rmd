@@ -271,24 +271,6 @@ mase_from_sfe <- as(sfe, "MultiAssaySpatialExperiment")
 # - Creates spatialMap linking geometries to assay columns
 ```
 
-### From SpatialData (Python)
-
-```{r from_spatialdata, eval = FALSE}
-library(SpatialData)
-
-# Load a SpatialData object (requires basilisk + Python spatialdata)
-# sdata <- readSpatialData("path/to/data.zarr")
-
-# Convert to MASE
-mase_from_sd <- as(sdata, "MultiAssaySpatialExperiment")
-
-# The conversion:
-# - Maps sdata.tables to experiments
-# - Maps sdata.points to points layer
-# - Maps sdata.shapes to shapes layer
-# - Determines element_type based on spatialdata structure
-# - Creates spatialMap with element_type column
-```
 
 See the **Coercion** vignette (if available) for detailed information on
 conversions, data mapping, and limitations.
