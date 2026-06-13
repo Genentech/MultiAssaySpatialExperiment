@@ -148,7 +148,7 @@ setAs("SpatialExperiment", "MultiAssaySpatialExperiment", function(from) {
     if (ncol(from) > 0L) {
         scoords <- spatialCoords(from)
         if (!is.null(scoords) && nrow(scoords) > 0L) {
-            pt_df <- DataFrame(as.matrix(scoords))
+            pt_df <- DataFrame(scoords)
             rn <- rownames(scoords)
             pt_df[["instance_id"]] <- if (!is.null(rn) && length(rn) > 0L) rn else colnms
             pts <- PointsLayerList(coordinates = pt_df)
@@ -265,8 +265,11 @@ setMethod("spatialCoords", "MultiAssaySpatialExperiment",
         if (length(pts) > 0L && "coordinates" %in% spatialPointNames(x)) {
             coords <- pts[["coordinates"]]
             coord_cols <- setdiff(colnames(coords), "instance_id")
-            if (length(coord_cols) >= 2L)
-                return(as.matrix(coords[, coord_cols]))
+            if (length(coord_cols) >= 2L) {
+                mat <- do.call(cbind, lapply(coord_cols, function(col) coords[[col]]))
+                colnames(mat) <- coord_cols
+                return(mat)
+            }
         }
         matrix(numeric(0L), ncol(exp), 0L)
     }

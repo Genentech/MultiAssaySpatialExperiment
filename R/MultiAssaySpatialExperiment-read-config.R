@@ -162,8 +162,8 @@ list_technologies <- function() {
     ),
     column_candidates = list(
         cell_id = c("cell_ID", "cell_id", "Cell"),
-        x = c("CenterX_global_px", "x_global", "x"),
-        y = c("CenterY_global_px", "y_global", "y"),
+        x = c("CenterX_global_px", "x_global_px", "x_global", "x"),
+        y = c("CenterY_global_px", "y_global_px", "y_global", "y"),
         vertex_x = c("vertex_x", "x_location", "x"),
         vertex_y = c("vertex_y", "y_location", "y"),
         gene = c("target", "gene", "feature_name")

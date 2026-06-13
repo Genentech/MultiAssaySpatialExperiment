@@ -37,7 +37,9 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'     Inherited from \linkS4class{MultiAssayExperiment}.
 #'   }
 #'   \item{\code{images}}{
-#'     A \linkS4class{RasterLayerList} of image layers.
+#'     A \linkS4class{RasterLayerList} of user-attached image rasters (not the
+#'     same as \code{imgData}, which stores specimen-level image metadata from
+#'     vendor readers).
 #'   }
 #'   \item{\code{labels}}{
 #'     A \linkS4class{RasterLayerList} of label/mask layers.
@@ -51,7 +53,8 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'   \item{\code{imgData}}{
 #'     Optional \code{DataFrame} linking specimens to images (same structure as
 #'     \code{SpatialExperiment}, including \code{sample_id}, \code{image_id}, and
-#'     \code{scaleFactor}).
+#'     \code{scaleFactor}). Populated by vendor readers; distinct from
+#'     \code{spatialImages()} raster layers.
 #'   }
 #'   \item{\code{spatialMap}}{
 #'     Optional \code{DataFrame} for instance-level mapping with required columns:
@@ -116,14 +119,16 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'         Additional \linkS4class{MultiAssayExperiment} arguments.
 #'       }
 #'       \item{\code{images}, \code{labels}}{
-#'         \linkS4class{RasterLayerList} of image and label layers.
+#'         \linkS4class{RasterLayerList} of user-attached raster layers (distinct
+#'         from \code{imgData}, which vendor readers use for image metadata).
 #'       }
 #'       \item{\code{points}, \code{shapes}}{
 #'         \linkS4class{PointsLayerList} and \linkS4class{ShapesLayerList}
 #'         of spatial layers.
 #'       }
 #'       \item{\code{imgData}}{
-#'         Optional \code{DataFrame} linking specimens to images.
+#'         Optional \code{DataFrame} linking specimens to images (populated by
+#'         vendor readers; use \code{getImg()} for SPE-compatible access).
 #'       }
 #'       \item{\code{spatialMap}}{
 #'         Optional \code{DataFrame} for instance-level mapping.
@@ -284,10 +289,6 @@ setClass("MultiAssaySpatialExperiment", contains = "MultiAssayExperiment",
 ### Validity
 ###
 
-VALID_ELEMENT_TYPES <- c("points", "shapes")
-
-SPATIAL_MAP_COLS <- c("assay", "colname", "element_type", "region", "instance_id")
-
 ## SPATIALMAP
 ## 1.i. spatialMap must have required columns
 .checkSpatialMapColumns <- function(object) {
@@ -317,8 +318,9 @@ SPATIAL_MAP_COLS <- c("assay", "colname", "element_type", "region", "instance_id
         sm <- sampleMap(object)
         if (nrow(sm) > 0L) {
             sm_key <- paste(sm[["assay"]], sm[["colname"]], sep = "\r")
+            linked <- !is.na(spmap[["colname"]])
             sp_key <- paste(spmap[["assay"]], spmap[["colname"]], sep = "\r")
-            bad <- !sp_key %in% sm_key
+            bad <- linked & !sp_key %in% sm_key
             if (any(bad)) {
                 msg <- paste(
                     "spatialMap (assay, colname) must be in sampleMap;",
@@ -464,7 +466,12 @@ SPATIAL_MAP_COLS <- c("assay", "colname", "element_type", "region", "instance_id
     img <- imgData(object)
 
     if (!is.null(img) && nrow(img) > 0L && "sample_id" %in% colnames(img)) {
-        primaries <- rownames(colData(object))
+        cd <- colData(object)
+        primaries <- if ("sample_id" %in% colnames(cd)) {
+            unique(as.character(cd[["sample_id"]]))
+        } else {
+            rownames(cd)
+        }
         bad <- !img[["sample_id"]] %in% primaries
         if (any(bad) && length(primaries) > 0L) {
             msg <- paste(

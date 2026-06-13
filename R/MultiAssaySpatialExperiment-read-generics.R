@@ -28,7 +28,11 @@ setMethod("readParquetForMASE", "character",
             stop(wmsg("Package 'arrow' required for Parquet reading. ",
                       "Install with: install.packages('arrow')"))
 
-        df <- arrow::read_parquet(file_path, col_select = col_select, ...)
+        if (is.null(col_select)) {
+            df <- arrow::read_parquet(file_path, ...)
+        } else {
+            df <- arrow::read_parquet(file_path, col_select = col_select, ...)
+        }
         DataFrame(df, check.names = FALSE)
     })
 

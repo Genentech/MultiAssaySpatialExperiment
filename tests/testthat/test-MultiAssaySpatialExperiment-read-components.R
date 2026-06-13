@@ -47,14 +47,12 @@ test_that(".read_coldata_csv finds columns with candidate names", {
 
 test_that(".create_spot_geometries creates circular polygons", {
     skip_if_not_installed("sf")
-    
-    ## Create mock positions data as data.frame (sf requires data.frame, not DataFrame)
-    positions <- data.frame(
+
+    positions <- DataFrame(
         instance_id = paste0("S", 1:3),
         x_centroid = c(10, 20, 30),
         y_centroid = c(15, 25, 35),
-        in_tissue = c(1, 1, 0),
-        stringsAsFactors = FALSE
+        in_tissue = c(1, 1, 0)
     )
     
     ## Create geometries

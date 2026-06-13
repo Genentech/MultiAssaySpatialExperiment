@@ -5,7 +5,7 @@
 \alias{aggregateByRegion,MultiAssaySpatialExperiment-method}
 \title{Aggregate assay values by shape region}
 \usage{
-aggregateByRegion(x, by, assays = NULL, FUN = c("sum", "mean", "count"))
+aggregateByRegion(x, by, assays = NULL, FUN = "sum")
 }
 \arguments{
 \item{x}{A \linkS4class{MultiAssaySpatialExperiment}.}
@@ -17,9 +17,12 @@ the shape instance IDs (the \code{regionCol} from
 \item{assays}{Character. Assay names to aggregate (default: all assays in
 \code{spatialMap}).}
 
-\item{FUN}{Character. Aggregation function: \code{"sum"}, \code{"mean"},
-or \code{"count"}. For \code{"count"}, returns the number of points per
-shape; for \code{"sum"} and \code{"mean"}, aggregates assay values.}
+\item{FUN}{Character or function. For character values, one of \code{"sum"},
+\code{"mean"}, or \code{"count"}. For \code{"count"}, returns the number
+of points per shape; for \code{"sum"} and \code{"mean"}, aggregates assay
+values. When a function, it is applied to each feature-by-observation
+submatrix (features as rows, observations in the same shape as columns)
+and must return a numeric vector of length \code{nrow(submatrix)}.}
 }
 \value{
 A list of matrices (or for \code{FUN = "count"} a single \code{DataFrame}),

@@ -62,7 +62,7 @@ function(data_dir, sample_id = NULL,
     ## === COMPONENT READERS ===
 
     ## 1. Read counts using component reader
-    counts <- readHDF5ForMASE(files$matrix)
+    counts <- readHDF5ForMASE(files$matrix, type = "10x")
 
     ## 2. Read cell metadata using component reader
     ext <- tolower(file_ext(files$cells))
@@ -212,13 +212,18 @@ function(data_dir, sample_id = NULL,
 function(counts, cells, cell_polys, nuc_polys,transcripts, imgData, sample_id,
          segmentations)
 {
-    cell_ids <- colnames(counts)
+    cell_ids <- .observation_ids(counts)
+
+    if (is(counts, "SummarizedExperiment") &&
+            (is.null(colnames(counts)) || !length(colnames(counts))))
+        colnames(counts) <- cell_ids
 
     experiments <- ExperimentList(xenium = counts)
 
-    colData <- DataFrame(sample_id = sample_id, row.names = cell_ids)
-    
-    sampleMap <- DataFrame(assay = "xenium",
+    colData <- DataFrame(sample_id = rep(sample_id, length(cell_ids)),
+                         row.names = cell_ids)
+
+    sampleMap <- DataFrame(assay = factor("xenium", "xenium"),
                            primary = cell_ids,
                            colname = cell_ids)
 
@@ -227,48 +232,30 @@ function(counts, cells, cell_polys, nuc_polys,transcripts, imgData, sample_id,
     points_list <- list()
 
     if (segmentations %in% c("cell", "both") && !is.null(cell_polys)) {
-        cell_ids_in_geom <- as.character(cell_polys$instance_id)
-        cell_map <- DataFrame(assay = "xenium",
-                              colname = cell_ids,
-                              element_type = "shapes",
-                              region = "cells",
-                              instance_id = cell_ids)
-        cell_map <- cell_map[cell_map$instance_id %in% cell_ids_in_geom, ,
-                             drop = FALSE]
+        cell_map <- .filterSpatialMapByInstances(
+            buildSpatialMap(sampleMap, region = "cells", element_type = "shapes"),
+            as.character(cell_polys$instance_id))
         spatialMap_rows[[length(spatialMap_rows) + 1L]] <- cell_map
         shapes_list$cells <- cell_polys
     }
 
     if (segmentations %in% c("nucleus", "both") && !is.null(nuc_polys)) {
-        nuc_ids_in_geom <- as.character(nuc_polys$instance_id)
-        nuc_map <- DataFrame(assay = "xenium",
-                             colname = cell_ids,
-                             element_type = "shapes",
-                             region = "nuclei",
-                             instance_id = cell_ids)
-        nuc_map <- nuc_map[nuc_map$instance_id %in% nuc_ids_in_geom, ,
-                           drop = FALSE]
+        nuc_map <- .filterSpatialMapByInstances(
+            buildSpatialMap(sampleMap, region = "nuclei", element_type = "shapes"),
+            as.character(nuc_polys$instance_id))
         spatialMap_rows[[length(spatialMap_rows) + 1L]] <- nuc_map
         shapes_list$nuclei <- nuc_polys
     }
 
     ## Add transcripts to points if available
     if (!is.null(transcripts)) {
-        ## Create spatialMap entry for transcripts
-        tx_map <- DataFrame(assay = "xenium",
-                            colname = NA_character_,
-                            element_type = "points",
-                            region = "transcripts",
-                            instance_id = seq_len(nrow(transcripts)))
-        spatialMap_rows[[length(spatialMap_rows) + 1L]] <- tx_map
+        spatialMap_rows[[length(spatialMap_rows) + 1L]] <-
+            .transcriptSpatialMapRow("xenium", nrow(transcripts))
         points_list$transcripts <- transcripts
     }
 
-    spatialMap <- if (length(spatialMap_rows) > 0L) {
-        do.call(rbind, spatialMap_rows)
-    } else {
-        NULL
-    }
+    spatialMap <- if (length(spatialMap_rows))
+        do.call(.rbindSpatialMaps, spatialMap_rows) else NULL
 
     shapes <- if (length(shapes_list) > 0L) {
         do.call(ShapesLayerList, shapes_list)
@@ -287,6 +274,7 @@ function(counts, cells, cell_polys, nuc_polys,transcripts, imgData, sample_id,
                                 sampleMap = sampleMap,
                                 shapes = shapes,
                                 points = points,
+                                images = .spatialImages_from_imgData(imgData),
                                 imgData = imgData,
                                 spatialMap = spatialMap)
 }

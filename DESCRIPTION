@@ -1,6 +1,6 @@
 Package: MultiAssaySpatialExperiment
-Version: 0.9.3
-Date: 2026-06-12
+Version: 0.9.4
+Date: 2026-06-13
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
@@ -50,6 +50,8 @@ Collate:
     'MultiAssaySpatialExperiment-SpatialExperiment.R'
     'MultiAssaySpatialExperiment-SpatialFeatureExperiment.R'
     'MultiAssaySpatialExperiment-combine.R'
+    'MultiAssaySpatialExperiment-spatialMap.R'
+    'MultiAssaySpatialExperiment-helpers.R'
     'MultiAssaySpatialExperiment-read-components.R'
     'MultiAssaySpatialExperiment-read-config.R'
     'MultiAssaySpatialExperiment-read-cosmx.R'
@@ -63,5 +65,6 @@ Collate:
     'spatial-aggregate.R'
     'spatial-annotate.R'
     'spatial-operations.R'
+    'spatial-raster-convert.R'
     'zzz.R'
 Config/roxygen2/version: 8.0.0

@@ -39,6 +39,8 @@ test_that("[ subsets MultiAssaySpatialExperiment with spatial propagation", {
     expect_equal(rownames(colData(out)), c("S1", "S2"))
     expect_equal(nrow(spatialMap(out)), 2L)
     expect_equal(nrow(imgData(out)), 2L)
+    expect_equal(nrow(spatialPoints(out)[["coords"]]), 2L)
+    expect_equal(spatialPoints(out)[["coords"]][["instance_id"]], c("pt1", "pt2"))
 
     ## subset by k (assay)
     out2 <- mase[, , "assay1"]
@@ -123,6 +125,69 @@ test_that("subsetByBoundingBox filters points and propagates to assays", {
     expect_equal(nrow(spatialPoints(out)[["coords"]]), 3L)
     expect_equal(ncol(experiments(out)[["assay1"]]), 3L)
     expect_equal(colnames(experiments(out)[["assay1"]]), c("S2", "S3", "S4"))
+})
+
+test_that("subsetByBoundingBox crops matrix rasters in spatialImages and spatialLabels", {
+    pts <- DataFrame(x = c(1, 2, 3, 4, 5), y = c(1, 2, 3, 4, 5),
+        instance_id = paste0("S", 1:5))
+    img <- matrix(seq_len(16), 4, 4)
+    mase <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(
+            assay1 = matrix(rnorm(25), 5, 5,
+                dimnames = list(paste0("G", 1:5), paste0("S", 1:5)))
+        ),
+        colData = DataFrame(row.names = paste0("S", 1:5)),
+        sampleMap = DataFrame(
+            assay = factor("assay1"),
+            primary = paste0("S", 1:5),
+            colname = paste0("S", 1:5)
+        ),
+        points = PointsLayerList(coords = pts),
+        images = RasterLayerList(tissue = img),
+        labels = RasterLayerList(segmentation = img),
+        spatialMap = DataFrame(
+            assay = factor("assay1"),
+            colname = paste0("S", 1:5),
+            element_type = "points",
+            region = "coords",
+            instance_id = paste0("S", 1:5)
+        )
+    )
+    out <- subsetByBoundingBox(mase, xmin = 2, xmax = 3, ymin = 2, ymax = 3)
+    expect_equal(dim(spatialImages(out)[["tissue"]]), c(2L, 2L))
+    expect_equal(spatialImages(out)[["tissue"]], img[2:3, 2:3, drop = FALSE])
+    expect_equal(dim(spatialLabels(out)[["segmentation"]]), c(2L, 2L))
+})
+
+test_that("subsetByPolygon crops rasters to polygon bounding box", {
+    skip_if_not_installed("sf")
+    pts <- DataFrame(x = c(1, 2, 3), y = c(1, 2, 3), instance_id = c("S1", "S2", "S3"))
+    img <- matrix(seq_len(9), 3, 3)
+    mase <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(
+            assay1 = matrix(1:9, 3, 3, dimnames = list(paste0("G", 1:3), paste0("S", 1:3)))
+        ),
+        colData = DataFrame(row.names = paste0("S", 1:3)),
+        sampleMap = DataFrame(
+            assay = factor("assay1"),
+            primary = paste0("S", 1:3),
+            colname = paste0("S", 1:3)
+        ),
+        points = PointsLayerList(coords = pts),
+        images = RasterLayerList(tissue = img),
+        spatialMap = DataFrame(
+            assay = factor("assay1"),
+            colname = paste0("S", 1:3),
+            element_type = "points",
+            region = "coords",
+            instance_id = paste0("S", 1:3)
+        )
+    )
+    poly <- sf::st_polygon(list(matrix(c(2, 2, 3, 2, 3, 3, 2, 3, 2, 2),
+                                     ncol = 2, byrow = TRUE)))
+    out <- subsetByPolygon(mase, poly)
+    expect_equal(dim(spatialImages(out)[["tissue"]]), c(2L, 2L))
+    expect_equal(spatialImages(out)[["tissue"]], img[2:3, 2:3, drop = FALSE])
 })
 
 test_that("subsetByColumn propagates to spatial element lists", {

@@ -145,7 +145,8 @@ function(data_dir, sample_id = NULL, fov_ids = NULL,
     cellpose_boundaries <- NULL
     cellpose_patterns <- c("cellpose_micron_space.parquet", 
                            "cell_boundaries_cellpose.parquet",
-                           "cell_boundaries.parquet")
+                           "cell_boundaries.parquet",
+                           "cell_boundaries.csv")
     for (pattern in cellpose_patterns) {
         candidate <- file.path(data_dir, "region_0", pattern)
         if (file.exists(candidate)) {
@@ -235,10 +236,10 @@ function(data_dir, sample_id = NULL, fov_ids = NULL,
 #' @importFrom S4Vectors DataFrame
 .build_mase_from_merscope <-
 function(counts, cell_meta, boundaries_list, transcripts, imgData, sample_id,
-         segmentation)
+         segmentation, labels = RasterLayerList())
 {
     cell_ids <- if (!is.null(counts)) {
-        colnames(counts)
+        .observation_ids(counts)
     } else if (!is.null(cell_meta)) {
         if ("cell_id" %in% colnames(cell_meta)) {
             as.character(cell_meta$cell_id)
@@ -255,12 +256,21 @@ function(counts, cell_meta, boundaries_list, transcripts, imgData, sample_id,
         ExperimentList()
     }
 
-    colData <- DataFrame(sample_id = sample_id, row.names = cell_ids)
+    if (is(counts, "SummarizedExperiment") &&
+            (is.null(colnames(counts)) || !length(colnames(counts))))
+        colnames(counts) <- cell_ids
+
+    colData <- DataFrame(sample_id = rep(sample_id, length(cell_ids)),
+                         row.names = cell_ids)
 
     sampleMap <- if (length(experiments) > 0L) {
-        DataFrame(assay = "merscope", primary = cell_ids, colname = cell_ids)
+        DataFrame(assay = factor("merscope", "merscope"),
+                  primary = cell_ids,
+                  colname = cell_ids)
     } else {
-        DataFrame(assay = character(0L), primary = character(0L), colname = character(0L))
+        DataFrame(assay = factor(levels = "merscope"),
+                  primary = character(0L),
+                  colname = character(0L))
     }
 
     spatialMap_rows <- list()
@@ -272,29 +282,23 @@ function(counts, cell_meta, boundaries_list, transcripts, imgData, sample_id,
         boundaries <- boundaries_list[[seg_name]]
         boundary_ids <- as.character(boundaries$instance_id)
 
-        spatialMap_rows[[length(spatialMap_rows) + 1L]] <-
-            DataFrame(assay = "merscope",
-                      colname = cell_ids,
-                      element_type = "shapes",
-                      region = seg_name,
-                      instance_id = boundary_ids)
+        seg_map <- .filterSpatialMapByInstances(
+            buildSpatialMap(sampleMap, region = seg_name, element_type = "shapes"),
+            boundary_ids)
+        spatialMap_rows[[length(spatialMap_rows) + 1L]] <- seg_map
 
         shapes_list[[seg_name]] <- boundaries
     }
 
     ## Add transcripts to points if available
     if (!is.null(transcripts)) {
-        tx_map <- DataFrame(assay = "merscope",
-                            colname = NA_character_,
-                            element_type = "points",
-                            region = "transcripts",
-                            instance_id = seq_len(nrow(transcripts)))
-        spatialMap_rows[[length(spatialMap_rows) + 1L]] <- tx_map
+        spatialMap_rows[[length(spatialMap_rows) + 1L]] <-
+            .transcriptSpatialMapRow("merscope", nrow(transcripts))
         points_list$transcripts <- transcripts
     }
 
     spatialMap <- if (length(spatialMap_rows) > 0L) {
-        do.call(rbind, spatialMap_rows)
+        do.call(.rbindSpatialMaps, spatialMap_rows)
     } else {
         NULL
     }
@@ -316,6 +320,8 @@ function(counts, cell_meta, boundaries_list, transcripts, imgData, sample_id,
                                 sampleMap = sampleMap,
                                 shapes = shapes,
                                 points = points,
+                                images = .spatialImages_from_imgData(imgData),
+                                labels = labels,
                                 imgData = imgData,
                                 spatialMap = spatialMap)
 }

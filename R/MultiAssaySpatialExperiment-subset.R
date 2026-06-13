@@ -23,9 +23,9 @@ NULL
 #' \linkS4class{MultiAssaySpatialExperiment}:
 #' \describe{
 #'   \item{\code{subsetByColData(x, y)}:}{
-#'     Subset by primary identifiers (specimens). \code{spatialMap} and
-#'     \code{imgData} are filtered to retained specimens; point and shape rows
-#'     are not trimmed unless removed via the map.
+#'     Subset by primary identifiers (specimens). \code{spatialMap},
+#'     \code{imgData}, and linked points, shapes, images, and labels are
+#'     filtered to retained specimens (via \code{sampleMap} and \code{spatialMap}).
 #'   }
 #'   \item{\code{subsetByRow(x, y, i = TRUE, ...)}:}{
 #'     Subset rows of experiments. Spatial layers are assay-level and unchanged.
@@ -53,11 +53,17 @@ NULL
 #'   }
 #'   \item{\code{subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)}:}{
 #'     Subset by bounding box. Filters points and shapes within the rectangle;
-#'     propagates to assays via \code{spatialMap} when present.
+#'     propagates to assays via \code{spatialMap} when present. When
+#'     \code{crop_rasters = TRUE} (default), \code{spatialImages} and
+#'     \code{spatialLabels} are cropped to the same bounding box (single-scale,
+#'     pixel coordinates for matrix rasters; \pkg{terra} extent for
+#'     \code{SpatRaster} layers).
 #'   }
 #'   \item{\code{subsetByPolygon(x, polygon, ...)}:}{
 #'     Subset by polygon. Filters points and shapes within or intersecting the
-#'     \code{sf} geometry; propagates to assays via \code{spatialMap} when present.
+#'     \code{sf} geometry; propagates to assays via \code{spatialMap} when
+#'     present. Raster layers are cropped to the polygon bounding box when
+#'     \code{crop_rasters = TRUE}.
 #'   }
 #' }
 #'
@@ -113,6 +119,31 @@ NULL
     sm_keys <- paste(sm_cols[["assay"]], sm_cols[["colname"]], sep = "\r")
     sp_keys <- paste(spatialMap[["assay"]], spatialMap[["colname"]], sep = "\r")
     spatialMap[sp_keys %in% sm_keys, , drop = FALSE]
+}
+
+.subsetSpatialMapByColumn <- function(spatialMap, experiments) {
+    if (is.null(spatialMap) || nrow(spatialMap) == 0L)
+        return(spatialMap)
+    cols <- c("assay", "colname")
+    if (!all(cols %in% colnames(spatialMap)))
+        return(spatialMap)
+    exp_names <- names(experiments)
+    kept <- character()
+    for (nm in exp_names) {
+        cn <- colnames(experiments[[nm]])
+        kept <- c(kept, paste(nm, cn, sep = "\r"))
+    }
+    sp_keys <- paste(spatialMap[["assay"]], spatialMap[["colname"]], sep = "\r")
+    spatialMap[sp_keys %in% kept, , drop = FALSE]
+}
+
+.propagateSpatialSubset <- function(x, spmap) {
+    cd <- colData(x)
+    x <- replaceSlots(x,
+        spatialMap = spmap,
+        imgData = .subsetImgDataByColData(imgData(x), rownames(cd)),
+        check = FALSE)
+    .subsetSpatialElementsBySpatialMap(x, spmap)
 }
 
 .subsetImgDataByColData <- function(imgData, primary_ids) {
@@ -171,22 +202,6 @@ NULL
     sm_sub <- sampleMap[sampleMap[["assay"]] %in% assay_names, , drop = FALSE]
     primary_ids <- unique(sm_sub[["primary"]])
     .subsetImgDataByColData(imgData, primary_ids)
-}
-
-.subsetSpatialMapByColumn <- function(spatialMap, experiments) {
-    if (is.null(spatialMap) || nrow(spatialMap) == 0L)
-        return(spatialMap)
-    cols <- c("assay", "colname")
-    if (!all(cols %in% colnames(spatialMap)))
-        return(spatialMap)
-    exp_names <- names(experiments)
-    kept <- character()
-    for (nm in exp_names) {
-        cn <- colnames(experiments[[nm]])
-        kept <- c(kept, paste(nm, cn, sep = "\r"))
-    }
-    sp_keys <- paste(spatialMap[["assay"]], spatialMap[["colname"]], sep = "\r")
-    spatialMap[sp_keys %in% kept, , drop = FALSE]
 }
 
 .subsetSpatialElementsBySpatialMap <- function(x, spmap) {
@@ -283,6 +298,45 @@ NULL
         idx
 }
 
+.cropMatrixRaster <- function(mat, xmin, xmax, ymin, ymax) {
+    if (is.null(mat) || length(dim(mat)) < 2L)
+        return(mat)
+    x_idx <- seq.int(as.integer(floor(xmin)), as.integer(ceiling(xmax)))
+    y_idx <- seq.int(as.integer(floor(ymin)), as.integer(ceiling(ymax)))
+    x_idx <- x_idx[x_idx >= 1L & x_idx <= ncol(mat)]
+    y_idx <- y_idx[y_idx >= 1L & y_idx <= nrow(mat)]
+    if (!length(x_idx) || !length(y_idx))
+        return(mat[integer(0L), integer(0L), drop = FALSE])
+    mat[y_idx, x_idx, drop = FALSE]
+}
+
+.cropRasterLayer <- function(layer, xmin, xmax, ymin, ymax) {
+    if (is.null(layer))
+        return(layer)
+    if (requireNamespace("terra", quietly = TRUE) &&
+            is(layer, "SpatRaster"))
+        return(terra::crop(layer, terra::ext(xmin, xmax, ymin, ymax)))
+    if (is.matrix(layer) || is.array(layer))
+        return(.cropMatrixRaster(layer, xmin, xmax, ymin, ymax))
+    layer
+}
+
+.cropRasterLayerList <- function(layers, xmin, xmax, ymin, ymax) {
+    if (is.null(layers) || length(layers) == 0L)
+        return(RasterLayerList())
+    nms <- names(layers)
+    cropped <- lapply(layers, .cropRasterLayer,
+                      xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
+    names(cropped) <- nms
+    do.call(RasterLayerList, cropped)
+}
+
+.bboxFromPolygon <- function(polygon) {
+    bb <- sf::st_bbox(polygon)
+    list(xmin = unname(bb[["xmin"]]), xmax = unname(bb[["xmax"]]),
+         ymin = unname(bb[["ymin"]]), ymax = unname(bb[["ymax"]]))
+}
+
 #' @importFrom MultiAssayExperiment experiments sampleMap
 .subsetMASEBySpatialFilter <- function(x, retained_by_region) {
     if (length(retained_by_region) == 0L)
@@ -326,12 +380,8 @@ NULL
 setMethod("subsetByColData", c("MultiAssaySpatialExperiment", "ANY"),
 function(x, y) {
     x <- callNextMethod()
-    sm <- sampleMap(x)
-    cd <- colData(x)
-    replaceSlots(x,
-                 spatialMap = .subsetSpatialMapByColData(spatialMap(x), sm),
-                 imgData = .subsetImgDataByColData(imgData(x), rownames(cd)),
-                 check = FALSE)
+    spmap <- .subsetSpatialMapByColData(spatialMap(x), sampleMap(x))
+    .propagateSpatialSubset(x, spmap)
 })
 
 #' @importFrom MultiAssayExperiment subsetByColData sampleMap
@@ -341,12 +391,8 @@ function(x, y) {
 setMethod("subsetByColData", c("MultiAssaySpatialExperiment", "character"),
 function(x, y) {
     x <- callNextMethod()
-    sm <- sampleMap(x)
-    cd <- colData(x)
-    replaceSlots(x,
-                 spatialMap = .subsetSpatialMapByColData(spatialMap(x), sm),
-                 imgData = .subsetImgDataByColData(imgData(x), rownames(cd)),
-                 check = FALSE)
+    spmap <- .subsetSpatialMapByColData(spatialMap(x), sampleMap(x))
+    .propagateSpatialSubset(x, spmap)
 })
 
 #' @importFrom MultiAssayExperiment subsetByRow
@@ -374,35 +420,51 @@ function(x, y) {
         callNextMethod()
     } else {
         x <- callNextMethod()
-        cd <- colData(x)
         spmap <- .subsetSpatialMapByColumn(spatialMap(x), experiments(x))
-        x <- replaceSlots(x,
-            spatialMap = spmap,
-            imgData = .subsetImgDataByColData(imgData(x), rownames(cd)),
-            check = FALSE)
-        .subsetSpatialElementsBySpatialMap(x, spmap)
+        .propagateSpatialSubset(x, spmap)
     }
 })
 
-#' @importFrom MultiAssayExperiment experiments sampleMap subsetByAssay
+#' @importFrom MultiAssayExperiment experiments sampleMap subsetByAssay drops drops<-
 #' @importFrom SpatialExperiment imgData
 #' @exportMethod subsetByAssay
 setMethod("subsetByAssay", c("MultiAssaySpatialExperiment", "ANY"),
 function(x, y) {
+    prev_pts <- names(spatialPoints(x))
+    prev_shps <- names(spatialShapes(x))
+    prev_imgs <- names(spatialImages(x))
+    prev_labs <- names(spatialLabels(x))
     x <- callNextMethod()
     assay_names <- names(experiments(x))
     spmap <- .subsetSpatialMapByAssay(spatialMap(x), assay_names)
-    replaceSlots(x,
-                 images = .subsetSpatialLayersByAssay(spatialImages(x),
-                                                     assay_names),
-                 labels = .subsetSpatialLayersByAssay(spatialLabels(x),
+    x <- replaceSlots(x,
+                      images = .subsetSpatialLayersByAssay(spatialImages(x),
+                                                           assay_names),
+                      labels = .subsetSpatialLayersByAssay(spatialLabels(x),
+                                                           assay_names),
+                      points = .subsetSpatialLayersByRegion(spatialPoints(x),
+                                                            spmap, "points"),
+                      shapes = .subsetSpatialLayersByRegion(spatialShapes(x),
+                                                            spmap, "shapes"),
+                      spatialMap = spmap,
+                      imgData = .subsetImgDataByAssay(imgData(x), sampleMap(x),
                                                       assay_names),
-                 points = .subsetSpatialLayersByRegion(spatialPoints(x), spmap, "points"),
-                 shapes = .subsetSpatialLayersByRegion(spatialShapes(x), spmap, "shapes"),
-                 spatialMap = spmap,
-                 imgData = .subsetImgDataByAssay(imgData(x), sampleMap(x),
-                                                 assay_names),
                  check = FALSE)
+    drop_sp <- list()
+    lost_pts <- setdiff(prev_pts, names(spatialPoints(x)))
+    lost_shps <- setdiff(prev_shps, names(spatialShapes(x)))
+    lost_imgs <- setdiff(prev_imgs, names(spatialImages(x)))
+    lost_labs <- setdiff(prev_labs, names(spatialLabels(x)))
+    if (length(lost_pts)) drop_sp$points <- lost_pts
+    if (length(lost_shps)) drop_sp$shapes <- lost_shps
+    if (length(lost_imgs)) drop_sp$images <- lost_imgs
+    if (length(lost_labs)) drop_sp$labels <- lost_labs
+    if (length(drop_sp)) {
+        cur <- drops(x)
+        if (!is.list(cur)) cur <- list()
+        drops(x) <- c(cur, drop_sp)
+    }
+    x
     }
 )
 
@@ -422,7 +484,10 @@ setGeneric("subsetByPolygon", function(x, polygon, ...)
 #' @importFrom S4Vectors DataFrame
 #' @exportMethod subsetByBoundingBox
 setMethod("subsetByBoundingBox", "MultiAssaySpatialExperiment",
-function(x, xmin, xmax, ymin, ymax, x_col = "x", y_col = "y", ...) {
+function(x, xmin, xmax, ymin, ymax, x_col = "x", y_col = "y",
+         crop_rasters = TRUE, ...) {
+    orig_imgs <- spatialImages(x)
+    orig_labs <- spatialLabels(x)
     pts <- spatialPoints(x)
     shps <- spatialShapes(x)
     retained_by_region <- list()
@@ -457,6 +522,16 @@ function(x, xmin, xmax, ymin, ymax, x_col = "x", y_col = "y", ...) {
     replaceSlots(x,
                 points = PointsLayerList(filt_pts),
                 shapes = ShapesLayerList(filt_shps),
+                images = if (isTRUE(crop_rasters)) {
+                    .cropRasterLayerList(orig_imgs, xmin, xmax, ymin, ymax)
+                } else {
+                    spatialImages(x)
+                },
+                labels = if (isTRUE(crop_rasters)) {
+                    .cropRasterLayerList(orig_labs, xmin, xmax, ymin, ymax)
+                } else {
+                    spatialLabels(x)
+                },
                 check = FALSE)
 })
 
@@ -465,7 +540,9 @@ function(x, xmin, xmax, ymin, ymax, x_col = "x", y_col = "y", ...) {
 #' @importFrom sf st_sfc st_geometry
 #' @exportMethod subsetByPolygon
 setMethod("subsetByPolygon", "MultiAssaySpatialExperiment",
-function(x, polygon, x_col = "x", y_col = "y", ...) {
+function(x, polygon, x_col = "x", y_col = "y", crop_rasters = TRUE, ...) {
+    orig_imgs <- spatialImages(x)
+    orig_labs <- spatialLabels(x)
     if (inherits(polygon, "sfg"))
         polygon <- st_sfc(polygon)
     else if (inherits(polygon, "sf"))
@@ -501,15 +578,24 @@ function(x, polygon, x_col = "x", y_col = "y", ...) {
         if (length(idx) > 0L)
             filt_shps[[nm]] <- el[idx, , drop = FALSE]
     }
+    bb <- if (isTRUE(crop_rasters)) .bboxFromPolygon(polygon) else NULL
     replaceSlots(x,
                 points = PointsLayerList(filt_pts),
                 shapes = ShapesLayerList(filt_shps),
+                images = if (isTRUE(crop_rasters)) {
+                    .cropRasterLayerList(orig_imgs,
+                                         bb$xmin, bb$xmax, bb$ymin, bb$ymax)
+                } else {
+                    spatialImages(x)
+                },
+                labels = if (isTRUE(crop_rasters)) {
+                    .cropRasterLayerList(orig_labs,
+                                         bb$xmin, bb$xmax, bb$ymin, bb$ymax)
+                } else {
+                    spatialLabels(x)
+                },
                 check = FALSE)
 })
-
-### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-### Subsetting
-###
 
 #' @importFrom MultiAssayExperiment ExperimentList experiments experiments<-
 #' @importFrom MultiAssayExperiment drops<- subsetByAssay

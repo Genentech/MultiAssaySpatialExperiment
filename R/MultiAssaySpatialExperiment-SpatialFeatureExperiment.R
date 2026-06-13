@@ -4,7 +4,8 @@
 ###
 ### Coercion to SpatialFeatureExperiment; methods for dimGeometry, annotGeometry,
 ### spatialGraphs, bbox, unit, localResults, splitByCol, aggregate, findDebrisCells.
-### Registered in .onLoad when SpatialFeatureExperiment is available.
+### Registered at runtime via packageEvent when SpatialFeatureExperiment
+### (Suggests) is loaded. No NAMESPACE import of SFE classes.
 ###
 ### -------------------------------------------------------------------------
 
@@ -18,7 +19,17 @@ NULL
 #' @importClassesFrom SpatialExperiment SpatialExperiment
 #' @importFrom MultiAssayExperiment experiments
 #' @importFrom SpatialExperiment imgData imgData<-
+#' @importFrom MultiAssayExperiment "experiments<-"
 .register_SFE_coercion <- function() {
+    setAs("SpatialFeatureExperiment", "MultiAssaySpatialExperiment",
+        function(from) {
+            mase <- as(as(from, "SpatialExperiment"), "MultiAssaySpatialExperiment")
+            exps <- experiments(mase)
+            exps[[1L]] <- from
+            experiments(mase) <- exps
+            mase
+        }
+    )
     setAs("MultiAssaySpatialExperiment", "SpatialFeatureExperiment",
         function(from) {
             exps <- experiments(from)
@@ -55,8 +66,6 @@ NULL
     exp <- exps[[assay]]
     if (is(exp, "SpatialFeatureExperiment"))
         exp
-    else if (is(exp, "SpatialExperiment"))
-        as(exp, "SpatialFeatureExperiment")
     else
         NULL
 }
@@ -84,6 +93,7 @@ NULL
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 .register_SFE_methods <- function() {
+    .import_SFE_generics()
     setMethod("dimGeometry", "MultiAssaySpatialExperiment",
         function(x, type = 1L, MARGIN, sample_id = 1L, withDimnames = TRUE) {
             exp <- .get_SFE_experiment(x)

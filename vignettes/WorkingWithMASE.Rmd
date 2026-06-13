@@ -56,6 +56,35 @@ There are several approaches to constructing a MASE object:
    `SingleCellExperiment` objects in an `ExperimentList`
 4. **From vendor output**: Use platform readers (`readXeniumMASE()`, etc.) —
    covered in the **MultiAssaySpatialExperiment Use Cases** vignette
+5. **With prepMASE**: Wrap `prepMultiAssay()` for name harmonization and spatial
+   FK cleanup (see below)
+
+## prepMASE and buildSpatialMap
+
+For manual construction, `buildSpatialMap()` assembles a `spatialMap` from
+`sampleMap` (analogous to MAE's `listToMap()`), and `prepMASE()` wraps
+`prepMultiAssay()` while harmonizing spatial slots:
+
+```{r prep_mase, eval = FALSE}
+spmap <- buildSpatialMap(sample_map, region = "cells", element_type = "shapes")
+prepared <- prepMASE(
+  ExperimentList(rna = counts, protein = protein_counts),
+  colData = specimens,
+  sample_map,
+  shapes = ShapesLayerList(cells = cell_boundaries),
+  spatialMap = spmap
+)
+mase <- do.call(MultiAssaySpatialExperiment, prepared)
+drops(prepared$metadata$drops)  # rows removed during harmonization, if any
+```
+
+## Optional: lazy Parquet I/O via BiocDuckDB
+
+`MultiAssaySpatialExperiment` does not import BiocDuckDB. For large on-disk
+datasets, the **BiocDuckDB** package registers methods on MASE generics
+(`readParquetForMASE`, lazy `spatialPoints` / `spatialShapes`, etc.) so you can
+persist and query MASE objects without loading full layers into memory. See the
+BiocDuckDB documentation for Parquet read/write workflows.
 
 ## Minimal MASE
 

@@ -2,11 +2,10 @@
 ### MultiAssaySpatialExperiment - SpatialData integration (deferred)
 ### -------------------------------------------------------------------------
 ###
-### NOT installed with the package: spatialdataR requires Bioc 3.24 (devel).
-### Restore to R/ and add spatialdataR to Suggests when targeting devel.
-###
-### Coercion to/from SpatialData; methods for SpatialData generics (images,
-### labels, points, shapes, tables, layer, element). Registered in .onLoad.
+### Loaded on demand via .onLoad packageEvent hook when spatialdataR /
+### SpatialData is installed. Coercion to/from SpatialData; methods for
+### SpatialData generics (images, labels, points, shapes, tables, layer,
+### element). Registered in .register_SpatialData_all().
 ###
 ### -------------------------------------------------------------------------
 
@@ -20,23 +19,19 @@ NULL
 #' @importFrom S4Vectors DataFrame
 .pointFrameToDataFrame <- function(pf) {
     dat <- SpatialData::data(pf)
-    df <- as.data.frame(dat)
-    ## Ensure instance_id column exists (rename 'id' if present)
-    if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df)) {
-        colnames(df)[colnames(df) == "id"] <- "instance_id"
-    }
-    DataFrame(df)
+    df <- if (is(dat, "DataFrame")) dat else DataFrame(dat)
+    if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df))
+        df[["instance_id"]] <- df[["id"]]
+    df
 }
 
 #' @importFrom S4Vectors DataFrame
 .shapeFrameToDataFrame <- function(sf) {
     dat <- SpatialData::data(sf)
-    df <- as.data.frame(dat)
-    ## Ensure instance_id column exists (rename 'id' if present)
-    if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df)) {
-        colnames(df)[colnames(df) == "id"] <- "instance_id"
-    }
-    DataFrame(df)
+    df <- if (is(dat, "DataFrame")) dat else DataFrame(dat)
+    if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df))
+        df[["instance_id"]] <- df[["id"]]
+    df
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -374,4 +369,10 @@ NULL
             j <- names(y)[j]
             SpatialData::element(x, i, j)
         })
+}
+
+.register_SpatialData_activate <- function() {
+    .register_SpatialData_coercion()
+    .register_SpatialData_methods()
+    invisible(NULL)
 }

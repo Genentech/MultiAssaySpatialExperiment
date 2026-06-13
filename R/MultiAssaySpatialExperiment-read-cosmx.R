@@ -146,7 +146,9 @@ function(data_dir, sample_id = NULL, fov_ids = NULL, load_transcripts = FALSE,
     ## Cell boundaries (GeoParquet or Parquet)
     boundaries_patterns <- c("*_cell_boundaries_sf.parquet",
                              "*_boundaries.parquet",
-                             "cell_boundaries.parquet")
+                             "cell_boundaries.parquet",
+                             "cell_boundaries.csv",
+                             "*_cell_boundaries.csv")
     boundaries <- NULL
     for (pattern in boundaries_patterns) {
         candidates <- list.files(data_dir, pattern = pattern, full.names = TRUE,
@@ -223,9 +225,10 @@ function(data_dir, sample_id = NULL, fov_ids = NULL, load_transcripts = FALSE,
 #' @importFrom MultiAssayExperiment ExperimentList
 #' @importFrom S4Vectors DataFrame
 .build_mase_from_cosmx <-
-function(counts, cell_meta, boundaries, transcripts, fov_meta, imgData, sample_id) {
+function(counts, cell_meta, boundaries, transcripts, fov_meta, imgData, sample_id,
+         labels = RasterLayerList()) {
     cell_ids <- if (!is.null(counts)) {
-        colnames(counts)
+        .observation_ids(counts)
     } else if (!is.null(cell_meta)) {
         if ("cell_id" %in% colnames(cell_meta)) {
             as.character(cell_meta$cell_id)
@@ -242,12 +245,21 @@ function(counts, cell_meta, boundaries, transcripts, fov_meta, imgData, sample_i
         ExperimentList()
     }
 
-    colData <- DataFrame(sample_id = sample_id, row.names = cell_ids)
+    if (is(counts, "SummarizedExperiment") &&
+            (is.null(colnames(counts)) || !length(colnames(counts))))
+        colnames(counts) <- cell_ids
+
+    colData <- DataFrame(sample_id = rep(sample_id, length(cell_ids)),
+                         row.names = cell_ids)
 
     sampleMap <- if (length(experiments) > 0L) {
-        DataFrame(assay = "cosmx", primary = cell_ids, colname = cell_ids)
+        DataFrame(assay = factor("cosmx", "cosmx"),
+                  primary = cell_ids,
+                  colname = cell_ids)
     } else {
-        DataFrame(assay = character(0L), primary = character(0L), colname = character(0L))
+        DataFrame(assay = factor(levels = "cosmx"),
+                  primary = character(0L),
+                  colname = character(0L))
     }
 
     spatialMap_rows <- list()
@@ -258,29 +270,23 @@ function(counts, cell_meta, boundaries, transcripts, fov_meta, imgData, sample_i
     if (!is.null(boundaries)) {
         boundary_ids <- as.character(boundaries$instance_id)
 
-        spatialMap_rows[[length(spatialMap_rows) + 1L]] <-
-            DataFrame(assay = "cosmx",
-                      colname = cell_ids,
-                      element_type = "shapes",
-                      region = "cells",
-                      instance_id = boundary_ids)
+        cell_map <- .filterSpatialMapByInstances(
+            buildSpatialMap(sampleMap, region = "cells", element_type = "shapes"),
+            boundary_ids)
+        spatialMap_rows[[length(spatialMap_rows) + 1L]] <- cell_map
 
         shapes_list$cells <- boundaries
     }
 
     ## Add transcripts to points if available
     if (!is.null(transcripts)) {
-        tx_map <- DataFrame(assay = "cosmx",
-                            colname = NA_character_,
-                            element_type = "points",
-                            region = "transcripts",
-                            instance_id = seq_len(nrow(transcripts)))
-        spatialMap_rows[[length(spatialMap_rows) + 1L]] <- tx_map
+        spatialMap_rows[[length(spatialMap_rows) + 1L]] <-
+            .transcriptSpatialMapRow("cosmx", nrow(transcripts))
         points_list$transcripts <- transcripts
     }
 
     spatialMap <- if (length(spatialMap_rows) > 0L) {
-        do.call(rbind, spatialMap_rows)
+        do.call(.rbindSpatialMaps, spatialMap_rows)
     } else {
         NULL
     }
@@ -309,6 +315,8 @@ function(counts, cell_meta, boundaries, transcripts, fov_meta, imgData, sample_i
                                 metadata = metadata_list,
                                 shapes = shapes,
                                 points = points,
+                                images = .spatialImages_from_imgData(imgData),
+                                labels = labels,
                                 imgData = imgData,
                                 spatialMap = spatialMap)
 }
