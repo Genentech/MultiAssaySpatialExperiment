@@ -40,6 +40,10 @@ primary identifiers; the optional \code{spatialMap} provides instance-level
 mapping (\code{assay}, \code{colname}, \code{element_type}, \code{region},
 \code{instance_id}) linking experiment columns to rows in the spatial point
 or shape layers via explicit foreign key.
+
+\strong{Terminology:} a \emph{specimen} is a row in \code{colData}
+(\code{sampleMap$primary}); an \emph{observation} is a column in an assay
+(\code{sampleMap$colname}).
 }
 \section{Slots}{
 
@@ -60,9 +64,9 @@ or shape layers via explicit foreign key.
     A \linkS4class{ShapesLayerList} of shape layers.
   }
   \item{\code{imgData}}{
-    Optional \code{DataFrame} of sample-linked images (same structure as
-    \code{SpatialExperiment}); for compatibility when experiments are
-    SpatialExperiments.
+    Optional \code{DataFrame} linking specimens to images (same structure as
+    \code{SpatialExperiment}, including \code{sample_id}, \code{image_id}, and
+    \code{scaleFactor}).
   }
   \item{\code{spatialMap}}{
     Optional \code{DataFrame} for instance-level mapping with required columns:
@@ -120,7 +124,8 @@ Bioconductor S4 conventions:
         An \linkS4class{ExperimentList} or list of experiments.
       }
       \item{\code{colData}}{
-        A \linkS4class{DataFrame} of subject-level metadata.
+        A \linkS4class{DataFrame} of specimen-level metadata (one row per
+        primary identifier in \code{sampleMap$primary}).
       }
       \item{\code{sampleMap}}{
         A \linkS4class{DataFrame} with columns \code{assay}, \code{primary},
@@ -137,7 +142,7 @@ Bioconductor S4 conventions:
         of spatial layers.
       }
       \item{\code{imgData}}{
-        Optional \code{DataFrame} for sample-linked images.
+        Optional \code{DataFrame} linking specimens to images.
       }
       \item{\code{spatialMap}}{
         Optional \code{DataFrame} for instance-level mapping.
@@ -180,7 +185,9 @@ In the code snippets below, \code{x} is a MultiAssaySpatialExperiment object:
     Get the names of the image, label, point, and shape layers, respectively.
   }
   \item{\code{imgData(x)}, \code{imgData(x) <- value}:}{
-    Get or set the optional \code{DataFrame} of sample-linked images.
+    Get or set the optional \code{DataFrame} linking specimens to images
+    (\code{SpatialExperiment}-compatible columns such as \code{sample_id},
+    \code{image_id}, and \code{scaleFactor}).
   }
   \item{\code{spatialMap(x)}, \code{spatialMap(x) <- value}:}{
     Get or set the optional \code{DataFrame} for instance-level mapping.
@@ -196,21 +203,30 @@ followed by counts of spatial images, labels, points, shapes, and whether
 }
 
 \examples{
-mat <- matrix(rnorm(20), 5, 4, dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
-pts <- S4Vectors::DataFrame(x = c(1,2,3,4), y = c(1,2,3,4), instance_id = paste0("S", 1:4))
+mat <- matrix(rnorm(20), 5, 4,
+    dimnames = list(paste0("G", 1:5), paste0("obs", 1:4)))
+pts <- S4Vectors::DataFrame(
+    x = 1:4, y = 1:4, instance_id = paste0("obs", 1:4))
 mase <- MultiAssaySpatialExperiment(
-    experiments = ExperimentList(assay1 = mat),
-    colData = S4Vectors::DataFrame(row.names = paste0("S", 1:4)),
+    experiments = ExperimentList(rna = mat),
+    colData = S4Vectors::DataFrame(
+        tissue = c("core", "margin"),
+        row.names = c("specimen_A", "specimen_B")),
     sampleMap = S4Vectors::DataFrame(
-        assay = factor("assay1", "assay1"),
-        primary = paste0("S", 1:4),
-        colname = paste0("S", 1:4)
-    ),
-    points = PointsLayerList(coords = pts)
+        assay = factor(rep("rna", 4), "rna"),
+        primary = rep(c("specimen_A", "specimen_B"), each = 2),
+        colname = paste0("obs", 1:4)),
+    points = PointsLayerList(coords = pts),
+    spatialMap = S4Vectors::DataFrame(
+        assay = factor(rep("rna", 4), "rna"),
+        colname = paste0("obs", 1:4),
+        element_type = "points",
+        region = "coords",
+        instance_id = paste0("obs", 1:4))
 )
 mase
 spatialPointNames(mase)
-mase[, c("S1", "S2")]
+mase[, "specimen_A"]
 
 }
 \seealso{

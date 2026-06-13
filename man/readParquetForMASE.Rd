@@ -20,5 +20,6 @@ readParquetForMASE(file_path, ...)
 DataFrame
 }
 \description{
-Read Parquet Files for MASE
+Read a Parquet file into a \linkS4class{DataFrame} for use in MASE component
+assembly or custom readers.
 }

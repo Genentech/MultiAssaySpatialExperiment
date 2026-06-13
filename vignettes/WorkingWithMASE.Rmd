@@ -28,13 +28,15 @@ knitr::opts_chunk$set(
 This vignette covers the core operations for working with
 `MultiAssaySpatialExperiment` (MASE) objects:
 
-1. **Construction**: Building MASE objects from matrices, existing Bioconductor objects, or files
+1. **Construction**: Building MASE objects from matrices, existing Bioconductor
+   objects, or vendor output (see **MultiAssaySpatialExperiment Use Cases**)
 2. **Subsetting**: Filtering by specimens, assays, columns, and spatial regions
 3. **Spatial operations**: Annotation and aggregation by spatial regions
 4. **Labels ↔ shapes**: Converting between raster masks and vector polygons
 
-**Prerequisite**: If you are new to MASE, read the **Introduction** vignette
-first to understand the MASE structure and components.
+**Prerequisite**: If you are new to MASE, read the **Introduction to
+MultiAssaySpatialExperiment** vignette first to understand the MASE structure and
+components.
 
 ```{r load_packages, message = FALSE, warning = FALSE}
 library(MultiAssaySpatialExperiment)
@@ -50,13 +52,17 @@ There are several approaches to constructing a MASE object:
 
 1. **Minimal MASE**: Start with assays + metadata, add spatial elements later
 2. **From scratch**: Build all components manually
-3. **From existing objects**: Convert SpatialExperiment, SingleCellExperiment, or other objects
-4. **Helper functions**: Quick construction for common use cases
+3. **From existing objects**: Convert `SpatialExperiment` or wrap
+   `SingleCellExperiment` objects in an `ExperimentList`
+4. **From vendor output**: Use platform readers (`readXeniumMASE()`, etc.) —
+   covered in the **MultiAssaySpatialExperiment Use Cases** vignette
 
 ## Minimal MASE
 
-The simplest MASE has one experiment, specimen metadata (colData), and a sample
-mapping (sampleMap). No spatial elements are required initially.
+The simplest MASE has one experiment, specimen metadata (`colData`), and a
+`sampleMap`. No spatial elements are required initially. In the example below,
+each cell is treated as its own specimen for simplicity; in practice,
+`colData` rows usually represent biological replicates or tissue sections.
 
 ```{r minimal_mase}
 # Create a simple expression matrix
@@ -255,17 +261,25 @@ MASE extends MultiAssayExperiment with spatial slots (points, shapes, images,
 labels, `imgData`, and `spatialMap`). When you subset a MASE, these slots are
 automatically updated to stay consistent with the assays and specimen metadata.
 
+The examples below use a **separate** MASE object from the construction section
+above, so you can run them independently.
+
 ## Overview of subsetting operations
 
 | Operation | What it filters | Spatial propagation |
 |-----------|-----------------|---------------------|
 | `subsetByColData(x, y)` | Specimens (primary identifiers) | `spatialMap`, `imgData` |
 | `subsetByRow(x, y, ...)` | Rows of experiments | Spatial layers unchanged |
-| `subsetByColumn(x, y)` | Assay columns | `spatialMap`, `imgData` |
-| `subsetByAssay(x, y)` | Assays | All spatial slots |
+| `subsetByColumn(x, y)` | Assay columns (names, indices, or logical vectors per assay) | `spatialMap`, `imgData`, points, shapes, images, labels |
+| `subsetByAssay(x, y)` | Assays | Points, shapes, images, labels, and `spatialMap` rows tied to retained assays |
 | `x[i, j, k, ..., drop]` | Row, column, assay indices | Composes the above |
 | `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` | Points/shapes by rectangle | Assays via `spatialMap` |
 | `subsetByPolygon(x, polygon, ...)` | Points/shapes by polygon | Assays via `spatialMap` |
+
+**Note:** `subsetByAssay()` keeps only spatial layers referenced in `spatialMap`
+for the retained assays. Auxiliary shape layers added for annotation (but not
+linked in `spatialMap`) are dropped — run `annotateWithRegions()` on the full
+MASE when you need those layers.
 
 ## Basic subsetting
 
@@ -273,13 +287,17 @@ automatically updated to stay consistent with the assays and specimen metadata.
 # Create a simple MASE for subsetting examples
 mat <- matrix(rnorm(25), nrow = 5, ncol = 5,
   dimnames = list(paste0("G", 1:5), paste0("S", 1:5)))
+ex <- SummarizedExperiment(
+  assays = list(counts = mat),
+  colData = DataFrame(region = rep(c("core", "margin"), length.out = 5))
+)
 pts <- DataFrame(
   x = c(1, 2, 3, 4, 5),
   y = c(1, 2, 3, 4, 5),
   instance_id = paste0("S", 1:5))
 
 mase <- MultiAssaySpatialExperiment(
-  experiments = ExperimentList(assay1 = mat),
+  experiments = ExperimentList(assay1 = ex),
   colData = DataFrame(row.names = paste0("S", 1:5)),
   sampleMap = DataFrame(
     assay = factor("assay1"),
@@ -311,6 +329,17 @@ When subsetting by list, each element applies to the corresponding assay:
 
 ```{r subsetByColumn}
 mase[, list(assay1 = c("S2", "S4"))]
+```
+
+Filter assay columns by observation metadata (`colData` of the experiment),
+using the standard MAE `subsetByColumn` list interface. This is the idiomatic
+replacement for ad hoc “query by metadata” patterns:
+
+```{r subsetByColumnColData}
+cdf <- colData(experiments(mase)[["assay1"]])
+mase_core <- subsetByColumn(mase, list(assay1 = cdf$region == "core"))
+ncol(experiments(mase_core)[["assay1"]])
+nrow(spatialPoints(mase_core)[["coords"]])
 ```
 
 ### Bracket notation
@@ -351,7 +380,7 @@ nrow(spatialPoints(m3)[["coords"]])
 ncol(experiments(m3)[["assay1"]])
 ```
 
-### Multi-region queries
+### Multi-region subsets
 
 Select data from multiple non-contiguous regions:
 
@@ -368,11 +397,11 @@ cat("Region 1:", ncol(experiments(m_r1)[[1]]), "observations\n")
 cat("Region 2:", ncol(experiments(m_r2)[[1]]), "observations\n")
 ```
 
-### Buffer-based queries
+### Buffer-based subsets
 
 Find all points within a distance from a reference point:
 
-```{r buffer_query}
+```{r buffer_subset}
 # Reference point
 ref_point <- st_point(c(3, 3))
 
@@ -497,6 +526,13 @@ agg_mean <- aggregateByRegion(mase_agg, by = "cells", FUN = "mean")
 agg_mean[["rna"]]
 ```
 
+## Lower-level spatial joins
+
+`annotateWithRegions()` wraps a point-in-polygon join and writes results to
+`spatialMap`. For ad hoc layer-to-layer joins, use `spatialJoin()` on
+`DataFrame` layers with `geometry` columns (see **MultiAssaySpatialExperiment
+Cheatsheet**).
+
 ## Aggregation strategies
 
 Different strategies serve different purposes:
@@ -507,11 +543,12 @@ Different strategies serve different purposes:
 
 ```{r compare_strategies}
 # Compare sum vs mean for Gene1
+cells <- colnames(agg_sum[["rna"]])
 data.frame(
-  cell = colnames(agg_sum[["rna"]]),
+  cell = cells,
   sum = agg_sum[["rna"]]["Gene1", ],
   mean = agg_mean[["rna"]]["Gene1", ],
-  n_spots = agg_count
+  n_spots = agg_count$count[match(cells, agg_count$region)]
 )
 ```
 
@@ -556,7 +593,8 @@ text(st_coordinates(st_centroid(cells_sf)),
 # Labels ↔ shapes interoperability
 
 MASE supports both **labels** (raster segmentation masks) and **shapes**
-(vector polygons). You can convert between them:
+(vector polygons). The package stores both slot types; converting between them
+is a manual workflow using external tools (see below).
 
 - **Rasterization**: shapes → labels (convert polygons to a mask)
 - **Vectorization**: labels → shapes (extract polygon boundaries from a mask)
@@ -580,7 +618,7 @@ cat("Rasterization workflow:\n")
 cat("1. Define target grid dimensions and extent\n")
 cat("2. For each polygon, determine which pixels it covers\n")
 cat("3. Assign polygon ID to those pixels\n")
-cat("4. Store as LabelsLayerList in MASE\n")
+cat("4. Store as RasterLayerList in MASE\n")
 cat("\nRecommended packages: stars::st_rasterize, terra::rasterize\n")
 ```
 
@@ -598,7 +636,7 @@ label_matrix <- matrix(c(
 ), nrow = 4, byrow = TRUE)
 
 cat("Vectorization workflow:\n")
-cat("1. Load label matrix (from file or LabelsLayerList)\n")
+cat("1. Load label matrix (from file or RasterLayerList)\n")
 cat("2. Extract polygon boundaries for each unique label value\n")
 cat("3. Convert to sf polygons with instance_id\n")
 cat("4. Store as ShapesLayerList in MASE\n")
@@ -616,15 +654,16 @@ cat("\nRecommended packages: stars::st_as_sf, sf::st_polygonize\n")
 **Vectorization (labels → shapes)**:
 
 - Perform spatial operations (area, perimeter, centroid)
-- Spatial queries (point-in-polygon, overlap)
+- Spatial subsetting (point-in-polygon, overlap)
 - Visualization with ggplot2 + sf
 
 # Next steps
 
-- **Use cases**: See the **Use Cases** vignette for realistic workflows with
-  data readers and spatial transformations
-- **Introduction**: Review MASE structure, design principles, and terminology
-- **Cheatsheet**: Quick reference for common operations
+- **MultiAssaySpatialExperiment Use Cases**: Realistic workflows with data readers
+  and spatial transformations
+- **Introduction to MultiAssaySpatialExperiment**: MASE structure, design
+  principles, and terminology
+- **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common operations
 
 # Session info
 

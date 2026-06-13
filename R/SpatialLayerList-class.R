@@ -99,19 +99,18 @@ NULL
 #' df <- S4Vectors::DataFrame(id = 1:2, value = c("a", "b"))
 #' ShapesLayerList(regions = df)
 #'
-#' @aliases
-#' SpatialLayerList-class
-#' RasterLayerList-class
-#' PointsLayerList-class
-#' ShapesLayerList-class
+#' @aliases SpatialLayerList-class
+#' @aliases RasterLayerList-class
+#' @aliases PointsLayerList-class
+#' @aliases ShapesLayerList-class
 #'
-#' RasterLayerList
-#' PointsLayerList
-#' ShapesLayerList
+#' @aliases RasterLayerList
+#' @aliases PointsLayerList
+#' @aliases ShapesLayerList
 #'
-#' show,RasterLayerList-method
-#' show,PointsLayerList-method
-#' show,ShapesLayerList-method
+#' @aliases show,RasterLayerList-method
+#' @aliases show,PointsLayerList-method
+#' @aliases show,ShapesLayerList-method
 #'
 #' @seealso
 #' \itemize{

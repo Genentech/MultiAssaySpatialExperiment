@@ -26,19 +26,27 @@ In the snippets below, \code{x} is a
 \linkS4class{MultiAssaySpatialExperiment}:
 \describe{
   \item{\code{subsetByColData(x, y)}:}{
-    Subset by primary identifiers (samples). \code{spatialMap} and
-    \code{imgData} are filtered to retained samples.
+    Subset by primary identifiers (specimens). \code{spatialMap} and
+    \code{imgData} are filtered to retained specimens; point and shape rows
+    are not trimmed unless removed via the map.
   }
   \item{\code{subsetByRow(x, y, i = TRUE, ...)}:}{
     Subset rows of experiments. Spatial layers are assay-level and unchanged.
   }
   \item{\code{subsetByColumn(x, y)}:}{
-    Subset columns. \code{spatialMap} and \code{imgData} are filtered to
-    retained experiment columns.
+    Subset assay columns (observations). When \code{y} is a \code{list}
+    (one element per assay), each element may be column names, indices, or
+    a logical vector — the usual \code{\link[MultiAssayExperiment]{subsetByColumn}}
+    interface. \code{spatialMap}, \code{imgData}, and linked points, shapes,
+    images, and labels are filtered to retained columns. To subset by assay
+    \code{colData}, build a logical vector or column names and pass a list,
+    e.g. \code{subsetByColumn(mase, list(rna = colData(experiments(mase)[["rna"]])$tissue == "tumor"))}.
   }
   \item{\code{subsetByAssay(x, y)}:}{
-    Subset assays. Images, labels, points, shapes, \code{spatialMap}, and
-    \code{imgData} are filtered to retained assays.
+    Subset assays. Points, shapes, images, labels, \code{spatialMap}, and
+    \code{imgData} are filtered to layers and rows linked to retained assays
+    via \code{spatialMap}. Auxiliary shape layers not referenced in
+    \code{spatialMap} are dropped.
   }
   \item{\code{x[i, j, k, ..., drop = FALSE]}:}{
     Subset by row (\code{i}), column (\code{j}), and assay (\code{k}) indices.
@@ -67,8 +75,8 @@ All subsetting uses S3/S4 generics only. Table-like elements
 \code{sf::st_intersects} (and \code{st_as_sfc}, \code{st_bbox}
 for shapes / polygon). For spatial filtering, \code{instance_id} in points,
 shapes, and \code{spatialMap} must have matching types (no coercion). See
-the Subset vignette for a complete per-operation table and implementation
-guide.
+vignette \emph{Working with MultiAssaySpatialExperiment} for a per-operation
+propagation table.
 }
 
 \seealso{

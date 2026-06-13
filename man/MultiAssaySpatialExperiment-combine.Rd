@@ -7,8 +7,8 @@
 \title{MultiAssaySpatialExperiment combining}
 \description{
 Methods for combining \linkS4class{MultiAssaySpatialExperiment} objects.
-\code{c} merges two MASE (adding assays); \code{cbind} combines along
-columns (adding samples); \code{complete.cases} identifies samples with
+\code{c} merges two MASE objects (adding assays); \code{cbind} combines along
+columns (adding specimens); \code{complete.cases} identifies specimens with
 data in all assays.
 }
 \section{Combining}{
@@ -21,12 +21,12 @@ data in all assays.
     objects. Otherwise delegates to \code{\link[MultiAssayExperiment]{c,MultiAssayExperiment-method}}.
   }
   \item{\code{cbind(..., deparse.level = 1)}:}{
-    Combines MASE objects column-wise (same assay names, adds samples).
-    Spatial layers with the same name are row-bound; imgData and
-    spatialMap are row-bound.
+    Combines MASE objects column-wise (same assay names, adds specimens).
+    Spatial layers with the same name are row-bound; \code{imgData} and
+    \code{spatialMap} are row-bound.
   }
   \item{\code{complete.cases(x)}:}{
-    Returns a logical vector indicating which samples (primaries) have
+    Returns a logical vector indicating which specimens (primaries) have
     data in all assays. Delegates to
     \code{\link[MultiAssayExperiment]{complete.cases,MultiAssayExperiment-method}}.
   }

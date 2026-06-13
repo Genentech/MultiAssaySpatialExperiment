@@ -4,6 +4,15 @@
 
 #' Read NanoString CosMx SMI Spatial Data
 #'
+#' @description
+#' Load a NanoString CosMx output directory into a
+#' \linkS4class{MultiAssaySpatialExperiment}.
+#'
+#' @details
+#' Supports multi-FOV datasets. Use \code{fov_ids} to load specific fields of
+#' view, or \code{NULL} to load all FOVs into one object. Transcript coordinates
+#' are optional (\code{load_transcripts}).
+#'
 #' @param data_dir Character. Path to CosMx output directory.
 #' @param sample_id Character. Optional sample identifier (default: directory name).
 #' @param fov_ids Character vector or NULL. FOV IDs to load (default: NULL loads all).
@@ -12,7 +21,9 @@
 #' @param load_images Logical. Whether to load image data (default: FALSE).
 #' @param min_area Numeric. Minimum polygon area for filtering (default: NULL).
 #'
-#' @return A MultiAssaySpatialExperiment object.
+#' @return A \linkS4class{MultiAssaySpatialExperiment} object.
+#'
+#' @seealso \code{\link{readMERSCOPEMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom SummarizedExperiment colData<- SummarizedExperiment

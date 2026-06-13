@@ -36,8 +36,20 @@ readXeniumMASE(
 \item{block_size}{Numeric. Block size for chunked reading (default: 100MB).}
 }
 \value{
-A MultiAssaySpatialExperiment object.
+A \linkS4class{MultiAssaySpatialExperiment} object with expression,
+  coordinates, optional shapes, and \code{spatialMap} linkage.
 }
 \description{
-Read 10x Genomics Xenium Spatial Data
+Load a 10x Genomics Xenium output directory into a
+\linkS4class{MultiAssaySpatialExperiment}.
+}
+\details{
+Reads cell-by-gene counts, cell coordinates, optional segmentation polygons
+(\code{segmentations}), and optionally transcript-level coordinates
+(\code{add_transcripts}). Image metadata is included when \code{images = TRUE};
+set \code{load_images = TRUE} to load raster data.
+}
+\seealso{
+\code{\link{readVisiumMASE}}, \code{\link{readVisiumHDMASE}},
+  \code{\link{readCosMxMASE}}, \code{\link{readMERSCOPEMASE}}
 }

@@ -23,19 +23,27 @@ NULL
 #' \linkS4class{MultiAssaySpatialExperiment}:
 #' \describe{
 #'   \item{\code{subsetByColData(x, y)}:}{
-#'     Subset by primary identifiers (samples). \code{spatialMap} and
-#'     \code{imgData} are filtered to retained samples.
+#'     Subset by primary identifiers (specimens). \code{spatialMap} and
+#'     \code{imgData} are filtered to retained specimens; point and shape rows
+#'     are not trimmed unless removed via the map.
 #'   }
 #'   \item{\code{subsetByRow(x, y, i = TRUE, ...)}:}{
 #'     Subset rows of experiments. Spatial layers are assay-level and unchanged.
 #'   }
 #'   \item{\code{subsetByColumn(x, y)}:}{
-#'     Subset columns. \code{spatialMap} and \code{imgData} are filtered to
-#'     retained experiment columns.
+#'     Subset assay columns (observations). When \code{y} is a \code{list}
+#'     (one element per assay), each element may be column names, indices, or
+#'     a logical vector — the usual \code{\link[MultiAssayExperiment]{subsetByColumn}}
+#'     interface. \code{spatialMap}, \code{imgData}, and linked points, shapes,
+#'     images, and labels are filtered to retained columns. To subset by assay
+#'     \code{colData}, build a logical vector or column names and pass a list,
+#'     e.g. \code{subsetByColumn(mase, list(rna = colData(experiments(mase)[["rna"]])$tissue == "tumor"))}.
 #'   }
 #'   \item{\code{subsetByAssay(x, y)}:}{
-#'     Subset assays. Images, labels, points, shapes, \code{spatialMap}, and
-#'     \code{imgData} are filtered to retained assays.
+#'     Subset assays. Points, shapes, images, labels, \code{spatialMap}, and
+#'     \code{imgData} are filtered to layers and rows linked to retained assays
+#'     via \code{spatialMap}. Auxiliary shape layers not referenced in
+#'     \code{spatialMap} are dropped.
 #'   }
 #'   \item{\code{x[i, j, k, ..., drop = FALSE]}:}{
 #'     Subset by row (\code{i}), column (\code{j}), and assay (\code{k}) indices.
@@ -62,24 +70,23 @@ NULL
 #' \code{sf::st_intersects} (and \code{st_as_sfc}, \code{st_bbox}
 #' for shapes / polygon). For spatial filtering, \code{instance_id} in points,
 #' shapes, and \code{spatialMap} must have matching types (no coercion). See
-#' the Subset vignette for a complete per-operation table and implementation
-#' guide.
+#' vignette \emph{Working with MultiAssaySpatialExperiment} for a per-operation
+#' propagation table.
 #'
 #' @author Patrick Aboyoun
 #'
-#' @aliases
-#' subsetByColData,MultiAssaySpatialExperiment,ANY-method
-#' subsetByColData,MultiAssaySpatialExperiment,character-method
-#' subsetByRow,MultiAssaySpatialExperiment,ANY-method
-#' subsetByRow,MultiAssaySpatialExperiment,list-method
-#' subsetByRow,MultiAssaySpatialExperiment,List-method
-#' subsetByColumn,MultiAssaySpatialExperiment,ANY-method
-#' subsetByAssay,MultiAssaySpatialExperiment-method
-#' subsetByBoundingBox
-#' subsetByBoundingBox,MultiAssaySpatialExperiment-method
-#' subsetByPolygon
-#' subsetByPolygon,MultiAssaySpatialExperiment-method
-#' [,MultiAssaySpatialExperiment,ANY,ANY,ANY-method
+#' @aliases subsetByColData,MultiAssaySpatialExperiment,ANY-method
+#' @aliases subsetByColData,MultiAssaySpatialExperiment,character-method
+#' @aliases subsetByRow,MultiAssaySpatialExperiment,ANY-method
+#' @aliases subsetByRow,MultiAssaySpatialExperiment,list-method
+#' @aliases subsetByRow,MultiAssaySpatialExperiment,List-method
+#' @aliases subsetByColumn,MultiAssaySpatialExperiment,ANY-method
+#' @aliases subsetByAssay,MultiAssaySpatialExperiment-method
+#' @aliases subsetByBoundingBox
+#' @aliases subsetByBoundingBox,MultiAssaySpatialExperiment-method
+#' @aliases subsetByPolygon
+#' @aliases subsetByPolygon,MultiAssaySpatialExperiment-method
+#' @aliases [,MultiAssaySpatialExperiment,ANY,ANY,ANY-method
 #'
 #' @seealso
 #' \itemize{
@@ -180,6 +187,53 @@ NULL
     }
     sp_keys <- paste(spatialMap[["assay"]], spatialMap[["colname"]], sep = "\r")
     spatialMap[sp_keys %in% kept, , drop = FALSE]
+}
+
+.subsetSpatialElementsBySpatialMap <- function(x, spmap) {
+    regions <- character()
+    if (!is.null(spmap) && nrow(spmap) > 0L && "region" %in% colnames(spmap))
+        regions <- unique(as.character(spmap[["region"]]))
+    pts <- spatialPoints(x)
+    shps <- spatialShapes(x)
+    imgs <- spatialImages(x)
+    labs <- spatialLabels(x)
+    if (length(regions)) {
+        drop_pts <- setdiff(names(pts), regions)
+        if (length(drop_pts))
+            pts <- pts[setdiff(seq_along(pts), match(drop_pts, names(pts)))]
+        drop_shps <- setdiff(names(shps), regions)
+        if (length(drop_shps))
+            shps <- shps[setdiff(seq_along(shps), match(drop_shps, names(shps)))]
+        drop_imgs <- setdiff(names(imgs), regions)
+        if (length(drop_imgs))
+            imgs <- imgs[setdiff(seq_along(imgs), match(drop_imgs, names(imgs)))]
+        drop_labs <- setdiff(names(labs), regions)
+        if (length(drop_labs))
+            labs <- labs[setdiff(seq_along(labs), match(drop_labs, names(labs)))]
+    }
+    inst_ids <- if (!is.null(spmap) && nrow(spmap) > 0L &&
+            "instance_id" %in% colnames(spmap))
+        unique(spmap[["instance_id"]]) else character()
+    for (reg in regions) {
+        if (reg %in% names(pts)) {
+            el <- pts[[reg]]
+            if ("instance_id" %in% colnames(el) && length(inst_ids))
+                pts[[reg]] <- el[as.character(el[["instance_id"]]) %in%
+                    as.character(inst_ids), , drop = FALSE]
+        }
+        if (reg %in% names(shps)) {
+            el <- shps[[reg]]
+            if ("instance_id" %in% colnames(el) && length(inst_ids))
+                shps[[reg]] <- el[as.character(el[["instance_id"]]) %in%
+                    as.character(inst_ids), , drop = FALSE]
+        }
+    }
+    replaceSlots(x,
+        points = PointsLayerList(as.list(pts)),
+        shapes = ShapesLayerList(as.list(shps)),
+        images = RasterLayerList(as.list(imgs)),
+        labels = RasterLayerList(as.list(labs)),
+        check = FALSE)
 }
 
 .subsetPointsByBbox <- function(pt, xmin, xmax, ymin, ymax, x_col, y_col) {
@@ -320,13 +374,13 @@ function(x, y) {
         callNextMethod()
     } else {
         x <- callNextMethod()
-        sm <- sampleMap(x)
         cd <- colData(x)
-        replaceSlots(x,
-                     spatialMap = .subsetSpatialMapByColumn(spatialMap(x),
-                                                            experiments(x)),
-                     imgData = .subsetImgDataByColData(imgData(x), rownames(cd)),
-                     check = FALSE)
+        spmap <- .subsetSpatialMapByColumn(spatialMap(x), experiments(x))
+        x <- replaceSlots(x,
+            spatialMap = spmap,
+            imgData = .subsetImgDataByColData(imgData(x), rownames(cd)),
+            check = FALSE)
+        .subsetSpatialElementsBySpatialMap(x, spmap)
     }
 })
 

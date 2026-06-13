@@ -4,6 +4,16 @@
 
 #' Read 10x Genomics Xenium Spatial Data
 #'
+#' @description
+#' Load a 10x Genomics Xenium output directory into a
+#' \linkS4class{MultiAssaySpatialExperiment}.
+#'
+#' @details
+#' Reads cell-by-gene counts, cell coordinates, optional segmentation polygons
+#' (\code{segmentations}), and optionally transcript-level coordinates
+#' (\code{add_transcripts}). Image metadata is included when \code{images = TRUE};
+#' set \code{load_images = TRUE} to load raster data.
+#'
 #' @param data_dir Character. Path to Xenium output directory.
 #' @param sample_id Character. Optional sample identifier (default: directory name).
 #' @param segmentations Character. Segmentation type: "cell", "nucleus", or "both" (default: "cell").
@@ -14,7 +24,11 @@
 #' @param min_phred Integer. Minimum phred score for transcripts (default: 20).
 #' @param block_size Numeric. Block size for chunked reading (default: 100MB).
 #'
-#' @return A MultiAssaySpatialExperiment object.
+#' @return A \linkS4class{MultiAssaySpatialExperiment} object with expression,
+#'   coordinates, optional shapes, and \code{spatialMap} linkage.
+#'
+#' @seealso \code{\link{readVisiumMASE}}, \code{\link{readVisiumHDMASE}},
+#'   \code{\link{readCosMxMASE}}, \code{\link{readMERSCOPEMASE}}
 #'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom tools file_ext

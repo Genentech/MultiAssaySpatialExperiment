@@ -18,5 +18,5 @@ readGeoParquetForMASE(file_path, ...)
 sf object or equivalent object
 }
 \description{
-Read GeoParquet Files for MASE
+Read a GeoParquet file via \pkg{sfarrow} for geometry layers in MASE readers.
 }

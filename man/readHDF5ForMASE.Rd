@@ -20,5 +20,6 @@ readHDF5ForMASE(file_path, type = c("10x", "anndata"), ...)
 SummarizedExperiment
 }
 \description{
-Read HDF5 Files for MASE
+Read an HDF5 matrix file (10x or AnnData/h5ad) into a
+\linkS4class{SummarizedExperiment} for MASE assembly.
 }

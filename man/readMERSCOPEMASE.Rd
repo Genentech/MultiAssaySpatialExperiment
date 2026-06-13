@@ -36,8 +36,18 @@ readMERSCOPEMASE(
 \item{min_qv}{Numeric. Minimum quality value for transcripts (default: 20).}
 }
 \value{
-A MultiAssaySpatialExperiment object.
+A \linkS4class{MultiAssaySpatialExperiment} object.
 }
 \description{
-Read Vizgen MERSCOPE Spatial Data
+Load a Vizgen MERSCOPE (MERFISH) output directory into a
+\linkS4class{MultiAssaySpatialExperiment}.
+}
+\details{
+Supports multi-FOV datasets and multiple segmentation methods
+(\code{segmentation}: \code{"cellpose"}, \code{"watershed"}, or
+\code{"both"}). Transcript coordinates are optional
+(\code{load_transcripts}).
+}
+\seealso{
+\code{\link{readCosMxMASE}}, \code{\link{readXeniumMASE}}
 }

@@ -4,6 +4,15 @@
 
 #' Read 10x Genomics Visium Spatial Data
 #'
+#' @description
+#' Load a 10x Genomics Visium Space Ranger output directory into a
+#' \linkS4class{MultiAssaySpatialExperiment}.
+#'
+#' @details
+#' Reads spot-by-gene counts, tissue positions, spot geometries, and optional
+#' H&E image metadata (\code{images}). Coordinates may be returned in pixels or
+#' microns (\code{unit}). For Visium HD data, use \code{\link{readVisiumHDMASE}}.
+#'
 #' @param data_dir Character. Path to Space Ranger output directory.
 #' @param sample_id Character. Optional sample identifier (default: directory name).
 #' @param type Character. Matrix format: "HDF5" or "sparse" (default: "HDF5").
@@ -14,7 +23,9 @@
 #' @param min_area Numeric. Minimum polygon area for filtering (default: NULL).
 #' @param block_size Numeric. Block size for chunked reading (default: 100MB).
 #'
-#' @return A MultiAssaySpatialExperiment object.
+#' @return A \linkS4class{MultiAssaySpatialExperiment} object.
+#'
+#' @seealso \code{\link{readVisiumHDMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @export
 readVisiumMASE <-

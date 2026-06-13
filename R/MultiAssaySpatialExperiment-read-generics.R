@@ -5,6 +5,10 @@
 
 #' Read Parquet Files for MASE
 #'
+#' @description
+#' Read a Parquet file into a \linkS4class{DataFrame} for use in MASE component
+#' assembly or custom readers.
+#'
 #' @param file_path Character path to Parquet file
 #' @param col_select Optional character vector of column names to select
 #' @param ... Additional arguments passed to format-specific methods
@@ -30,6 +34,9 @@ setMethod("readParquetForMASE", "character",
 
 #' Read GeoParquet Files for MASE
 #'
+#' @description
+#' Read a GeoParquet file via \pkg{sfarrow} for geometry layers in MASE readers.
+#'
 #' @param file_path Character path to GeoParquet file
 #' @param ... Additional arguments passed to format-specific methods
 #'
@@ -52,6 +59,10 @@ setMethod("readGeoParquetForMASE", "character",
     })
 
 #' Read HDF5 Files for MASE
+#'
+#' @description
+#' Read an HDF5 matrix file (10x or AnnData/h5ad) into a
+#' \linkS4class{SummarizedExperiment} for MASE assembly.
 #'
 #' @param file_path Character path to HDF5 file
 #' @param type Character: "10x" for 10x HDF5, "anndata" for h5ad
@@ -89,6 +100,9 @@ setMethod("readHDF5ForMASE", c("character", "character"),
 
 #' Read GeoJSON Files for MASE
 #'
+#' @description
+#' Read a GeoJSON file via \pkg{sf} for shape layers in MASE readers.
+#'
 #' @param file_path Character path to GeoJSON file
 #' @param quiet Logical, suppress sf reading messages
 #' @param ... Additional arguments passed to format-specific methods
@@ -108,6 +122,9 @@ setMethod("readGeoJSONForMASE", "character",
     })
 
 #' Read CSV Files for MASE
+#'
+#' @description
+#' Read a CSV file into a \linkS4class{DataFrame} for MASE component assembly.
 #'
 #' @param file_path Character path to CSV file
 #' @param ... Additional arguments passed to format-specific methods
