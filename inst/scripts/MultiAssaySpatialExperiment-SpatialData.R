@@ -1,6 +1,9 @@
 ### =========================================================================
-### MultiAssaySpatialExperiment - SpatialData integration
+### MultiAssaySpatialExperiment - SpatialData integration (deferred)
 ### -------------------------------------------------------------------------
+###
+### NOT installed with the package: spatialdataR requires Bioc 3.24 (devel).
+### Restore to R/ and add spatialdataR to Suggests when targeting devel.
 ###
 ### Coercion to/from SpatialData; methods for SpatialData generics (images,
 ### labels, points, shapes, tables, layer, element). Registered in .onLoad.
@@ -17,8 +20,6 @@ NULL
 #' @importFrom S4Vectors DataFrame
 .pointFrameToDataFrame <- function(pf) {
     dat <- SpatialData::data(pf)
-    if (inherits(dat, "arrow_dplyr_query"))
-        dat <- get("collect", asNamespace("dplyr"))(dat)
     df <- as.data.frame(dat)
     ## Ensure instance_id column exists (rename 'id' if present)
     if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df)) {
@@ -30,8 +31,6 @@ NULL
 #' @importFrom S4Vectors DataFrame
 .shapeFrameToDataFrame <- function(sf) {
     dat <- SpatialData::data(sf)
-    if (inherits(dat, "arrow_dplyr_query"))
-        dat <- get("collect", asNamespace("dplyr"))(dat)
     df <- as.data.frame(dat)
     ## Ensure instance_id column exists (rename 'id' if present)
     if ("id" %in% colnames(df) && !"instance_id" %in% colnames(df)) {

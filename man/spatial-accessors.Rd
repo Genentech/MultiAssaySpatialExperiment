@@ -100,11 +100,13 @@ For single-element accessors, a character index with no matching name
 Integer indices that are out of bounds raise an error.
 }
 \examples{
-mat <- matrix(rnorm(20), 5, 4, dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
-expList <- ExperimentList(assay1 = mat)
-cd <- DataFrame(row.names = paste0("S", 1:4))
-sm <- DataFrame(assay = factor("assay1", "assay1"), primary = paste0("S", 1:4),
-    colname = paste0("S", 1:4))
+mat <- matrix(rnorm(20), 5, 4, dimnames = list(paste0("G", 1:5), paste0("obs", 1:4)))
+expList <- ExperimentList(rna = mat)
+cd <- S4Vectors::DataFrame(sample = "specimen_1", row.names = "specimen_1")
+sm <- S4Vectors::DataFrame(
+    assay = factor(rep("rna", 4), "rna"),
+    primary = rep("specimen_1", 4),
+    colname = paste0("obs", 1:4))
 mase <- MultiAssaySpatialExperiment(
     experiments = expList,
     colData = cd,

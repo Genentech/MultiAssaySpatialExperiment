@@ -4,6 +4,15 @@
 
 #' Read 10x Genomics Visium HD Spatial Data
 #'
+#' @description
+#' Load a 10x Genomics Visium HD Space Ranger output directory into a
+#' \linkS4class{MultiAssaySpatialExperiment}.
+#'
+#' @details
+#' Visium HD provides binned expression at 2 µm, 8 µm, and 16 µm resolution
+#' (codes \code{"002"}, \code{"008"}, \code{"016"}). Each requested bin size
+#' becomes a separate assay in the returned object.
+#'
 #' @param data_dir Character. Path to Space Ranger output directory.
 #' @param sample_id Character. Optional sample identifier (default: directory name).
 #' @param bin_size Character vector. Bin sizes to load: "002", "008", "016" (default: "008").
@@ -12,7 +21,10 @@
 #' @param load_images Logical. Whether to load image data (default: FALSE).
 #' @param min_area Numeric. Minimum polygon area for filtering (default: NULL).
 #'
-#' @return A MultiAssaySpatialExperiment object with multiple experiments (one per bin size).
+#' @return A \linkS4class{MultiAssaySpatialExperiment} with one experiment per
+#'   requested bin size.
+#'
+#' @seealso \code{\link{readVisiumMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #'

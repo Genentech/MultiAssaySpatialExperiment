@@ -51,8 +51,8 @@ NULL
 #' \code{unique}, and \code{split}. Assay data use \code{\link[SummarizedExperiment]{assay}}
 #' for SummarizedExperiment-like objects; plain matrices are passed through.
 #' Layer lists use \code{names}. Consistent with
-#' \code{\link{annotateWithRegions}} and \code{\link{subsetByPolygon}}; see the
-#' Subset vignette.
+#' \code{\link{annotateWithRegions}} and \code{\link{subsetByPolygon}}; see
+#' vignette \emph{Working with MultiAssaySpatialExperiment}.
 #'
 #' @author Patrick Aboyoun
 #'
@@ -82,9 +82,8 @@ NULL
 #' agg <- aggregateByRegion(mase, by = "cells", FUN = "sum")
 #' agg[["assay1"]]
 #'
-#' @aliases
-#' aggregateByRegion
-#' aggregateByRegion,MultiAssaySpatialExperiment-method
+#' @aliases aggregateByRegion
+#' @aliases aggregateByRegion,MultiAssaySpatialExperiment-method
 #'
 #' @export
 setGeneric("aggregateByRegion",

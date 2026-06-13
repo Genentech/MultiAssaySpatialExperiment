@@ -30,8 +30,18 @@ readVisiumHDMASE(
 \item{min_area}{Numeric. Minimum polygon area for filtering (default: NULL).}
 }
 \value{
-A MultiAssaySpatialExperiment object with multiple experiments (one per bin size).
+A \linkS4class{MultiAssaySpatialExperiment} with one experiment per
+  requested bin size.
 }
 \description{
-Read 10x Genomics Visium HD Spatial Data
+Load a 10x Genomics Visium HD Space Ranger output directory into a
+\linkS4class{MultiAssaySpatialExperiment}.
+}
+\details{
+Visium HD provides binned expression at 2 µm, 8 µm, and 16 µm resolution
+(codes \code{"002"}, \code{"008"}, \code{"016"}). Each requested bin size
+becomes a separate assay in the returned object.
+}
+\seealso{
+\code{\link{readVisiumMASE}}, \code{\link{readXeniumMASE}}
 }

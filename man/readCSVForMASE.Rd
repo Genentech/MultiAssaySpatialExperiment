@@ -18,5 +18,5 @@ readCSVForMASE(file_path, ...)
 DataFrame
 }
 \description{
-Read CSV Files for MASE
+Read a CSV file into a \linkS4class{DataFrame} for MASE component assembly.
 }

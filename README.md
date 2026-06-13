@@ -2,7 +2,7 @@
 
 **Multi-modal spatial transcriptomics with Bioconductor**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Bioconductor](https://img.shields.io/badge/Bioconductor-devel-brightgreen.svg)](http://bioconductor.org/packages/devel/bioc/html/MultiAssaySpatialExperiment.html)
 
 ## Overview
@@ -25,8 +25,8 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 
 BiocManager::install("MultiAssaySpatialExperiment", version = "devel")
 
-# Or from GitHub
-BiocManager::install("aboyounp/MultiAssaySpatialExperiment")
+# Or install from a local source checkout
+# R CMD INSTALL path/to/MultiAssaySpatialExperiment
 ```
 
 ## Quick Start
@@ -108,9 +108,10 @@ cell_expr <- aggregateByRegion(mase,
                                FUN = "sum")
 
 # Spatial subsetting
-mase_tissue <- subsetByPolygon(mase,
-                               shapes = "tissue",
-                               layer = "tumor_region")
+library(sf)
+roi <- st_polygon(list(matrix(c(0, 0, 1000, 0, 1000, 1000, 0, 1000, 0, 0),
+                              ncol = 2, byrow = TRUE)))
+mase_tissue <- subsetByPolygon(mase, roi)
 
 mase_bbox <- subsetByBoundingBox(mase,
                                  xmin = 0, xmax = 1000,
@@ -120,26 +121,28 @@ mase_bbox <- subsetByBoundingBox(mase,
 ### Standard Subsetting
 
 ```r
-# By sample, assay, or column
+# By sample, assay, column, or observation metadata
 mase[, colData(mase)$tissue_type == "tumor"]
 mase[c("rna", "protein"), ]
 subsetByAssay(mase, "rna")
+cdf <- colData(experiments(mase)[["rna"]])
+subsetByColumn(mase, list(rna = cdf$region == "core"))
 ```
 
 ### Access Spatial Data
 
 ```r
 # Points (DataFrame with coordinates)
-transcripts <- points(mase)$transcripts
-centroids <- points(mase)$centroids
+transcripts <- spatialPoints(mase)$transcripts
+centroids <- spatialPoints(mase)$centroids
 
 # Shapes (sf objects with geometries)
-cell_boundaries <- shapes(mase)$cells
-tissue_outline <- shapes(mase)$tissue
+cell_boundaries <- spatialShapes(mase)$cells
+tissue_outline <- spatialShapes(mase)$tissue
 
 # Images and labels
-images(mase)
-labels(mase)
+spatialImages(mase)
+spatialLabels(mase)
 
 # Spatial mapping table
 spatialMap(mase)
@@ -236,10 +239,10 @@ All readers:
 
 ### Vignettes
 
-1. **Introduction**: Overview, construction, basic operations
-2. **WorkingWithMASE**: Subsetting, spatial annotation, aggregation, labels ↔ shapes
-3. **UseCases**: Real data workflows with readers, multi-assay integration, coordinate transforms
-4. **Cheatsheet**: Quick reference for common tasks
+1. **Introduction to MultiAssaySpatialExperiment**: Overview, construction, basic operations
+2. **Working with MultiAssaySpatialExperiment**: Subsetting, spatial annotation, aggregation, labels ↔ shapes
+3. **MultiAssaySpatialExperiment Use Cases**: Real data workflows with readers, multi-assay integration, coordinate transforms
+4. **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common tasks
 
 ```r
 browseVignettes("MultiAssaySpatialExperiment")
@@ -256,9 +259,11 @@ browseVignettes("MultiAssaySpatialExperiment")
 - `aggregateByRegion()`: Aggregate assays by spatial features
 - `subsetByBoundingBox()`: Subset to spatial extent
 - `subsetByPolygon()`: Subset to polygon interior
+- `subsetByColumn()`: Filter assay columns (with spatial propagation when `y` is a list)
+- `spatialJoin()`: Join spatial layer tables (DataFrame × DataFrame via `sf`)
 
 **Accessors**:
-- `points()`, `shapes()`, `images()`, `labels()`
+- `spatialPoints()`, `spatialShapes()`, `spatialImages()`, `spatialLabels()`
 - `spatialMap()`, `imgData()`
 
 **Coercion**:
@@ -267,13 +272,16 @@ browseVignettes("MultiAssaySpatialExperiment")
 
 ## Design Principles
 
-### Terminology and spatialdata Alignment
+### Terminology and spatialdata alignment
 
 MASE aligns with [spatialdata](https://spatialdata.scverse.org/) (Python) for interoperability:
 
+- **Specimen**: a row in `colData` (primary identifier); often a tissue section,
+  patient, or replicate
+- **Observation**: a column in an assay matrix (cell, spot, bin)
 - **LayerList** vs **Element**: MASE uses "LayerList" (PointsLayerList, ShapesLayerList) to avoid R name collisions. Maps to spatialdata "elements" conceptually.
 - **element_type**: Discriminates point vs shape layers in `spatialMap` (spatialdata uses slot names; MASE needs explicit column)
-- **region**: Layer name within element type (spatialdata "region", MASE "layer" - same concept)
+- **region**: Layer name within element type (spatialdata "region", MASE "layer" — same concept)
 - **instance_id**: Row identifier within layer (consistent across both)
 
 See `?MultiAssaySpatialExperiment` for detailed terminology documentation.
@@ -295,7 +303,6 @@ Helps catch data inconsistencies early.
 All readers use S4 generics (`readParquetForMASE()`, `readGeoParquetForMASE()`, etc.) enabling:
 
 - **Package extension**: Other packages can register optimized methods
-- **Database backends**: BiocDuckDB can provide lazy-loading implementations
 - **Consistent interface**: Technology readers use same primitives
 
 ### Component-Based Architecture
@@ -309,15 +316,15 @@ Add new platforms without modifying core code.
 
 ## Package Statistics
 
-- **21 R files**: ~6,000 lines of code
-- **13 test files**: Comprehensive unit and integration tests
-- **4 vignettes**: From quick start to advanced workflows
-- **5 technology readers**: Production-ready
-- **3 coercion methods**: SPE ↔ MASE
+- **20 R source files**
+- **11 test files**
+- **4 vignettes**
+- **5 technology readers**
+- **Coercion**: SpatialExperiment and SpatialFeatureExperiment ↔ MASE
 
 ## Development Status
 
-**Version 0.9.0** - Pre-release for community feedback
+**Version 0.9.3** - Pre-release for community feedback
 
 - ✅ Core class implementation complete
 - ✅ Spatial operations (annotate, aggregate, subset)
@@ -334,7 +341,7 @@ Add new platforms without modifying core code.
 
 ## License
 
-MIT + file LICENSE
+Apache License 2.0 — see DESCRIPTION.
 
 Copyright (c) 2023-2026 Genentech, Inc.
 

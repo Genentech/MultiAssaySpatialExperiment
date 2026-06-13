@@ -97,45 +97,40 @@ mase <- MultiAssaySpatialExperiment(
 ```{r read_data}
 # Read Xenium data
 mase_xenium <- readXeniumMASE(
-  path = "path/to/xenium_output",
+  data_dir = "path/to/xenium_output",
   sample_id = "sample1",
-  load_cells = TRUE,
-  load_transcripts = FALSE
+  segmentations = "cell",
+  add_transcripts = FALSE
 )
 
 # Read Visium data
 mase_visium <- readVisiumMASE(
-  path = "path/to/spaceranger_output",
+  data_dir = "path/to/spaceranger_output",
   sample_id = "sample1",
   images = TRUE,
-  load = "filtered"
+  data = "filtered"
 )
 
-# Read Visium HD data
-mase_visium_hd <- readVisiumMASE(
-  path = "path/to/spaceranger_hd_output",
+# Read Visium HD data (separate reader; bin sizes "002", "008", "016")
+mase_visium_hd <- readVisiumHDMASE(
+  data_dir = "path/to/spaceranger_hd_output",
   sample_id = "sample_hd",
-  bin_size = "8um"  # or "2um", "16um"
+  bin_size = "008"
 )
 
 # Read CosMx data
 mase_cosmx <- readCosMxMASE(
-  path = "path/to/cosmx_output",
+  data_dir = "path/to/cosmx_output",
   sample_id = "cosmx_sample",
-  fov = "all"  # or specific FOV number(s)
+  fov_ids = NULL  # NULL loads all FOVs
 )
 
-# Read MERFISH data
-mase_merfish <- readVizgenMASE(
-  path = "path/to/vizgen_output",
-  sample_id = "merfish_sample",
-  z_plane = "all"  # or specific z-plane(s)
-)
-
-# Auto-detect technology and read
-mase_auto <- readSpatialDirectoryMASE(
-  path = "path/to/output",
-  sample_id = "auto_sample"
+# Read Vizgen MERSCOPE data (MERFISH platform)
+mase_merscope <- readMERSCOPEMASE(
+  data_dir = "path/to/vizgen_output",
+  sample_id = "merscope_sample",
+  segmentation = "cellpose",
+  load_transcripts = FALSE
 )
 ```
 
@@ -213,7 +208,7 @@ mase_poly <- subsetByPolygon(mase, poly)
 ## By assay
 
 ```{r subset_assay}
-# Keep only specific assays
+# Keep only specific assays (drops spatial layers not linked in spatialMap)
 mase_rna <- subsetByAssay(mase, "rna")
 ```
 
@@ -222,6 +217,14 @@ mase_rna <- subsetByAssay(mase, "rna")
 ```{r subset_coldata}
 # Keep specific specimens
 mase_subset <- subsetByColData(mase, c("S1", "S3"))
+```
+
+## By assay colData (observations)
+
+```{r subset_column_metadata}
+# Filter columns of one assay using experiment colData (MAE list interface)
+cdf <- colData(experiments(mase)[["rna"]])
+mase_sub <- subsetByColumn(mase, list(rna = cdf$region == "core"))
 ```
 
 # Operations
@@ -236,8 +239,10 @@ mase_combined <- c(mase1, mase2)
 ## Data extraction
 
 ```{r extract}
+library(BiocGenerics)
+
 # Long format (for plotting, analysis)
-long_df <- longFormat(mase)
+long_df <- longForm(mase)
 
 # Wide format
 wide_df <- wideFormat(mase)
@@ -259,8 +264,10 @@ mase_intersect_cols <- intersectColumns(mase)
 ## Replicates
 
 ```{r replicates}
-# Merge technical replicates
-mase_merged <- mergeReplicates(mase, replicates = c("S1", "S1_rep"), simplify = mean)
+# Merge technical replicates (list of replicate groups per assay)
+mase_merged <- mergeReplicates(mase,
+  replicates = list(rna = c("S1", "S1_rep")),
+  simplify = BiocGenerics::mean)
 ```
 
 # Spatial operations
@@ -288,36 +295,31 @@ agg_mean <- aggregateByRegion(mase, by = "cells", FUN = "mean")
 agg_count <- aggregateByRegion(mase, by = "cells", FUN = "count")
 ```
 
+## Spatial join between layers
+
+```{r spatial_join}
+# Join two shape layers (requires geometry columns)
+joined <- spatialJoin(spatialShapes(mase)[["cells"]], other_shapes,
+                      join = st_intersects)
+```
+
 # Coercion
 
 ## To/from SpatialExperiment
 
 ```{r coerce_spe}
-# MASE → SpatialExperiment (first assay only)
+# MASE → SpatialExperiment (requires exactly one SPE-compatible assay)
 spe <- as(mase, "SpatialExperiment")
 
 # SpatialExperiment → MASE
 mase_from_spe <- as(spe, "MultiAssaySpatialExperiment")
 ```
 
-## To/from SingleCellExperiment
+## Extract a single experiment
 
-```{r coerce_sce}
-# MASE → SingleCellExperiment (first assay)
-sce <- as(mase, "SingleCellExperiment")
-
-# SingleCellExperiment → MASE
-mase_from_sce <- as(sce, "MultiAssaySpatialExperiment")
-```
-
-## To/from SummarizedExperiment
-
-```{r coerce_se}
-# MASE → SummarizedExperiment (first assay)
-se <- as(mase, "SummarizedExperiment")
-
-# SummarizedExperiment → MASE
-mase_from_se <- as(se, "MultiAssaySpatialExperiment")
+```{r extract_experiment}
+# Access one assay directly (SummarizedExperiment, SCE, etc.)
+sce <- experiments(mase)[["rna"]]
 ```
 
 # Methods list
@@ -332,28 +334,36 @@ methods(class = "MultiAssayExperiment")
 
 # Quick workflows
 
-## Workflow 1: Build MASE from SE
+## Workflow 1: Build MASE from SummarizedExperiment
 
 ```{r workflow_se}
 # Start with SummarizedExperiment
 se <- SummarizedExperiment(assays = list(counts = mat))
 
+# Build MASE manually (coercion is supported from SpatialExperiment)
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = se),
+  colData = DataFrame(row.names = paste0("S", 1:4)),
+  sampleMap = DataFrame(
+    assay = factor("rna"),
+    primary = paste0("S", 1:4),
+    colname = paste0("S", 1:4)
+  )
+)
+
 # Add spatial coordinates
 coords <- DataFrame(x = runif(4), y = runif(4), instance_id = paste0("S", 1:4))
-
-# Coerce to MASE
-mase <- as(se, "MultiAssaySpatialExperiment")
 spatialPoints(mase) <- PointsLayerList(coords = coords)
 ```
 
-## Workflow 2: Spatial query + aggregation
+## Workflow 2: Spatial subset + aggregation
 
 ```{r workflow_spatial}
 # 1. Subset to region of interest
 mase_roi <- subsetByBoundingBox(mase, xmin = 0, xmax = 500, ymin = 0, ymax = 500)
 
 # 2. Annotate points with cell boundaries
-mase_roi <- annotateWithRegions(mase_roi, points = "transcripts", shapes = "cells")
+mase_roi <- annotateWithRegions(mase_roi, points = "coords", shapes = "cells")
 
 # 3. Aggregate transcripts per cell
 cell_expr <- aggregateByRegion(mase_roi, by = "cells", FUN = "sum")
@@ -387,13 +397,10 @@ protein_expr <- experiments(mase_multi)$protein
 
 | Topic | Vignette |
 |-------|----------|
-| Getting started | `Introduction` |
-| Object construction | `Construction` |
-| Subsetting operations | `Subset` |
-| Spatial annotation & aggregation | `SpatialAggregation` |
-| Multi-modal workflows | `UseCases` |
-| Coordinate systems, segmentation | `AdvancedTopics` |
-| Coercion between classes | `Coercion` |
+| Overview and anatomy | Introduction to MultiAssaySpatialExperiment |
+| Construction, subsetting, annotation | Working with MultiAssaySpatialExperiment |
+| Reader workflows and integration | MultiAssaySpatialExperiment Use Cases |
+| Quick reference | MultiAssaySpatialExperiment Cheatsheet |
 
 # Session info
 

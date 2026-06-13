@@ -65,7 +65,7 @@ increasingly, people ask questions that cut across assays: "I have RNA, protein,
 and chromatin from the same tissue—how do I link them and their spatial
 coordinates in one place?" That is a different problem. It needs a *multi-assay*
 structure that can carry spatial context and keep everything consistent when you
-subset, merge, or query.
+subset, or merge.
 
 `MultiAssayExperiment` (MAE) solves the multi-assay part. It gives you a central
 mapping table—the `sampleMap`—that links assay columns to specimens. One source
@@ -79,9 +79,9 @@ boundaries, tissue images. That is where `MultiAssaySpatialExperiment` (MASE)
 comes in. MASE extends MAE with spatial elements—points, shapes, images,
 labels—and a second central mapping table, the `spatialMap`, that links assay
 columns to those elements. Same philosophy as MAE: one place to look, one place
-to update, referential integrity enforced. When you subset by specimen or assay,
-the spatial maps and element lists stay in sync. You do not have to remember to
-clean up coordinates or drop orphaned geometries manually.
+to update, referential integrity enforced. Subsetting updates `spatialMap` (and,
+for most column- and assay-level operations, linked spatial layers) so you do
+not have to clean up coordinates or drop orphaned geometries manually.
 
 # When to use MASE
 
@@ -118,10 +118,10 @@ A `MultiAssaySpatialExperiment` object contains:
    - `labels` — segmentation masks (raster with instance IDs)
 
 3. **Spatial mappings**:
-   - `spatialMap` — links assay columns to spatial element rows (assay, colname,
-     region, instance_id)
-   - `imgData` — links specimens to images (sample_id, image_id, scaleFactor,
-     etc.)
+   - `spatialMap` — links assay columns to spatial element rows (`assay`,
+     `colname`, `element_type`, `region`, `instance_id`)
+   - `imgData` — links specimens to images (`sample_id`, `image_id`, `scaleFactor`,
+     and optional raster metadata)
 
 The following diagram shows how these components relate:
 
@@ -176,6 +176,10 @@ The `colData` is a `DataFrame` with one row per specimen (biological unit). Row
 names are primary identifiers. Columns store metadata like patient ID, tissue
 type, treatment, or any other specimen-level attribute.
 
+**Terminology:** a **specimen** is a `colData` row; an **observation** is an
+assay column (cell, spot, or bin). The `sampleMap` links observations to
+specimens.
+
 ### sampleMap: assay-to-specimen mapping
 
 The `sampleMap` is a three-column `DataFrame`:
@@ -214,7 +218,7 @@ areas.
 
 ### images: raster images
 
-The `images` slot is an `ImagesLayerList` (a named list). Each element is a
+The `images` slot is a `RasterLayerList` (a named list). Each element is a
 raster image (e.g., tissue H&E, fluorescence microscopy). Images can be:
 
 - Base R arrays
@@ -223,20 +227,21 @@ raster image (e.g., tissue H&E, fluorescence microscopy). Images can be:
 
 ### labels: segmentation masks
 
-The `labels` slot is a `LabelsLayerList` (a named list). Each element is a
+The `labels` slot is a `RasterLayerList` (a named list). Each element is a
 raster where pixel values are instance IDs (e.g., cell ID 1, 2, 3, ...). Labels
 are used for segmentation masks that define which pixels belong to which object.
 
 ### spatialMap: assay-to-spatial mapping
 
-The `spatialMap` is a four-column `DataFrame`:
+The `spatialMap` is a five-column `DataFrame`:
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `assay` | factor | Name of the assay in `ExperimentList` |
 | `colname` | character | Column name in the assay |
-| `region` | factor | Name of the spatial element (from points or shapes) |
-| `instance_id` | character | Row identifier in the spatial element |
+| `element_type` | character | Spatial slot: `"points"` or `"shapes"` |
+| `region` | character | Layer name within that slot (e.g., `"coords"`, `"cells"`) |
+| `instance_id` | character | Row identifier in the spatial layer |
 
 This table says: "column X of assay Y is spatially located at row Z of element
 W." The `spatialMap` is the key innovation: it allows multiple assays to share
@@ -251,14 +256,13 @@ subsetting.
 
 ### imgData: specimen-to-image mapping
 
-The `imgData` is a `DataFrame` with one row per image-specimen pair. Required
-columns:
+The `imgData` is a `DataFrame` with one row per image–specimen pair (Visium
+readers populate SPE-compatible columns). Typical columns include:
 
 - `sample_id` — row name in `colData` (specimen identifier)
 - `image_id` — name of the image in the `images` slot
-- `scaleFactor` — numeric scale factor for coordinates (optional)
-
-Additional columns can store image metadata (resolution, file path, etc.).
+- `scaleFactor` — numeric scale factor for pixel ↔ coordinate conversion
+- `data`, `width`, `height`, `path` — raster payload or file reference (when loaded).
 
 # Quick Start: Building a MASE object
 
@@ -304,7 +308,7 @@ For more construction examples, including:
 - Adding images and labels
 - Validation and common mistakes
 
-See the **Working with MASE** vignette.
+See the **Working with MultiAssaySpatialExperiment** vignette.
 
 # Accessors
 
@@ -359,67 +363,76 @@ imgData(mase)
 
 # Subsetting
 
-MASE supports all MAE subsetting operations, with automatic propagation to
-spatial elements:
+MASE supports all MAE subsetting operations, with propagation to spatial slots
+where applicable:
 
-- `subsetByColData(x, y)` — subset by specimen metadata
-- `subsetByRow(x, y, ...)` — subset by feature (rows of assays)
-- `subsetByColumn(x, y)` — subset by assay column
-- `subsetByAssay(x, y)` — subset by assay name
-- `x[i, j, k, ...]` — combined subsetting
+- `subsetByColData(x, y)` — subset by specimen; updates `spatialMap` and
+  `imgData` (point and shape rows are not trimmed unless removed via the map)
+- `subsetByRow(x, y, ...)` — subset assay features (spatial layers unchanged)
+- `subsetByColumn(x, y)` — subset assay columns; when `y` is a list, also
+  trims linked points, shapes, images, and labels via `spatialMap`
+- `subsetByAssay(x, y)` — subset by assay name; keeps spatial layers referenced
+  in `spatialMap` for the retained assays
+- `x[i, j, k, ...]` — combined subsetting (specimens, columns, assays, features)
 
-**Spatial subsetting**:
+Filter by observation metadata using the standard MAE list interface, for
+example `subsetByColumn(mase, list(rna = colData(experiments(mase)[["rna"]])$tissue == "tumor"))`.
 
-- `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` — subset points/shapes
-  by bounding box
-- `subsetByPolygon(x, polygon, ...)` — subset points/shapes by polygon
+**Spatial subsetting** (geometry first, then assays via `spatialMap`):
 
-When you subset by specimen or column, the `spatialMap` and spatial element
-lists are updated automatically. No manual cleanup required.
+- `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` — rectangular ROI
+- `subsetByPolygon(x, polygon, ...)` — polygon ROI
 
-See the **Working with MASE** vignette for detailed subsetting examples.
+See the **Working with MultiAssaySpatialExperiment** vignette for detailed
+subsetting examples.
 
 # Spatial operations
 
 MASE provides generics for spatial annotation and aggregation:
 
-- `annotateWithRegions(x, regions, ...)` — annotate measurement points with the
-  regions (cells, segments) they fall in
-- `aggregateByRegion(x, regions, ...)` — aggregate assay values by region (e.g.,
-  sum transcript counts per cell)
+- `annotateWithRegions(x, points =, shapes =, ...)` — annotate measurement
+  points with the shapes (cells, segments) they fall in
+- `aggregateByRegion(x, by =, FUN =, ...)` — aggregate assay values by annotated
+  region (e.g., sum transcript counts per cell)
+- `spatialJoin(x, y, ...)` — join two spatial layer tables (DataFrame × DataFrame
+  via `sf`; lower-level primitive for custom annotation workflows)
 
 These functions use the `sf` package for spatial joins (default:
 `st_intersects`). You can customize the join function (e.g., `st_nearest_feature`).
 
-See the **Working with MASE** vignette for detailed examples.
+See the **Working with MultiAssaySpatialExperiment** vignette for detailed
+examples.
 
 # Coercion
 
-MASE can convert to and from other Bioconductor spatial classes:
+MASE can convert to and from other Bioconductor spatial classes (when the
+relevant packages are installed):
 
-- `as(mase, "SpatialExperiment")` — coerce to SpatialExperiment (single-assay)
-- `as(spe, "MultiAssaySpatialExperiment")` — coerce from SpatialExperiment
-- `as(mase, "SpatialFeatureExperiment")` — coerce to SpatialFeatureExperiment
-- `as(sfe, "MultiAssaySpatialExperiment")` — coerce from
-  SpatialFeatureExperiment
+- `as(spe, "MultiAssaySpatialExperiment")` — wrap a
+  `SpatialExperiment` as a single-assay MASE
+- `as(mase, "SpatialExperiment")` — requires exactly one SPE-compatible assay
+- `as(sfe, "MultiAssaySpatialExperiment")` — wrap a
+  `SpatialFeatureExperiment` (requires **SpatialFeatureExperiment**)
+- `as(mase, "SpatialFeatureExperiment")` — requires exactly one
+  SPE/SFE-compatible assay
 
-See the **Use Cases** vignette for coercion examples.
+See the **MultiAssaySpatialExperiment Use Cases** vignette for coercion examples.
 
 # Next steps
 
 After reading this introduction, proceed to:
 
-1. **Working with MASE**: Construction patterns, subsetting operations, spatial
-   annotation and aggregation, and labels ↔ shapes conversion
+1. **Working with MultiAssaySpatialExperiment**: Construction patterns, subsetting
+   operations, spatial annotation and aggregation, and labels ↔ shapes conversion
    
-2. **Use Cases**: Complete workflows for:
-   - Reading data from Xenium, Visium, CosMx, MERFISH
+2. **MultiAssaySpatialExperiment Use Cases**: Complete workflows for:
+   - Reading data from Xenium, Visium, Visium HD, CosMx, and MERSCOPE (MERFISH)
    - Converting from SpatialExperiment or SpatialFeatureExperiment
    - Multi-assay integration (Xenium + Visium)
    - Coordinate transformations and alignment
    - Multi-sample analysis
 
-3. **Cheatsheet**: Quick reference for common MASE operations
+3. **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common MASE operations
 
 # Session info
 

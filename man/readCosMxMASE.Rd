@@ -30,8 +30,17 @@ readCosMxMASE(
 \item{min_area}{Numeric. Minimum polygon area for filtering (default: NULL).}
 }
 \value{
-A MultiAssaySpatialExperiment object.
+A \linkS4class{MultiAssaySpatialExperiment} object.
 }
 \description{
-Read NanoString CosMx SMI Spatial Data
+Load a NanoString CosMx output directory into a
+\linkS4class{MultiAssaySpatialExperiment}.
+}
+\details{
+Supports multi-FOV datasets. Use \code{fov_ids} to load specific fields of
+view, or \code{NULL} to load all FOVs into one object. Transcript coordinates
+are optional (\code{load_transcripts}).
+}
+\seealso{
+\code{\link{readMERSCOPEMASE}}, \code{\link{readXeniumMASE}}
 }

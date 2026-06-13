@@ -50,7 +50,8 @@ NULL
 #' use \code{nrow}, \code{colnames}, \code{[[}, and \code{[}. Spatial operations use
 #' the supplied \code{join} function and
 #' \code{\link[sf:st_as_sfc]{st_as_sfc}}. Layer lists use \code{names}.
-#' Consistent with \code{\link{subsetByPolygon}}; see the Subset vignette.
+#' Consistent with \code{\link{subsetByPolygon}}; see vignette
+#' \emph{Working with MultiAssaySpatialExperiment}.
 #'
 #' @return
 #' \code{x} with \code{spatialMap} updated to include the new annotation column.
@@ -84,9 +85,8 @@ NULL
 #' mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
 #' spatialMap(mase)
 #'
-#' @aliases
-#' annotateWithRegions
-#' annotateWithRegions,MultiAssaySpatialExperiment-method
+#' @aliases annotateWithRegions
+#' @aliases annotateWithRegions,MultiAssaySpatialExperiment-method
 #'
 #' @export
 #' @importFrom sf st_intersects st_nearest_feature

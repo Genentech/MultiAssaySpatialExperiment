@@ -48,8 +48,8 @@ use \code{nrow}, \code{colnames}, \code{rownames}, \code{[[}, \code{[},
 \code{unique}, and \code{split}. Assay data use \code{\link[SummarizedExperiment]{assay}}
 for SummarizedExperiment-like objects; plain matrices are passed through.
 Layer lists use \code{names}. Consistent with
-\code{\link{annotateWithRegions}} and \code{\link{subsetByPolygon}}; see the
-Subset vignette.
+\code{\link{annotateWithRegions}} and \code{\link{subsetByPolygon}}; see
+vignette \emph{Working with MultiAssaySpatialExperiment}.
 }
 
 \examples{

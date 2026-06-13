@@ -71,9 +71,8 @@ NULL
 #' spatialOverlaps(pts, polygon, coords = c("x", "y"))
 #' ## TRUE  TRUE FALSE
 #'
-#' @aliases
-#' spatialOverlaps
-#' spatialOverlaps,DataFrame-method
+#' @aliases spatialOverlaps
+#' @aliases spatialOverlaps,DataFrame-method
 #'
 #' @name spatialOverlaps
 NULL
@@ -152,9 +151,8 @@ setMethod("spatialOverlaps", "DataFrame",
 #' spatialMatch(pts, shapes, coords = c("x", "y"))
 #' ## 1  1  2
 #'
-#' @aliases
-#' spatialMatch
-#' spatialMatch,DataFrame,DataFrame-method
+#' @aliases spatialMatch
+#' @aliases spatialMatch,DataFrame,DataFrame-method
 #'
 #' @name spatialMatch
 NULL
@@ -193,3 +191,51 @@ setMethod("spatialMatch", c("DataFrame", "DataFrame"),
         }
         out
     })
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### spatialJoin
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#' Spatial join between spatial layer tables
+#'
+#' @description
+#' Join two spatial \code{\linkS4class{DataFrame}} layers on a spatial
+#' predicate. The \code{DataFrame} method uses \pkg{sf} attribute joins
+#' via \code{\link[sf:st_join]{st_join}}.
+#'
+#' @param x A \code{\linkS4class{DataFrame}} with spatial data.
+#' @param y A spatial table to join against.
+#' @param join Spatial predicate function (default
+#'   \code{\link[sf:st_intersects]{st_intersects}}).
+#' @param sparse Logical; when \code{TRUE}, request a sparse pair-table
+#'   result where supported by methods (default \code{TRUE} for the
+#'   generic signature; the \code{DataFrame} method materializes via
+#'   \code{st_join}).
+#' @param ... Additional arguments for methods.
+#'
+#' @return Join result. The \code{DataFrame} method returns an \code{sf}
+#'   object from \code{st_join}.
+#'
+#' @seealso \code{\link{spatialMatch}} for first-match indexing without
+#'   attaching attributes.
+#'
+#' @aliases spatialJoin
+#' @aliases spatialJoin,DataFrame,DataFrame-method
+#'
+#' @author Patrick Aboyoun
+#'
+#' @export
+setGeneric("spatialJoin",
+    function(x, y, join = st_intersects, sparse = TRUE, ...)
+        standardGeneric("spatialJoin"))
+
+#' @importFrom sf st_intersects st_join st_as_sfc st_sf
+#' @exportMethod spatialJoin
+setMethod("spatialJoin", c("DataFrame", "DataFrame"),
+function(x, y, join = st_intersects, sparse = FALSE, ...) {
+    if (!"geometry" %in% colnames(x) || !"geometry" %in% colnames(y))
+        stop("spatialJoin requires 'geometry' columns in x and y")
+    gx <- st_as_sfc(x[["geometry"]])
+    gy <- st_as_sfc(y[["geometry"]])
+    st_join(st_sf(x, geometry = gx), st_sf(y, geometry = gy), join = join)
+})

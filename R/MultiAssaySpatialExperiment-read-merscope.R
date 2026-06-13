@@ -4,6 +4,16 @@
 
 #' Read Vizgen MERSCOPE Spatial Data
 #'
+#' @description
+#' Load a Vizgen MERSCOPE (MERFISH) output directory into a
+#' \linkS4class{MultiAssaySpatialExperiment}.
+#'
+#' @details
+#' Supports multi-FOV datasets and multiple segmentation methods
+#' (\code{segmentation}: \code{"cellpose"}, \code{"watershed"}, or
+#' \code{"both"}). Transcript coordinates are optional
+#' (\code{load_transcripts}).
+#'
 #' @param data_dir Character. Path to MERSCOPE output directory.
 #' @param sample_id Character. Optional sample identifier (default: directory name).
 #' @param fov_ids Character vector or NULL. FOV IDs to load (default: NULL loads all).
@@ -14,7 +24,9 @@
 #' @param min_area Numeric. Minimum polygon area for filtering (default: NULL).
 #' @param min_qv Numeric. Minimum quality value for transcripts (default: 20).
 #'
-#' @return A MultiAssaySpatialExperiment object.
+#' @return A \linkS4class{MultiAssaySpatialExperiment} object.
+#'
+#' @seealso \code{\link{readCosMxMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom tools file_ext

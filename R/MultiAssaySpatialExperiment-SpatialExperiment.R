@@ -87,23 +87,22 @@ NULL
 #'
 #' @author Patrick Aboyoun
 #'
-#' @aliases
-#' coerce,SpatialExperiment,MultiAssaySpatialExperiment-method
-#' coerce,MultiAssaySpatialExperiment,SpatialExperiment-method
+#' @aliases coerce,SpatialExperiment,MultiAssaySpatialExperiment-method
+#' @aliases coerce,MultiAssaySpatialExperiment,SpatialExperiment-method
 #'
-#' spatialCoords,MultiAssaySpatialExperiment-method
-#' spatialCoordsNames,MultiAssaySpatialExperiment-method
-#' scaleFactors,MultiAssaySpatialExperiment-method
+#' @aliases spatialCoords,MultiAssaySpatialExperiment-method
+#' @aliases spatialCoordsNames,MultiAssaySpatialExperiment-method
+#' @aliases scaleFactors,MultiAssaySpatialExperiment-method
 #'
-#' getImg,MultiAssaySpatialExperiment-method
-#' addImg,MultiAssaySpatialExperiment-method
-#' rmvImg,MultiAssaySpatialExperiment-method
-#' imgSource,MultiAssaySpatialExperiment-method
-#' imgRaster,MultiAssaySpatialExperiment-method
-#' rotateImg,MultiAssaySpatialExperiment-method
-#' mirrorImg,MultiAssaySpatialExperiment-method
+#' @aliases getImg,MultiAssaySpatialExperiment-method
+#' @aliases addImg,MultiAssaySpatialExperiment-method
+#' @aliases rmvImg,MultiAssaySpatialExperiment-method
+#' @aliases imgSource,MultiAssaySpatialExperiment-method
+#' @aliases imgRaster,MultiAssaySpatialExperiment-method
+#' @aliases rotateImg,MultiAssaySpatialExperiment-method
+#' @aliases mirrorImg,MultiAssaySpatialExperiment-method
 #'
-#' molecules,MultiAssaySpatialExperiment-method
+#' @aliases molecules,MultiAssaySpatialExperiment-method
 #'
 #' @seealso
 #' \itemize{

@@ -125,6 +125,45 @@ test_that("subsetByBoundingBox filters points and propagates to assays", {
     expect_equal(colnames(experiments(out)[["assay1"]]), c("S2", "S3", "S4"))
 })
 
+test_that("subsetByColumn propagates to spatial element lists", {
+    pts <- DataFrame(
+        x = 1:6, y = 1:6,
+        instance_id = paste0("spot", 1:6)
+    )
+    ex <- SummarizedExperiment(
+        assays = list(counts = matrix(1:30, 5, 6,
+            dimnames = list(paste0("G", 1:5), paste0("spot", 1:6)))),
+        colData = DataFrame(
+            tissue = c("tumor", "tumor", "tumor", "normal", "normal", "normal"),
+            nCount = c(100, 200, 150, 80, 120, 90)
+        )
+    )
+    mase <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(rna = ex),
+        colData = DataFrame(row.names = c("S1", "S2")),
+        sampleMap = DataFrame(
+            assay = factor(rep("rna", 6), "rna"),
+            primary = c(rep("S1", 3), rep("S2", 3)),
+            colname = paste0("spot", 1:6)
+        ),
+        points = PointsLayerList(tissue1 = pts),
+        spatialMap = DataFrame(
+            assay = factor(rep("rna", 6), "rna"),
+            colname = paste0("spot", 1:6),
+            element_type = "points",
+            region = "tissue1",
+            instance_id = paste0("spot", 1:6)
+        )
+    )
+    cdf <- colData(experiments(mase)[["rna"]])
+    out <- subsetByColumn(mase, list(rna = cdf$tissue == "tumor" & cdf$nCount >= 150))
+    expect_s4_class(out, "MultiAssaySpatialExperiment")
+    expect_equal(colnames(experiments(out)[["rna"]]), c("spot2", "spot3"))
+    expect_equal(nrow(spatialMap(out)), 2L)
+    expect_equal(nrow(spatialPoints(out)[["tissue1"]]), 2L)
+    expect_equal(spatialPoints(out)[["tissue1"]][["instance_id"]], c("spot2", "spot3"))
+})
+
 test_that("subsetByPolygon filters points", {
     pts <- DataFrame(x = c(1, 2, 3, 4, 5), y = c(1, 2, 3, 4, 5),
         instance_id = paste0("S", 1:5))

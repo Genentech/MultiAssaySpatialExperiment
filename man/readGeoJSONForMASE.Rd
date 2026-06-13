@@ -20,5 +20,5 @@ readGeoJSONForMASE(file_path, ...)
 sf or equivalent object
 }
 \description{
-Read GeoJSON Files for MASE
+Read a GeoJSON file via \pkg{sf} for shape layers in MASE readers.
 }
