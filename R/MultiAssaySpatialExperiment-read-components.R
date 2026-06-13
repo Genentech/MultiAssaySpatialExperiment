@@ -146,7 +146,6 @@ function(parquet_path, layer_name = "cells",
          min_area = NULL, ...)
 {    
     df <- readParquetForMASE(parquet_path, ...)
-    df <- as.data.frame(df)
 
     id_actual <- find_column(df, cell_id_col, required = TRUE)
     x_actual <- find_column(df, x_col, required = TRUE)
@@ -201,7 +200,7 @@ function(csv_path, layer_name = "cells",
 }
 
 ## Generates circular polygons from spot centers
-#' @importFrom sf st_as_sf st_buffer
+#' @importFrom sf st_as_sfc st_buffer st_sf
 .create_spot_geometries <-
 function(positions_df, x_col = "x_centroid", y_col = "y_centroid",
          radius = NULL, min_area = NULL)
@@ -213,12 +212,11 @@ function(positions_df, x_col = "x_centroid", y_col = "y_centroid",
         stop(wmsg("Column '", y_col, "' not found in positions data"))
     }
 
-    centers <- positions_df
-    names(centers)[names(centers) == x_col] <- "x"
-    names(centers)[names(centers) == y_col] <- "y"
-
-    pts <- st_as_sf(centers, coords = c("x", "y"))
-    spots <- st_buffer(pts, dist = radius, nQuadSegs = 16L)
+    pts_sfc <- st_as_sfc(paste0("POINT(",
+                                positions_df[[x_col]], " ",
+                                positions_df[[y_col]], ")"))
+    spots_sfc <- st_buffer(pts_sfc, dist = radius, nQuadSegs = 16L)
+    spots <- st_sf(positions_df, geometry = spots_sfc)
 
     if (!is.null(min_area)) {
         spots <- .filter_polygons(spots, min_area = min_area)
@@ -363,6 +361,33 @@ function(spatial_dir, sample_id, load_images = FALSE, scale_factors = NULL) {
                           load_images = load_images)
 }
 
+.spatialImages_from_imgData <- function(imgData) {
+    if (is.null(imgData) || nrow(imgData) == 0L ||
+            !"data" %in% colnames(imgData))
+        return(RasterLayerList())
+    layers <- list()
+    for (i in seq_len(nrow(imgData))) {
+        raster_data <- imgData[["data"]][[i]]
+        if (is.null(raster_data))
+            next
+        layer_name <- as.character(imgData[["image_id"]][[i]])
+        layers[[layer_name]] <- raster_data
+    }
+    if (!length(layers))
+        return(RasterLayerList())
+    do.call(RasterLayerList, layers)
+}
+
+.spatialLabels_from_rasters <- function(rasters) {
+    if (is.null(rasters) || length(rasters) == 0L)
+        return(RasterLayerList())
+    if (is(rasters, "RasterLayerList"))
+        return(rasters)
+    if (is.list(rasters) && !is.null(names(rasters)))
+        return(RasterLayerList(rasters))
+    stop(wmsg("'rasters' must be a named list or RasterLayerList"))
+}
+
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Label raster readers
 ###
@@ -433,7 +458,7 @@ function(ometiff_path, series = 1L, layer_name = "segmentation", ...) {
 
     img <- RBioFormats::read.image(ometiff_path, series = series, ...)
 
-    if (!inherits(img, "SpatRaster")) {
+    if (!is(img, "SpatRaster")) {
         if (!requireNamespace("terra", quietly = TRUE)) {
             stop(wmsg("Package 'terra' required for OME-TIFF reading. ",
                       "Install with: BiocManager::install('terra')"))

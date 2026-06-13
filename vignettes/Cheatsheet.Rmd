@@ -92,6 +92,25 @@ mase <- MultiAssaySpatialExperiment(
 )
 ```
 
+## Using prepMASE and buildSpatialMap
+
+```{r constructor_prep}
+sample_map <- DataFrame(
+  assay = factor("rna"),
+  primary = paste0("S", 1:4),
+  colname = paste0("S", 1:4)
+)
+spmap <- buildSpatialMap(sample_map, region = "coords", element_type = "points")
+prepared <- prepMASE(
+  ExperimentList(rna = mat),
+  DataFrame(row.names = paste0("S", 1:4)),
+  sample_map,
+  points = PointsLayerList(coords = pts),
+  spatialMap = spmap
+)
+mase <- do.call(MultiAssaySpatialExperiment, prepared)
+```
+
 ## Read from vendor outputs
 
 ```{r read_data}
@@ -182,6 +201,18 @@ spatialPoints(mase) <- PointsLayerList(coords = pts, nuclei = nuclei_pts)
 ```
 
 # Subsetting
+
+MASE uses the same `subsetBy*` API as `MultiAssayExperiment`. There is no
+separate spatial query function — spatial layers propagate automatically.
+
+| Goal | Call | `y` type | Spatial propagation |
+|------|------|----------|---------------------|
+| Specimens | `subsetByColData(mase, y)` / `mase[, j, ]` | character, logical, numeric | `spatialMap`, `imgData`, points, shapes, images, labels |
+| Observations | `subsetByColumn(mase, list(...))` | named list per assay | same as specimen path |
+| Assays | `subsetByAssay(mase, y)` / `mase[, , k]` | character, logical, numeric | layers linked via `spatialMap`; drops recorded |
+| Features | `subsetByRow(mase, y)` / `mase[i, , ]` | per-assay indices | spatial layers unchanged |
+| Bounding box | `subsetByBoundingBox(mase, ...)` | coordinates | geometry filter → `subsetByColumn(list)` |
+| Polygon | `subsetByPolygon(mase, polygon)` | sf geometry | geometry filter → `subsetByColumn(list)` |
 
 ## By row, column, assay
 

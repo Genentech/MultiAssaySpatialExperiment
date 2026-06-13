@@ -71,26 +71,35 @@ function(technology, valid_technologies = VALID_TECHNOLOGIES) {
 
 #' @importFrom S4Vectors isSingleString wmsg
 normarg_data_type <- function(data, valid_types = VALID_DATA_TYPES) {
-    if (!isSingleString(data))
-        stop(wmsg("'data' must be a single string"))
-
     match.arg(data, valid_types)
 }
 
 #' @importFrom S4Vectors isSingleString wmsg
 normarg_matrix_format <- function(type, valid_formats = VALID_MATRIX_FORMATS) {
-    if (!isSingleString(type))
-        stop(wmsg("'type' must be a single string"))
-
     match.arg(type, valid_formats)
 }
 
 #' @importFrom S4Vectors isSingleString wmsg
 normarg_unit <- function(unit, valid_units = VALID_COORD_UNITS) {
-    if (!isSingleString(unit))
-        stop(wmsg("'unit' must be a single string"))
-
     match.arg(unit, valid_units)
+}
+
+.observation_ids <- function(counts) {
+    cn <- colnames(counts)
+    if (!is.null(cn) && length(cn) > 0L)
+        return(cn)
+    if (is(counts, "SummarizedExperiment")) {
+        cd <- colData(counts)
+        if ("Barcode" %in% colnames(cd))
+            return(as.character(cd[["Barcode"]]))
+        cn <- colnames(cd)
+        if (!is.null(cn) && length(cn) > 0L)
+            return(cn)
+        rn <- rownames(cd)
+        if (!is.null(rn) && length(rn) > 0L)
+            return(rn)
+    }
+    character(0L)
 }
 
 #' @importFrom S4Vectors isSingleNumber wmsg
@@ -278,7 +287,7 @@ function(df, x.field = NULL, y.field = NULL, id.field = NULL, config = NULL) {
 }
 
 #' @importFrom S4Vectors wmsg
-#' @importFrom sf st_polygon st_sfc st_as_sf
+#' @importFrom sf st_polygon st_sfc st_sf
 .vertices_to_polygons <-
 function(df, x_col = "vertex_x", y_col = "vertex_y", id_col = "cell_id") {
     required <- c(x_col, y_col, id_col)
@@ -288,14 +297,15 @@ function(df, x_col = "vertex_x", y_col = "vertex_y", id_col = "cell_id") {
                   paste(missing, collapse = ", ")))
     }
 
-    coords <- as.matrix(df[, c(x_col, y_col), drop = FALSE])
+    xv <- df[[x_col]]
+    yv <- df[[y_col]]
     ids <- df[[id_col]]
     unique_ids <- unique(ids)
 
     ## Build polygons
     poly_list <- lapply(unique_ids, function(id) {
         idx <- ids == id
-        poly_coords <- coords[idx, , drop = FALSE]
+        poly_coords <- cbind(xv[idx], yv[idx])
 
         ## Close polygon if not already closed
         if (nrow(poly_coords) > 0L) {
@@ -310,10 +320,7 @@ function(df, x_col = "vertex_x", y_col = "vertex_y", id_col = "cell_id") {
     })
 
     geom_col <- st_sfc(poly_list)
-    result <- data.frame(instance_id = as.character(unique_ids), 
-                         stringsAsFactors = FALSE)
-    result$geometry <- geom_col
-    st_as_sf(result)
+    st_sf(DataFrame(instance_id = as.character(unique_ids)), geometry = geom_col)
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -379,9 +386,10 @@ function(image_path,
 
     img_info <- .get_image_info(image_path, load_image)
 
+    payload <- if (load_image) img_info$data else NULL
     DataFrame(sample_id = sample_id,
               image_id = image_id,
-              data = if (load_image) list(img_info$data) else list(NULL),
+              data = I(list(payload)),
               scaleFactor = if (!is.null(scale_factors)) scale_factors else 1.0,
               width = img_info$width,
               height = img_info$height,

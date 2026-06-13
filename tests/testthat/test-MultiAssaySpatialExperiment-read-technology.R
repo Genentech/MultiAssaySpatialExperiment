@@ -53,23 +53,152 @@ test_that("readXeniumMASE validates arguments properly", {
 })
 
 test_that("Visium file discovery works correctly", {
-    skip("Requires mock Visium directory structure")
-    
-    ## TODO: Create mock directory structure and test file discovery
-    ## tmp_dir <- tempfile()
-    ## dir.create(tmp_dir)
-    ## dir.create(file.path(tmp_dir, "filtered_feature_bc_matrix"))
-    ## dir.create(file.path(tmp_dir, "spatial"))
-    ## ... create mock files ...
-    ## 
-    ## result <- readVisiumMASE(tmp_dir)
-    ## expect_s4_class(result, "MultiAssaySpatialExperiment")
+    skip_if_not_installed("DropletUtils")
+    skip_if_not_installed("Matrix")
+    skip_if_not_installed("jsonlite")
+    skip_if_not_installed("sf")
+
+    data_dir <- make_mock_visium_dir(n_spots = 3L)
+    on.exit(unlink(data_dir, recursive = TRUE), add = TRUE)
+
+    mase <- readVisiumMASE(data_dir, images = FALSE)
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(names(mase), "visium")
+    expect_equal(ncol(experiments(mase)[["visium"]]), 3L)
+    expect_equal(nrow(spatialShapes(mase)[["spots"]]), 3L)
+    expect_equal(nrow(spatialMap(mase)), 3L)
+    expect_equal(unique(spatialMap(mase)[["region"]]), "spots")
 })
 
 test_that("Xenium file discovery works correctly", {
-    skip("Requires mock Xenium directory structure")
-    
-    ## TODO: Create mock directory structure and test file discovery
+    skip_if_not_installed("DropletUtils")
+    skip_if_not_installed("Matrix")
+    skip_if_not_installed("sf")
+
+    data_dir <- make_mock_xenium_dir(n_cells = 3L)
+    on.exit(unlink(data_dir, recursive = TRUE), add = TRUE)
+
+    mase <- suppressMessages(readXeniumMASE(
+        data_dir,
+        segmentations = "cell",
+        images = FALSE,
+        add_transcripts = FALSE
+    ))
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(names(mase), "xenium")
+    expect_equal(ncol(experiments(mase)[["xenium"]]), 3L)
+    expect_equal(nrow(spatialShapes(mase)[["cells"]]), 3L)
+    expect_equal(nrow(spatialMap(mase)), 3L)
+    expect_equal(unique(spatialMap(mase)[["region"]]), "cells")
+})
+
+.mock_merscope_boundaries <- function(cell_ids) {
+    skip_if_not_installed("sf")
+    verts <- do.call(rbind, Map(
+        function(id, x0) {
+            data.frame(
+                cell_id = rep(id, 5L),
+                vertex_x = c(x0, x0 + 5, x0 + 5, x0, x0),
+                vertex_y = c(10, 10, 15, 15, 10),
+                stringsAsFactors = FALSE
+            )
+        },
+        cell_ids,
+        seq(5, 5 + 10L * (length(cell_ids) - 1L), 10L)
+    ))
+    MultiAssaySpatialExperiment:::.vertices_to_polygons(
+        verts, id_col = "cell_id", x_col = "vertex_x", y_col = "vertex_y"
+    )
+}
+
+test_that(".build_mase_from_merscope uses buildSpatialMap for shapes and transcripts", {
+    skip_if_not_installed("SummarizedExperiment")
+    skip_if_not_installed("sf")
+
+    cell_ids <- c("c1", "c2")
+    counts <- SummarizedExperiment(
+        assays = list(counts = matrix(
+            1:4, 2, 2, dimnames = list(c("g1", "g2"), cell_ids)
+        ))
+    )
+    boundaries <- .mock_merscope_boundaries(cell_ids)
+    transcripts <- DataFrame(x = 1:3, y = 4:6, feature = rep("GENE1", 3L))
+
+    build_fn <- get(".build_mase_from_merscope",
+                    envir = asNamespace("MultiAssaySpatialExperiment"))
+    mase <- build_fn(
+        counts = counts,
+        cell_meta = NULL,
+        boundaries_list = list(cellpose = boundaries),
+        transcripts = transcripts,
+        imgData = NULL,
+        sample_id = "sample1",
+        segmentation = "cellpose"
+    )
+
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(nrow(spatialMap(mase)), 5L)
+    expect_equal(sum(spatialMap(mase)[["element_type"]] == "shapes"), 2L)
+    expect_equal(sum(spatialMap(mase)[["element_type"]] == "points"), 3L)
+    expect_setequal(unique(spatialMap(mase)[["region"]]), c("cellpose", "transcripts"))
+})
+
+test_that(".build_mase_from_cosmx uses buildSpatialMap for shapes and transcripts", {
+    skip_if_not_installed("SummarizedExperiment")
+    skip_if_not_installed("sf")
+
+    cell_ids <- c("c1", "c2")
+    counts <- SummarizedExperiment(
+        assays = list(counts = matrix(
+            1:4, 2, 2, dimnames = list(c("g1", "g2"), cell_ids)
+        ))
+    )
+    boundaries <- .mock_merscope_boundaries(cell_ids)
+    transcripts <- DataFrame(x = 1:2, y = 3:4, target = c("A", "B"))
+
+    build_fn <- get(".build_mase_from_cosmx",
+                    envir = asNamespace("MultiAssaySpatialExperiment"))
+    mase <- build_fn(
+        counts = counts,
+        cell_meta = NULL,
+        boundaries = boundaries,
+        transcripts = transcripts,
+        fov_meta = NULL,
+        imgData = NULL,
+        sample_id = "sample1"
+    )
+
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(nrow(spatialMap(mase)), 4L)
+    expect_setequal(unique(spatialMap(mase)[["region"]]), c("cells", "transcripts"))
+})
+
+test_that(".build_mase_from_visiumhd uses buildSpatialMap per bin", {
+    skip_if_not_installed("SummarizedExperiment")
+    skip_if_not_installed("sf")
+
+    barcodes <- c("b1", "b2")
+    counts <- SummarizedExperiment(
+        assays = list(counts = matrix(
+            1:4, 2, 2, dimnames = list(c("g1", "g2"), barcodes)
+        ))
+    )
+    positions <- DataFrame(
+        instance_id = barcodes,
+        x_centroid = c(10, 20),
+        y_centroid = c(15, 25)
+    )
+    exp_data <- list(bin_008 = list(counts = counts, positions = positions))
+
+    build_fn <- get(".build_mase_from_visiumhd",
+                    envir = asNamespace("MultiAssaySpatialExperiment"))
+    mase <- build_fn(exp_data, boundaries = NULL, imgData = NULL, sample_id = "s1")
+
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(names(mase), "bin_008")
+    expect_equal(nrow(spatialMap(mase)), 2L)
+    expect_equal(unique(spatialMap(mase)[["region"]]), "bin_008")
+    expect_equal(spatialMap(mase)[["colname"]], barcodes)
 })
 
 test_that("readVisiumMASE uses component readers internally", {
@@ -198,15 +327,21 @@ test_that("readVisiumHDMASE supports multi-bin structure", {
     expect_true("sample_id" %in% names(args))
 })
 
-test_that("Visium HD file discovery checks for Parquet positions", {
-    skip("Requires mock Visium HD directory structure")
-    
-    ## TODO: Create mock directory structure and test that Parquet positions
-    ## are properly discovered
-    ## tmp_dir <- tempfile()
-    ## dir.create(file.path(tmp_dir, "binned_outputs/square_008um/spatial"), 
-    ##           recursive = TRUE)
-    ## ... create mock Parquet file ...
+test_that("Visium HD file discovery works with mock directory", {
+    skip_if_not_installed("DropletUtils")
+    skip_if_not_installed("Matrix")
+    skip_if_not_installed("arrow")
+    skip_if_not_installed("sf")
+
+    data_dir <- make_mock_visiumhd_dir(n_barcodes = 3L)
+    on.exit(unlink(data_dir, recursive = TRUE), add = TRUE)
+
+    mase <- suppressMessages(readVisiumHDMASE(data_dir, bin_size = "008", images = FALSE))
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(names(mase), "bin_008")
+    expect_equal(ncol(experiments(mase)[["bin_008"]]), 3L)
+    expect_equal(nrow(spatialShapes(mase)[["bin_008"]]), 3L)
+    expect_equal(nrow(spatialMap(mase)), 3L)
 })
 
 ## ----------------------------------------------------------------------------
@@ -303,10 +438,23 @@ test_that("readMERSCOPEMASE supports transcript loading and count synthesis", {
                       inherits = FALSE))
 })
 
-test_that("MERSCOPE file discovery supports multiple FOVs", {
-    skip("Requires mock MERSCOPE directory structure")
-    
-    ## TODO: Create mock directory structure and test multi-FOV discovery
+test_that("MERSCOPE file discovery works with mock directory", {
+    skip_if_not_installed("sf")
+
+    data_dir <- make_mock_merscope_dir(n_cells = 3L)
+    on.exit(unlink(data_dir, recursive = TRUE), add = TRUE)
+
+    mase <- suppressMessages(readMERSCOPEMASE(
+        data_dir,
+        segmentation = "cellpose",
+        images = FALSE,
+        load_transcripts = FALSE
+    ))
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(names(mase), "merscope")
+    expect_equal(ncol(experiments(mase)[["merscope"]]), 3L)
+    expect_equal(nrow(spatialShapes(mase)[["cellpose"]]), 3L)
+    expect_equal(nrow(spatialMap(mase)), 3L)
 })
 
 ## ----------------------------------------------------------------------------
@@ -386,16 +534,19 @@ test_that("readCosMxMASE supports transcript loading and FOV metadata", {
     expect_true("fov_meta" %in% names(args))
 })
 
-test_that("CosMx file discovery supports flexible file patterns", {
-    skip("Requires mock CosMx directory structure")
-    
-    ## TODO: Create mock directory structure and test flexible file discovery
-    ## CosMx has variable file naming patterns that should be discovered
-})
+test_that("CosMx file discovery works with mock directory", {
+    skip_if_not_installed("sf")
 
-## ----------------------------------------------------------------------------
-## Cross-reader integration tests
-## ----------------------------------------------------------------------------
+    data_dir <- make_mock_cosmx_dir(n_cells = 3L)
+    on.exit(unlink(data_dir, recursive = TRUE), add = TRUE)
+
+    mase <- suppressMessages(readCosMxMASE(data_dir, images = FALSE, load_transcripts = FALSE))
+    expect_s4_class(mase, "MultiAssaySpatialExperiment")
+    expect_equal(names(mase), "cosmx")
+    expect_equal(ncol(experiments(mase)[["cosmx"]]), 3L)
+    expect_equal(nrow(spatialShapes(mase)[["cells"]]), 3L)
+    expect_equal(nrow(spatialMap(mase)), 3L)
+})
 
 test_that("All technology readers support consistent image loading", {
     ## All readers should use .read_images_metadata or similar

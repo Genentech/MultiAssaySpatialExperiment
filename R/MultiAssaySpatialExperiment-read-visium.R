@@ -51,7 +51,7 @@ function(data_dir, sample_id = NULL, type = c("HDF5", "sparse"),
     ## === COMPONENT READERS ===
 
     ## 1. Read counts using component reader
-    counts <- readHDF5ForMASE(files$matrix)
+    counts <- readHDF5ForMASE(files$matrix, type = "10x")
 
     ## 2. Read positions using component reader
     positions <- .read_coldata_csv(files$positions, technology = "Visium")
@@ -103,7 +103,7 @@ function(data_dir, sample_id = NULL, type = c("HDF5", "sparse"),
     mtx_file <- file.path(matrix_dir, "matrix.mtx.gz")
 
     has_h5 <- file.exists(h5_file)
-    has_mtx <- file.exists(mtx_file)
+    has_mtx <- file.exists(mtx_file) || file.exists(file.path(matrix_dir, "matrix.mtx"))
 
     if (!has_h5 && !has_mtx) {
         stop(wmsg("No matrix file found in: ", matrix_dir, ". ",
@@ -176,28 +176,24 @@ function(data_dir, sample_id = NULL, type = c("HDF5", "sparse"),
 .build_mase_from_visium <-
 function(counts, positions, geometries, imgData, sample_id)
 {    
-    barcodes <- colnames(counts)
+    barcodes <- .observation_ids(counts)
+
+    if (is(counts, "SummarizedExperiment") &&
+            (is.null(colnames(counts)) || !length(colnames(counts))))
+        colnames(counts) <- barcodes
 
     experiments <- ExperimentList(visium = counts)
 
-    colData <- DataFrame(sample_id = sample_id, row.names = barcodes)
-    
-    sampleMap <- DataFrame(assay = "visium",
+    colData <- DataFrame(sample_id = rep(sample_id, length(barcodes)),
+                         row.names = barcodes)
+
+    sampleMap <- DataFrame(assay = factor("visium", "visium"),
                            primary = barcodes,
                            colname = barcodes)
-    
-    ## Map positions cell_id to barcodes (component reader standardizes names)
-    ## If cell_id column exists from component reader, use it; otherwise try barcode
-    barcode_col <- if ("cell_id" %in% colnames(positions)) "cell_id" else "barcode"
 
-    geom_barcodes <- as.character(geometries$instance_id)
-    spatialMap <- DataFrame(assay = "visium",
-                            colname = barcodes,
-                            element_type = "shapes",
-                            region = "spots",
-                            instance_id = barcodes)
-    spatialMap <- spatialMap[spatialMap$instance_id %in% geom_barcodes, , 
-                             drop = FALSE]
+    spatialMap <- .filterSpatialMapByInstances(
+        buildSpatialMap(sampleMap, region = "spots", element_type = "shapes"),
+        as.character(geometries$instance_id))
 
     shapes <- ShapesLayerList(spots = geometries)
 
@@ -205,6 +201,7 @@ function(counts, positions, geometries, imgData, sample_id)
                                 colData = colData,
                                 sampleMap = sampleMap,
                                 shapes = shapes,
+                                images = .spatialImages_from_imgData(imgData),
                                 imgData = imgData,
                                 spatialMap = spatialMap)
 }

@@ -512,7 +512,8 @@ use `annotateWithRegions()` (see **Working with MultiAssaySpatialExperiment**).
 ```{r spatial_annotation}
 # Create circular regions for Visium spots (55 µm diameter = 27.5 µm radius)
 visium_circles <- st_buffer(
-  st_as_sf(as.data.frame(visium_pts), coords = c("x", "y")),
+  st_sf(visium_pts,
+        geometry = st_as_sfc(paste0("POINT(", visium_pts$x, " ", visium_pts$y, ")"))),
   dist = 27.5
 )
 
@@ -525,7 +526,8 @@ visium_shapes <- DataFrame(
 spatialShapes(mase) <- ShapesLayerList(visium_spots = visium_shapes)
 
 # For each Visium spot, find which Xenium cells are inside
-xenium_sf <- st_as_sf(as.data.frame(xenium_pts), coords = c("x", "y"))
+xenium_sf <- st_sf(xenium_pts,
+                   geometry = st_as_sfc(paste0("POINT(", xenium_pts$x, " ", xenium_pts$y, ")")))
 visium_sf <- st_sf(
   instance_id = visium_shapes$instance_id,
   geometry = visium_shapes$geometry

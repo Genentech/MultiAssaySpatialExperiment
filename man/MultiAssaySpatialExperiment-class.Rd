@@ -52,7 +52,9 @@ or shape layers via explicit foreign key.
     Inherited from \linkS4class{MultiAssayExperiment}.
   }
   \item{\code{images}}{
-    A \linkS4class{RasterLayerList} of image layers.
+    A \linkS4class{RasterLayerList} of user-attached image rasters (not the
+    same as \code{imgData}, which stores specimen-level image metadata from
+    vendor readers).
   }
   \item{\code{labels}}{
     A \linkS4class{RasterLayerList} of label/mask layers.
@@ -66,7 +68,8 @@ or shape layers via explicit foreign key.
   \item{\code{imgData}}{
     Optional \code{DataFrame} linking specimens to images (same structure as
     \code{SpatialExperiment}, including \code{sample_id}, \code{image_id}, and
-    \code{scaleFactor}).
+    \code{scaleFactor}). Populated by vendor readers; distinct from
+    \code{spatialImages()} raster layers.
   }
   \item{\code{spatialMap}}{
     Optional \code{DataFrame} for instance-level mapping with required columns:
@@ -135,14 +138,16 @@ Bioconductor S4 conventions:
         Additional \linkS4class{MultiAssayExperiment} arguments.
       }
       \item{\code{images}, \code{labels}}{
-        \linkS4class{RasterLayerList} of image and label layers.
+        \linkS4class{RasterLayerList} of user-attached raster layers (distinct
+        from \code{imgData}, which vendor readers use for image metadata).
       }
       \item{\code{points}, \code{shapes}}{
         \linkS4class{PointsLayerList} and \linkS4class{ShapesLayerList}
         of spatial layers.
       }
       \item{\code{imgData}}{
-        Optional \code{DataFrame} linking specimens to images.
+        Optional \code{DataFrame} linking specimens to images (populated by
+        vendor readers; use \code{getImg()} for SPE-compatible access).
       }
       \item{\code{spatialMap}}{
         Optional \code{DataFrame} for instance-level mapping.

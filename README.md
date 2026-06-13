@@ -120,6 +120,11 @@ mase_bbox <- subsetByBoundingBox(mase,
 
 ### Standard Subsetting
 
+Uses the same `subsetBy*` API as MultiAssayExperiment — no separate spatial query API.
+Specimen subsetting (`[, j]`, `subsetByColData`) and observation filtering
+(`subsetByColumn` with a list) both propagate to `spatialMap`, `imgData`, and linked
+points, shapes, images, and labels.
+
 ```r
 # By sample, assay, column, or observation metadata
 mase[, colData(mase)$tissue_type == "tumor"]
@@ -127,6 +132,15 @@ mase[c("rna", "protein"), ]
 subsetByAssay(mase, "rna")
 cdf <- colData(experiments(mase)[["rna"]])
 subsetByColumn(mase, list(rna = cdf$region == "core"))
+```
+
+### Construction helpers
+
+```r
+spmap <- buildSpatialMap(sampleMap(mase), region = "cells", element_type = "shapes")
+prepared <- prepMASE(experiments(mase), colData(mase), sampleMap(mase),
+                     points = spatialPoints(mase), spatialMap = spmap)
+mase2 <- do.call(MultiAssaySpatialExperiment, prepared)
 ```
 
 ### Access Spatial Data
@@ -198,9 +212,9 @@ mase <- MultiAssaySpatialExperiment(
 **Spatial extensions**:
 - `points`: PointsLayerList (transcripts, centroids, etc.)
 - `shapes`: ShapesLayerList (cells, nuclei, regions)
-- `images`: RasterLayerList (H&E, IF, etc.)
+- `images`: RasterLayerList (user-attached rasters; distinct from reader metadata)
 - `labels`: RasterLayerList (segmentation masks)
-- `imgData`: SpatialExperiment-compatible image metadata
+- `imgData`: Specimen-level image metadata from vendor readers (SPE-compatible)
 - `spatialMap`: Instance-level mapping (assay/colname → spatial feature)
 
 ### The spatialMap Table

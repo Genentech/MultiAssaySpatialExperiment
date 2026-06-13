@@ -108,3 +108,63 @@ test_that("aggregateByRegion mean aggregates correctly", {
     expect_equal(agg[["assay1"]]["G1", "cell1"], 4)
     expect_equal(agg[["assay1"]]["G2", "cell1"], 6)
 })
+
+test_that("aggregateByRegion supports custom aggregation functions", {
+    pts <- S4Vectors::DataFrame(
+        x = c(1.5, 2.5), y = c(1.5, 2.5), instance_id = c("A", "B"))
+    shp_df <- S4Vectors::DataFrame(
+        instance_id = "cell1",
+        geometry = sf::st_sfc(sf::st_polygon(list(matrix(c(1,1,3,1,3,3,1,3,1,1),
+                                                       ncol=2, byrow=TRUE)))))
+    mat <- matrix(c(2, 4, 6, 8), 2, 2, dimnames = list(c("G1", "G2"), c("A", "B")))
+    mase <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(assay1 = mat),
+        colData = S4Vectors::DataFrame(row.names = "s1"),
+        sampleMap = S4Vectors::DataFrame(assay = "assay1", primary = "s1", colname = c("A", "B")),
+        points = PointsLayerList(centroids = pts),
+        shapes = ShapesLayerList(cells = shp_df),
+        spatialMap = S4Vectors::DataFrame(
+            assay = "assay1", colname = c("A", "B"),
+            element_type = "points", region = "centroids", instance_id = c("A", "B")))
+    mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
+    max_fun <- function(sub) apply(sub, 1L, max)
+    agg <- aggregateByRegion(mase, by = "cells", FUN = max_fun)
+    expect_equal(agg[["assay1"]]["G1", "cell1"], 6)
+    expect_equal(agg[["assay1"]]["G2", "cell1"], 8)
+})
+
+test_that("aggregateByRegion aggregates multiple assays in one call", {
+    pts <- S4Vectors::DataFrame(
+        x = c(1.5, 2.5), y = c(1.5, 2.5), instance_id = c("A", "B"))
+    shp_df <- S4Vectors::DataFrame(
+        instance_id = "cell1",
+        geometry = sf::st_sfc(sf::st_polygon(list(matrix(c(1,1,3,1,3,3,1,3,1,1),
+                                                       ncol=2, byrow=TRUE)))))
+    mase <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(
+            rna = matrix(c(1, 2, 3, 4), 2, 2, dimnames = list(c("G1", "G2"), c("A", "B"))),
+            protein = matrix(c(10, 20, 30, 40), 2, 2,
+                dimnames = list(c("P1", "P2"), c("A", "B")))
+        ),
+        colData = S4Vectors::DataFrame(row.names = "s1"),
+        sampleMap = S4Vectors::DataFrame(
+            assay = factor(rep(c("rna", "protein"), each = 2L), c("rna", "protein")),
+            primary = rep("s1", 4L),
+            colname = rep(c("A", "B"), 2L)
+        ),
+        points = PointsLayerList(centroids = pts),
+        shapes = ShapesLayerList(cells = shp_df),
+        spatialMap = S4Vectors::DataFrame(
+            assay = factor(rep(c("rna", "protein"), each = 2L), c("rna", "protein")),
+            colname = rep(c("A", "B"), 2L),
+            element_type = "points",
+            region = "centroids",
+            instance_id = rep(c("A", "B"), 2L)
+        )
+    )
+    mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
+    agg <- aggregateByRegion(mase, by = "cells", FUN = "sum")
+    expect_setequal(names(agg), c("rna", "protein"))
+    expect_equal(agg[["rna"]]["G1", "cell1"], 4)
+    expect_equal(agg[["protein"]]["P2", "cell1"], 60)
+})

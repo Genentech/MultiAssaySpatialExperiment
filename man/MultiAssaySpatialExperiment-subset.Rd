@@ -26,9 +26,9 @@ In the snippets below, \code{x} is a
 \linkS4class{MultiAssaySpatialExperiment}:
 \describe{
   \item{\code{subsetByColData(x, y)}:}{
-    Subset by primary identifiers (specimens). \code{spatialMap} and
-    \code{imgData} are filtered to retained specimens; point and shape rows
-    are not trimmed unless removed via the map.
+    Subset by primary identifiers (specimens). \code{spatialMap},
+    \code{imgData}, and linked points, shapes, images, and labels are
+    filtered to retained specimens (via \code{sampleMap} and \code{spatialMap}).
   }
   \item{\code{subsetByRow(x, y, i = TRUE, ...)}:}{
     Subset rows of experiments. Spatial layers are assay-level and unchanged.
@@ -56,11 +56,17 @@ In the snippets below, \code{x} is a
   }
   \item{\code{subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)}:}{
     Subset by bounding box. Filters points and shapes within the rectangle;
-    propagates to assays via \code{spatialMap} when present.
+    propagates to assays via \code{spatialMap} when present. When
+    \code{crop_rasters = TRUE} (default), \code{spatialImages} and
+    \code{spatialLabels} are cropped to the same bounding box (single-scale,
+    pixel coordinates for matrix rasters; \pkg{terra} extent for
+    \code{SpatRaster} layers).
   }
   \item{\code{subsetByPolygon(x, polygon, ...)}:}{
     Subset by polygon. Filters points and shapes within or intersecting the
-    \code{sf} geometry; propagates to assays via \code{spatialMap} when present.
+    \code{sf} geometry; propagates to assays via \code{spatialMap} when
+    present. Raster layers are cropped to the polygon bounding box when
+    \code{crop_rasters = TRUE}.
   }
 }
 }

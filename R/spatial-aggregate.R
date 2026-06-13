@@ -27,9 +27,12 @@ NULL
 #'     \code{\link{annotateWithRegions}}, default is the shapes layer name).
 #' @param assays Character. Assay names to aggregate (default: all assays in
 #'     \code{spatialMap}).
-#' @param FUN Character. Aggregation function: \code{"sum"}, \code{"mean"},
-#'     or \code{"count"}. For \code{"count"}, returns the number of points per
-#'     shape; for \code{"sum"} and \code{"mean"}, aggregates assay values.
+#' @param FUN Character or function. For character values, one of \code{"sum"},
+#'     \code{"mean"}, or \code{"count"}. For \code{"count"}, returns the number
+#'     of points per shape; for \code{"sum"} and \code{"mean"}, aggregates assay
+#'     values. When a function, it is applied to each feature-by-observation
+#'     submatrix (features as rows, observations in the same shape as columns)
+#'     and must return a numeric vector of length \code{nrow(submatrix)}.
 #'
 #' @details
 #' Run \code{\link{annotateWithRegions}} first to add the \code{by} column to
@@ -87,7 +90,7 @@ NULL
 #'
 #' @export
 setGeneric("aggregateByRegion",
-    function(x, by, assays = NULL, FUN = c("sum", "mean", "count"))
+    function(x, by, assays = NULL, FUN = "sum")
         standardGeneric("aggregateByRegion"))
 
 #' @importFrom SummarizedExperiment assay
@@ -96,6 +99,20 @@ setGeneric("aggregateByRegion",
 }
 
 #' @importFrom MatrixGenerics rowSums rowMeans
+#' @importFrom S4Vectors wmsg
+.applyAggregateFun <- function(sub, FUN) {
+    if (is.function(FUN)) {
+        out <- FUN(sub)
+        if (length(out) != nrow(sub))
+            stop(wmsg("custom 'FUN' must return a vector of length nrow(submatrix)"))
+        return(out)
+    }
+    if (FUN == "sum")
+        rowSums(sub)
+    else
+        rowMeans(sub)
+}
+
 .aggregateMatrixByRegion <- function(mat, sm, by, FUN) {
     if (length(dim(mat)) != 2L)
         return(NULL)
@@ -116,7 +133,7 @@ setGeneric("aggregateByRegion",
         if (length(cols) == 0L)
             next
         sub <- mat[, cols, drop = FALSE]
-        out[, reg] <- if (FUN == "sum") rowSums(sub) else rowMeans(sub)
+        out[, reg] <- .applyAggregateFun(sub, FUN)
     }
     out
 }
@@ -125,8 +142,13 @@ setGeneric("aggregateByRegion",
 #' @importFrom S4Vectors DataFrame
 #' @exportMethod aggregateByRegion
 setMethod("aggregateByRegion", "MultiAssaySpatialExperiment",
-function(x, by, assays = NULL, FUN = c("sum", "mean", "count")) {
-    FUN <- match.arg(FUN)
+function(x, by, assays = NULL, FUN = "sum") {
+    if (is.character(FUN))
+        FUN <- match.arg(FUN, c("sum", "mean", "count"))
+    else if (!is.function(FUN))
+        stop(wmsg("'FUN' must be one of \"sum\", \"mean\", \"count\", or a function"))
+    if (is.function(FUN) && !is.null(assays) && length(assays) == 0L)
+        return(list())
     spmap <- spatialMap(x)
     if (is.null(spmap) || nrow(spmap) == 0L)
         return(list())
@@ -141,7 +163,7 @@ function(x, by, assays = NULL, FUN = c("sum", "mean", "count")) {
     if (length(assay_nms) == 0L)
         return(list())
 
-    if (FUN == "count") {
+    if (identical(FUN, "count")) {
         cnt <- table(spmap[[by]])
         return(DataFrame(region = names(cnt), count = as.integer(cnt)))
     }

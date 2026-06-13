@@ -1,7 +1,9 @@
-## Check if SpatialData coercion is registered (requires SpatialData to be loaded
-## before package was loaded)
+## Register SpatialData coercion when the optional package loads.
 .has_spatialdata_coercion <- function() {
-    if (!requireNamespace("SpatialData", quietly = TRUE)) return(FALSE)
+    if (!requireNamespace("SpatialData", quietly = TRUE))
+        return(FALSE)
+    if (!isNamespaceLoaded("SpatialData"))
+        loadNamespace("SpatialData")
     tryCatch({
         methods::getMethod("coerce", c("SpatialData", "MultiAssaySpatialExperiment"))
         TRUE
@@ -10,8 +12,8 @@
 
 test_that("as(SpatialData, 'MultiAssaySpatialExperiment') works when SpatialData available", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     sce <- SingleCellExperiment(
         list(counts = matrix(1:12, 3, 4)),
@@ -47,8 +49,8 @@ test_that("as(SpatialData, 'MultiAssaySpatialExperiment') works when SpatialData
 
 test_that("as(MultiAssaySpatialExperiment, 'SpatialData') works", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     sce <- SingleCellExperiment(
         list(counts = matrix(1:12, 3, 4)),
@@ -77,8 +79,8 @@ test_that("as(MultiAssaySpatialExperiment, 'SpatialData') works", {
 
 test_that("SD-MASE-SD round-trip preserves tables and points", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     sce <- SingleCellExperiment(
         list(counts = matrix(1:12, 3, 4)),
@@ -103,8 +105,8 @@ test_that("SD-MASE-SD round-trip preserves tables and points", {
 
 test_that("multi-table SpatialData coerces to multi-assay MASE", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     sce1 <- SingleCellExperiment(
         list(counts = matrix(1:6, 2, 3)),
@@ -129,8 +131,8 @@ test_that("multi-table SpatialData coerces to multi-assay MASE", {
 
 test_that("as(SpatialData, 'MultiAssaySpatialExperiment') errors when no tables", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     sd <- SpatialData::SpatialData(
         images = list(),
         labels = list(),
@@ -145,8 +147,8 @@ test_that("as(SpatialData, 'MultiAssaySpatialExperiment') errors when no tables"
 
 test_that("SpatialData→MASE coercion includes element_type in spatialMap", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     
     ## Create SCE with spatialdata_attrs metadata
@@ -193,8 +195,8 @@ test_that("SpatialData→MASE coercion includes element_type in spatialMap", {
 
 test_that("SpatialData→MASE coercion sets element_type=shapes for shape regions", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     
     ## Create SCE with spatialdata_attrs metadata pointing to shapes
@@ -239,8 +241,8 @@ test_that("SpatialData→MASE coercion sets element_type=shapes for shape region
 
 test_that("MASE→SD→MASE round-trip preserves element_type", {
     skip_if_not_installed("SpatialData")
-    skip_if(!.has_spatialdata_coercion(), 
-            "SpatialData coercion not registered (SpatialData must be loaded before package)")
+    skip_if(!.has_spatialdata_coercion(),
+            "SpatialData coercion not registered")
     library(SingleCellExperiment)
     
     ## Create MASE with spatialMap including element_type
