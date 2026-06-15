@@ -23,3 +23,13 @@ DataFrame
 Read a Parquet file into a \linkS4class{DataFrame} for use in MASE component
 assembly or custom readers.
 }
+\examples{
+if (requireNamespace("arrow", quietly = TRUE)) {
+    tmp <- tempfile(fileext = ".parquet")
+    df <- data.frame(cell_id = paste0("C", 1:3), x = 1:3, y = 1:3)
+    arrow::write_parquet(df, tmp)
+    readParquetForMASE(tmp)
+    unlink(tmp)
+}
+
+}

@@ -27,6 +27,13 @@
 #'
 #' @seealso \code{\link{readVisiumHDMASE}}, \code{\link{readXeniumMASE}}
 #'
+#' @examples
+#' \dontrun{
+#' ## Requires a Space Ranger output directory (see package tests for mock layout)
+#' mase <- readVisiumMASE("path/to/visium")
+#' names(mase)
+#' }
+#'
 #' @export
 readVisiumMASE <-
 function(data_dir, sample_id = NULL, type = c("HDF5", "sparse"),

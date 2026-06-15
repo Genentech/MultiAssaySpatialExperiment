@@ -26,6 +26,13 @@
 #'
 #' @seealso \code{\link{readVisiumMASE}}, \code{\link{readXeniumMASE}}
 #'
+#' @examples
+#' \dontrun{
+#' ## Requires a Visium HD Space Ranger output directory
+#' mase <- readVisiumHDMASE("path/to/visium_hd", bin_size = "008")
+#' names(mase)
+#' }
+#'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #'
 #' @export

@@ -23,3 +23,10 @@ SummarizedExperiment
 Read an HDF5 matrix file (10x or AnnData/h5ad) into a
 \linkS4class{SummarizedExperiment} for MASE assembly.
 }
+\examples{
+\dontrun{
+## Requires DropletUtils and a 10x filtered_feature_bc_matrix.h5 file
+readHDF5ForMASE("filtered_feature_bc_matrix.h5", type = "10x")
+}
+
+}

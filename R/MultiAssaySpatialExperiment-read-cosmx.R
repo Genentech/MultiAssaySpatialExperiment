@@ -25,6 +25,13 @@
 #'
 #' @seealso \code{\link{readMERSCOPEMASE}}, \code{\link{readXeniumMASE}}
 #'
+#' @examples
+#' \dontrun{
+#' ## Requires a NanoString CosMx output directory (see package tests for mock layout)
+#' mase <- readCosMxMASE("path/to/cosmx")
+#' names(mase)
+#' }
+#'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom SummarizedExperiment colData<- SummarizedExperiment
 #'

@@ -28,3 +28,15 @@ Run \code{spatialMap} diagnostics without constructing a
 \linkS4class{MultiAssaySpatialExperiment}. Returns a character vector of
 problems (empty if valid).
 }
+\examples{
+sm <- S4Vectors::DataFrame(
+    assay = factor("rna", "rna"),
+    primary = "S1",
+    colname = "spot1")
+spmap <- buildSpatialMap(sm, "coords", "points")
+spmap[["instance_id"]] <- "missing"
+checkSpatialMap(spmap, sm, points = PointsLayerList(
+    coords = S4Vectors::DataFrame(
+        x = 1, y = 1, instance_id = "spot1")))
+
+}

@@ -224,6 +224,18 @@ setMethod("spatialMatch", c("DataFrame", "DataFrame"),
 #'
 #' @author Patrick Aboyoun
 #'
+#' @examples
+#' library(sf)
+#' pts <- S4Vectors::DataFrame(
+#'     spot = c("A", "B"),
+#'     geometry = c("POINT (1 1)", "POINT (5 5)"))
+#' cells <- S4Vectors::DataFrame(
+#'     cell = c("C1", "C2"),
+#'     geometry = c(
+#'         "POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0))",
+#'         "POLYGON ((4 4, 6 4, 6 6, 4 6, 4 4))"))
+#' spatialJoin(pts, cells)
+#'
 #' @export
 setGeneric("spatialJoin",
     function(x, y, join = st_intersects, sparse = TRUE, ...)

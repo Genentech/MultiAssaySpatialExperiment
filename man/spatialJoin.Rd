@@ -31,6 +31,19 @@ Join two spatial \code{\linkS4class{DataFrame}} layers on a spatial
 predicate. The \code{DataFrame} method uses \pkg{sf} attribute joins
 via \code{\link[sf:st_join]{st_join}}.
 }
+\examples{
+library(sf)
+pts <- S4Vectors::DataFrame(
+    spot = c("A", "B"),
+    geometry = c("POINT (1 1)", "POINT (5 5)"))
+cells <- S4Vectors::DataFrame(
+    cell = c("C1", "C2"),
+    geometry = c(
+        "POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0))",
+        "POLYGON ((4 4, 6 4, 6 6, 4 6, 4 4))"))
+spatialJoin(pts, cells)
+
+}
 \seealso{
 \code{\link{spatialMatch}} for first-match indexing without
   attaching attributes.

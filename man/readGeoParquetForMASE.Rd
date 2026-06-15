@@ -20,3 +20,15 @@ sf object or equivalent object
 \description{
 Read a GeoParquet file via \pkg{sfarrow} for geometry layers in MASE readers.
 }
+\examples{
+if (requireNamespace("sfarrow", quietly = TRUE) &&
+    requireNamespace("sf", quietly = TRUE)) {
+    tmp <- tempfile(fileext = ".parquet")
+    pt <- sf::st_sfc(sf::st_point(c(1, 2)))
+    sf_obj <- sf::st_sf(id = 1L, geometry = pt)
+    sfarrow::st_write_parquet(sf_obj, tmp)
+    readGeoParquetForMASE(tmp)
+    unlink(tmp)
+}
+
+}

@@ -23,6 +23,13 @@ Dissolve contiguous cells with the same label value into polygons. Thin
 wrapper around \code{\link[terra:as.polygons]{terra::as.polygons}} for
 segmentation masks stored in \code{spatialLabels()} or vendor TIFFs.
 }
+\examples{
+if (requireNamespace("terra", quietly = TRUE)) {
+    mat <- matrix(c(1L, 1L, 2L, 2L), 2, 2)
+    labelsToShapes(mat)
+}
+
+}
 \seealso{
 \code{\link{shapesToLabels}}, \code{\link{spatialLabels}}
 }

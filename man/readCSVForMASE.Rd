@@ -20,3 +20,14 @@ DataFrame
 \description{
 Read a CSV file into a \linkS4class{DataFrame} for MASE component assembly.
 }
+\examples{
+tmp <- tempfile(fileext = ".csv")
+df <- data.frame(
+    cell_id = paste0("C", 1:3),
+    x_centroid = 1:3,
+    y_centroid = 1:3)
+write.csv(df, tmp, row.names = FALSE)
+readCSVForMASE(tmp)
+unlink(tmp)
+
+}

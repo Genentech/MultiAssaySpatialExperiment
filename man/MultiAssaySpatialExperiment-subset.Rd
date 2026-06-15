@@ -85,6 +85,25 @@ vignette \emph{Working with MultiAssaySpatialExperiment} for a per-operation
 propagation table.
 }
 
+\examples{
+mat <- matrix(rnorm(20), 5, 4,
+    dimnames = list(paste0("G", 1:5), paste0("obs", 1:4)))
+pts <- S4Vectors::DataFrame(
+    x = 1:4, y = 1:4, instance_id = paste0("obs", 1:4))
+sm <- S4Vectors::DataFrame(
+    assay = factor(rep("rna", 4), "rna"),
+    primary = rep(c("specimen_A", "specimen_B"), each = 2),
+    colname = paste0("obs", 1:4))
+mase <- MultiAssaySpatialExperiment(
+    experiments = ExperimentList(rna = mat),
+    colData = S4Vectors::DataFrame(row.names = c("specimen_A", "specimen_B")),
+    sampleMap = sm,
+    points = PointsLayerList(coords = pts),
+    spatialMap = buildSpatialMap(sm, "coords", "points"))
+subsetByColData(mase, "specimen_A")
+subsetByBoundingBox(mase, xmin = 1.5, xmax = 3.5, ymin = 1.5, ymax = 3.5)
+
+}
 \seealso{
 \itemize{
   \item \linkS4class{MultiAssaySpatialExperiment} for the main class

@@ -28,6 +28,13 @@
 #'
 #' @seealso \code{\link{readCosMxMASE}}, \code{\link{readXeniumMASE}}
 #'
+#' @examples
+#' \dontrun{
+#' ## Requires a Vizgen MERSCOPE output directory (see package tests for mock layout)
+#' mase <- readMERSCOPEMASE("path/to/merscope")
+#' names(mase)
+#' }
+#'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom tools file_ext
 #'

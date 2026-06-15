@@ -34,6 +34,22 @@ NULL
 #' @seealso \code{\link{buildSpatialMap}},
 #'   \code{\link[MultiAssayExperiment]{prepMultiAssay}}
 #'
+#' @examples
+#' mat <- matrix(1:6, 2, 3, dimnames = list(c("G1", "G2"), paste0("spot", 1:3)))
+#' sm <- S4Vectors::DataFrame(
+#'     assay = factor(rep("rna", 3), "rna"),
+#'     primary = c("S1", "S1", "S2"),
+#'     colname = paste0("spot", 1:3))
+#' pts <- S4Vectors::DataFrame(
+#'     x = 1:3, y = 1:3, instance_id = paste0("spot", 1:3))
+#' prepared <- prepMASE(
+#'     ExperimentList(rna = mat),
+#'     S4Vectors::DataFrame(row.names = c("S1", "S2")),
+#'     sm,
+#'     points = PointsLayerList(tissue1 = pts),
+#'     spatialMap = buildSpatialMap(sm, "tissue1", "points"))
+#' do.call(MultiAssaySpatialExperiment, prepared)
+#'
 #' @export
 #' @importFrom MultiAssayExperiment prepMultiAssay
 prepMASE <-

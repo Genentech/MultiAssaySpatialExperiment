@@ -49,6 +49,14 @@ Reads cell-by-gene counts, cell coordinates, optional segmentation polygons
 (\code{add_transcripts}). Image metadata is included when \code{images = TRUE};
 set \code{load_images = TRUE} to load raster data.
 }
+\examples{
+\dontrun{
+## Requires a Xenium output directory (see package tests for mock layout)
+mase <- readXeniumMASE("path/to/xenium")
+names(mase)
+}
+
+}
 \seealso{
 \code{\link{readVisiumMASE}}, \code{\link{readVisiumHDMASE}},
   \code{\link{readCosMxMASE}}, \code{\link{readMERSCOPEMASE}}

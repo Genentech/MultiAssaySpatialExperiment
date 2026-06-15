@@ -25,6 +25,15 @@ A \code{SpatRaster} label image.
 Burn shape geometries into a label raster. When \code{template} is
 \code{NULL}, an empty raster is created from the bounding box of \code{x}.
 }
+\examples{
+if (requireNamespace("terra", quietly = TRUE)) {
+    mat <- matrix(c(1L, 1L, 2L, 2L), 2, 2)
+    polys <- labelsToShapes(mat)
+    polys$instance_id <- polys[["lyr.1"]]
+    shapesToLabels(polys, field = "instance_id", background = 0L)
+}
+
+}
 \seealso{
 \code{\link{labelsToShapes}}, \code{\link{spatialShapes}}
 }

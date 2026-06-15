@@ -37,6 +37,14 @@ Assemble a \code{spatialMap} \linkS4class{DataFrame} linking assay observations
 to spatial layer instances, analogous to \code{\link[MultiAssayExperiment]{listToMap}}
 for \code{sampleMap}.
 }
+\examples{
+sm <- S4Vectors::DataFrame(
+    assay = factor(rep("rna", 3), "rna"),
+    primary = c("S1", "S1", "S2"),
+    colname = paste0("spot", 1:3))
+buildSpatialMap(sm, region = "tissue1", element_type = "points")
+
+}
 \seealso{
 \code{\link{prepMASE}}, \code{\link[MultiAssayExperiment]{listToMap}}
 }

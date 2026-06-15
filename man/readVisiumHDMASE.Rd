@@ -42,6 +42,14 @@ Visium HD provides binned expression at 2 µm, 8 µm, and 16 µm resolution
 (codes \code{"002"}, \code{"008"}, \code{"016"}). Each requested bin size
 becomes a separate assay in the returned object.
 }
+\examples{
+\dontrun{
+## Requires a Visium HD Space Ranger output directory
+mase <- readVisiumHDMASE("path/to/visium_hd", bin_size = "008")
+names(mase)
+}
+
+}
 \seealso{
 \code{\link{readVisiumMASE}}, \code{\link{readXeniumMASE}}
 }

@@ -30,6 +30,13 @@
 #' @seealso \code{\link{readVisiumMASE}}, \code{\link{readVisiumHDMASE}},
 #'   \code{\link{readCosMxMASE}}, \code{\link{readMERSCOPEMASE}}
 #'
+#' @examples
+#' \dontrun{
+#' ## Requires a Xenium output directory (see package tests for mock layout)
+#' mase <- readXeniumMASE("path/to/xenium")
+#' names(mase)
+#' }
+#'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom tools file_ext
 #'

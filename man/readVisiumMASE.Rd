@@ -47,6 +47,14 @@ Reads spot-by-gene counts, tissue positions, spot geometries, and optional
 H&E image metadata (\code{images}). Coordinates may be returned in pixels or
 microns (\code{unit}). For Visium HD data, use \code{\link{readVisiumHDMASE}}.
 }
+\examples{
+\dontrun{
+## Requires a Space Ranger output directory (see package tests for mock layout)
+mase <- readVisiumMASE("path/to/visium")
+names(mase)
+}
+
+}
 \seealso{
 \code{\link{readVisiumHDMASE}}, \code{\link{readXeniumMASE}}
 }

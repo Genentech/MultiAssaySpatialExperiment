@@ -109,6 +109,13 @@ VALID_ELEMENT_TYPES <- c("points", "shapes")
 #'
 #' @seealso \code{\link{prepMASE}}, \code{\link[MultiAssayExperiment]{listToMap}}
 #'
+#' @examples
+#' sm <- S4Vectors::DataFrame(
+#'     assay = factor(rep("rna", 3), "rna"),
+#'     primary = c("S1", "S1", "S2"),
+#'     colname = paste0("spot", 1:3))
+#' buildSpatialMap(sm, region = "tissue1", element_type = "points")
+#'
 #' @export
 buildSpatialMap <-
 function(sampleMap, region, element_type = c("points", "shapes"), assays = NULL,
@@ -155,6 +162,17 @@ function(sampleMap, region, element_type = c("points", "shapes"), assays = NULL,
 #' @param shapes A \linkS4class{ShapesLayerList} or named list of shape layers.
 #'
 #' @return Character vector of error messages (length zero if no problems).
+#'
+#' @examples
+#' sm <- S4Vectors::DataFrame(
+#'     assay = factor("rna", "rna"),
+#'     primary = "S1",
+#'     colname = "spot1")
+#' spmap <- buildSpatialMap(sm, "coords", "points")
+#' spmap[["instance_id"]] <- "missing"
+#' checkSpatialMap(spmap, sm, points = PointsLayerList(
+#'     coords = S4Vectors::DataFrame(
+#'         x = 1, y = 1, instance_id = "spot1")))
 #'
 #' @export
 #' @importFrom S4Vectors DataFrame wmsg

@@ -48,6 +48,27 @@ NULL
 #'   \item \link{MultiAssaySpatialExperiment-subset} for subsetting methods
 #' }
 #'
+#' @examples
+#' mat1 <- matrix(rnorm(20), 5, 4,
+#'     dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+#' mat2 <- matrix(rnorm(20), 5, 4,
+#'     dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
+#' sm1 <- S4Vectors::DataFrame(
+#'     assay = factor(rep("assay1", 4), "assay1"),
+#'     primary = paste0("S", 1:4),
+#'     colname = paste0("S", 1:4))
+#' sm2 <- S4Vectors::DataFrame(
+#'     assay = factor(rep("assay2", 4), "assay2"),
+#'     primary = paste0("S", 1:4),
+#'     colname = paste0("S", 1:4))
+#' cd <- S4Vectors::DataFrame(row.names = paste0("S", 1:4))
+#' mase1 <- MultiAssaySpatialExperiment(
+#'     ExperimentList(assay1 = mat1), cd, sm1)
+#' mase2 <- MultiAssaySpatialExperiment(
+#'     ExperimentList(assay2 = mat2), cd, sm2)
+#' c(mase1, mase2)
+#' complete.cases(mase1)
+#'
 #' @name MultiAssaySpatialExperiment-combine
 NULL
 

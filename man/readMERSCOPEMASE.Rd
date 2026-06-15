@@ -48,6 +48,14 @@ Supports multi-FOV datasets and multiple segmentation methods
 \code{"both"}). Transcript coordinates are optional
 (\code{load_transcripts}).
 }
+\examples{
+\dontrun{
+## Requires a Vizgen MERSCOPE output directory (see package tests for mock layout)
+mase <- readMERSCOPEMASE("path/to/merscope")
+names(mase)
+}
+
+}
 \seealso{
 \code{\link{readCosMxMASE}}, \code{\link{readXeniumMASE}}
 }

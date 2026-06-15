@@ -112,6 +112,17 @@ NULL
 #'
 #' @keywords methods
 #'
+#' @examples
+#' mat <- matrix(1:12, 3, 4,
+#'     dimnames = list(paste0("G", 1:3), paste0("cell", 1:4)))
+#' spe <- SpatialExperiment::SpatialExperiment(
+#'     assays = list(counts = mat),
+#'     spatialCoords = matrix(c(1:4, 1:4), 4, 2))
+#' mase <- as(spe, "MultiAssaySpatialExperiment")
+#' names(mase)
+#' spatialCoords(mase)
+#' as(mase, "SpatialExperiment")
+#'
 #' @name MultiAssaySpatialExperiment-SpatialExperiment
 NULL
 

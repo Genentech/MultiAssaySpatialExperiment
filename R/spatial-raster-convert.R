@@ -42,6 +42,12 @@ NULL
 #'
 #' @seealso \code{\link{shapesToLabels}}, \code{\link{spatialLabels}}
 #'
+#' @examples
+#' if (requireNamespace("terra", quietly = TRUE)) {
+#'     mat <- matrix(c(1L, 1L, 2L, 2L), 2, 2)
+#'     labelsToShapes(mat)
+#' }
+#'
 #' @export
 labelsToShapes <- function(x, dissolve = TRUE, ...) {
     r <- .as_label_raster(x)
@@ -65,6 +71,14 @@ labelsToShapes <- function(x, dissolve = TRUE, ...) {
 #' @return A \code{SpatRaster} label image.
 #'
 #' @seealso \code{\link{labelsToShapes}}, \code{\link{spatialShapes}}
+#'
+#' @examples
+#' if (requireNamespace("terra", quietly = TRUE)) {
+#'     mat <- matrix(c(1L, 1L, 2L, 2L), 2, 2)
+#'     polys <- labelsToShapes(mat)
+#'     polys$instance_id <- polys[["lyr.1"]]
+#'     shapesToLabels(polys, field = "instance_id", background = 0L)
+#' }
 #'
 #' @export
 shapesToLabels <- function(x, template = NULL, field = "instance_id",

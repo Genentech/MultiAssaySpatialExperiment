@@ -41,6 +41,14 @@ Supports multi-FOV datasets. Use \code{fov_ids} to load specific fields of
 view, or \code{NULL} to load all FOVs into one object. Transcript coordinates
 are optional (\code{load_transcripts}).
 }
+\examples{
+\dontrun{
+## Requires a NanoString CosMx output directory (see package tests for mock layout)
+mase <- readCosMxMASE("path/to/cosmx")
+names(mase)
+}
+
+}
 \seealso{
 \code{\link{readMERSCOPEMASE}}, \code{\link{readXeniumMASE}}
 }

@@ -22,3 +22,12 @@ sf or equivalent object
 \description{
 Read a GeoJSON file via \pkg{sf} for shape layers in MASE readers.
 }
+\examples{
+tmp <- tempfile(fileext = ".geojson")
+pt <- sf::st_point(c(10, 20))
+sf_obj <- sf::st_sf(id = "C1", geometry = sf::st_sfc(pt))
+sf::st_write(sf_obj, tmp, quiet = TRUE, delete_dsn = TRUE)
+readGeoJSONForMASE(tmp, quiet = TRUE)
+unlink(tmp)
+
+}
