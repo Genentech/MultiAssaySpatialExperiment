@@ -1,0 +1,12 @@
+---
+# MultiAssaySpatialExperiment CI — MODL shared R-check (base template). No intra-suite
+# dependencies (a suite root); its external deps resolve from Kite / are baked into the
+# r-modl image. See modl/modl-ci.
+
+include:
+  - project: 'modl/modl-ci'
+    ref: main
+    file: 'r-check.yml'
+
+check:
+  extends: .modl_r_check
