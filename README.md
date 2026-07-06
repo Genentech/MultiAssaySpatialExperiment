@@ -253,10 +253,9 @@ All readers:
 
 ### Vignettes
 
-1. **Introduction to MultiAssaySpatialExperiment**: Overview, construction, basic operations
-2. **Working with MultiAssaySpatialExperiment**: Subsetting, spatial annotation, aggregation, labels ↔ shapes
-3. **MultiAssaySpatialExperiment Use Cases**: Real data workflows with readers, multi-assay integration, coordinate transforms
-4. **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common tasks
+1. **Introduction to MultiAssaySpatialExperiment**: overview, construction, basic operations, and a quick-reference table
+2. **Working with MultiAssaySpatialExperiment**: subsetting, spatial annotation, aggregation, labels ↔ shapes
+3. **MultiAssaySpatialExperiment use cases**: real-data workflows with readers, multi-assay integration, coordinate transforms
 
 ```r
 browseVignettes("MultiAssaySpatialExperiment")
@@ -332,7 +331,7 @@ Add new platforms without modifying core code.
 
 - **20 R source files**
 - **11 test files**
-- **4 vignettes**
+- **3 vignettes**
 - **5 technology readers**
 - **Coercion**: SpatialExperiment and SpatialFeatureExperiment ↔ MASE
 

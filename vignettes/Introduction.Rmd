@@ -1,7 +1,11 @@
 ---
 title: "Introduction to MultiAssaySpatialExperiment"
-author: "Patrick Aboyoun"
-date: "`r format(Sys.Date(), '%b %d, %Y')`"
+author:
+- name: Patrick Aboyoun
+  email: aboyounp@gene.com
+  affiliation: Genentech, Inc.
+date: "Compiled: `r BiocStyle::doc_date()`; Modified: 6 July 2026"
+package: MultiAssaySpatialExperiment
 output:
   BiocStyle::html_document:
     toc: true
@@ -10,7 +14,7 @@ output:
     toc_float:
       collapsed: true
 vignette: >
-  %\VignetteIndexEntry{Introduction to MultiAssaySpatialExperiment}
+  %\VignetteIndexEntry{1. Introduction to MultiAssaySpatialExperiment}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 ---
@@ -416,23 +420,35 @@ relevant packages are installed):
 - `as(mase, "SpatialFeatureExperiment")` — requires exactly one
   SPE/SFE-compatible assay
 
-See the **MultiAssaySpatialExperiment Use Cases** vignette for coercion examples.
+See the **MultiAssaySpatialExperiment use cases** vignette for coercion examples.
+
+# Quick reference
+
+The most common operations, grouped by task (see the man pages with `?` and the
+other vignettes for details):
+
+| Task | Functions |
+|------|-----------|
+| Construct | `MultiAssaySpatialExperiment()`, `prepMASE()`, `buildSpatialMap()` |
+| Read a platform | `readXeniumMASE()`, `readVisiumMASE()`, `readVisiumHDMASE()`, `readCosMxMASE()`, `readMERSCOPEMASE()` |
+| Spatial accessors | `spatialPoints()`, `spatialShapes()`, `spatialImages()`, `spatialLabels()`, `spatialMap()` |
+| MAE accessors | `experiments()`, `colData()`, `sampleMap()`, `subsetByAssay()` |
+| Subset | `mase[rows, cols, assays]`, by region (bounding box / polygon), by specimen |
+| Annotate / aggregate | `annotateWithRegions()`, `aggregateByRegion()` (points ↔ shapes joins) |
+| Labels ↔ shapes | rasterize (shapes → labels), vectorize (labels → shapes) |
+| Coerce | `as(spe, "MultiAssaySpatialExperiment")`, `as(mase, "SpatialExperiment")` |
 
 # Next steps
 
 After reading this introduction, proceed to:
 
-1. **Working with MultiAssaySpatialExperiment**: Construction patterns, subsetting
-   operations, spatial annotation and aggregation, and labels ↔ shapes conversion
-   
-2. **MultiAssaySpatialExperiment Use Cases**: Complete workflows for:
-   - Reading data from Xenium, Visium, Visium HD, CosMx, and MERSCOPE (MERFISH)
-   - Converting from SpatialExperiment or SpatialFeatureExperiment
-   - Multi-assay integration (Xenium + Visium)
-   - Coordinate transformations and alignment
-   - Multi-sample analysis
-
-3. **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common MASE operations
+1. **Working with MultiAssaySpatialExperiment**: construction patterns, subsetting
+   operations, spatial annotation and aggregation, and labels ↔ shapes conversion.
+2. **MultiAssaySpatialExperiment use cases**: complete workflows for reading Xenium,
+   Visium, Visium HD, CosMx, and MERSCOPE (MERFISH) data; converting from
+   `SpatialExperiment` / `SpatialFeatureExperiment`; multi-assay integration
+   (Xenium + Visium); coordinate transformation and alignment; and multi-sample
+   analysis.
 
 # Session info
 

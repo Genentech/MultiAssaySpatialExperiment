@@ -1,6 +1,6 @@
 Package: MultiAssaySpatialExperiment
-Version: 0.9.5
-Date: 2026-06-15
+Version: 0.9.6
+Date: 2026-07-06
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
@@ -14,7 +14,7 @@ Authors@R:
 License: Apache License 2.0
 Encoding: UTF-8
 Depends:
-    R (>= 4.4.0),
+    R (>= 4.6.0),
     methods,
     MultiAssayExperiment
 Imports:
