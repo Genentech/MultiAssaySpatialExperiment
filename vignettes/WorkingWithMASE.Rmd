@@ -1,7 +1,11 @@
 ---
 title: "Working with MultiAssaySpatialExperiment"
-author: "Patrick Aboyoun"
-date: "`r format(Sys.Date(), '%b %d, %Y')`"
+author:
+- name: Patrick Aboyoun
+  email: aboyounp@gene.com
+  affiliation: Genentech, Inc.
+date: "Compiled: `r BiocStyle::doc_date()`; Modified: 6 July 2026"
+package: MultiAssaySpatialExperiment
 output:
   BiocStyle::html_document:
     toc: true
@@ -10,7 +14,7 @@ output:
     toc_float:
       collapsed: true
 vignette: >
-  %\VignetteIndexEntry{Working with MultiAssaySpatialExperiment}
+  %\VignetteIndexEntry{2. Working with MultiAssaySpatialExperiment}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 ---

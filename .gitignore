@@ -3,3 +3,6 @@
 *.BiocCheck/
 .DS_Store
 .Rproj.user
+_render/
+*_cache/
+*_files/
