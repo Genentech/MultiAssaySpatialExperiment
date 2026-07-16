@@ -2,7 +2,7 @@
 
 **Multi-modal spatial transcriptomics with Bioconductor**
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bioconductor](https://img.shields.io/badge/Bioconductor-devel-brightgreen.svg)](http://bioconductor.org/packages/devel/bioc/html/MultiAssaySpatialExperiment.html)
 
 ## Overview
@@ -354,7 +354,7 @@ Add new platforms without modifying core code.
 
 ## License
 
-Apache License 2.0 — see DESCRIPTION.
+MIT License — see DESCRIPTION.
 
 Copyright (c) 2023-2026 Genentech, Inc.
 
