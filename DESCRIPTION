@@ -1,5 +1,5 @@
 Package: MultiAssaySpatialExperiment
-Version: 0.9.7
+Version: 0.99.00
 Date: 2026-07-16
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
