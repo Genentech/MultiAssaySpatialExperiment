@@ -5,6 +5,11 @@
 \alias{c,MultiAssaySpatialExperiment-method}
 \alias{cbind,MultiAssaySpatialExperiment-method}
 \title{MultiAssaySpatialExperiment combining}
+\value{
+\code{c()} and \code{cbind()} return a combined
+\linkS4class{MultiAssaySpatialExperiment}; \code{complete.cases()} returns a
+logical vector flagging specimens (primaries) present in all assays.
+}
 \description{
 Methods for combining \linkS4class{MultiAssaySpatialExperiment} objects.
 \code{c} merges two MASE objects (adding assays); \code{cbind} combines along

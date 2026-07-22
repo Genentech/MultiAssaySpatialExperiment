@@ -29,6 +29,19 @@
 \alias{spatialMap<-,MultiAssaySpatialExperiment-method}
 \alias{show,MultiAssaySpatialExperiment-method}
 \title{MultiAssaySpatialExperiment objects}
+\value{
+The \code{MultiAssaySpatialExperiment()} constructor returns a
+\linkS4class{MultiAssaySpatialExperiment}. The layer accessors return the
+corresponding container: \code{spatialImages()} / \code{spatialLabels()} a
+\linkS4class{RasterLayerList}, \code{spatialPoints()} a
+\linkS4class{PointsLayerList}, and \code{spatialShapes()} a
+\linkS4class{ShapesLayerList}; the single-layer accessors
+(\code{spatialImage()}, \code{spatialPoint()}, and so on) return one layer,
+and the \code{*Names()} accessors a character vector. \code{imgData()} and
+\code{spatialMap()} return a \code{DataFrame} or \code{NULL}. Replacement
+methods (the \code{<-} forms) return the updated object, and \code{show()}
+returns \code{NULL} invisibly.
+}
 \description{
 The MultiAssaySpatialExperiment class extends \linkS4class{MultiAssayExperiment}
 with spatial context: raster data (images, labels), points, and shapes.

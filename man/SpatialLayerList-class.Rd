@@ -12,6 +12,12 @@
 \alias{show,PointsLayerList-method}
 \alias{show,ShapesLayerList-method}
 \title{Spatial layer list objects}
+\value{
+The constructors \code{RasterLayerList()}, \code{PointsLayerList()}, and
+\code{ShapesLayerList()} return an object of the corresponding class.
+Coercion via \code{as()} returns the requested \code{*LayerList}, and the
+\code{show()} method returns \code{NULL} invisibly.
+}
 \description{
 The \linkS4class{SpatialLayerList} class is a virtual base extending
 \linkS4class{SimpleList}. Concrete subclasses \linkS4class{RasterLayerList},

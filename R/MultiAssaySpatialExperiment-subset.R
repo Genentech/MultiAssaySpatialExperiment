@@ -81,6 +81,12 @@ NULL
 #'
 #' @author Patrick Aboyoun
 #'
+#' @return
+#' \code{subsetByColData()} and \code{subsetByRow()} return a
+#' \linkS4class{MultiAssaySpatialExperiment} restricted to the selected
+#' specimens or rows; the linked spatial layers, \code{imgData}, and
+#' \code{spatialMap} are subset accordingly.
+#'
 #' @aliases subsetByColData,MultiAssaySpatialExperiment,ANY-method
 #' @aliases subsetByColData,MultiAssaySpatialExperiment,character-method
 #' @aliases subsetByRow,MultiAssaySpatialExperiment,ANY-method

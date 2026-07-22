@@ -1,3 +1,13 @@
+# MultiAssaySpatialExperiment 0.99.2
+
+## Documentation
+
+- Added `\value` sections (roxygen `@return`) to the `MultiAssaySpatialExperiment`
+  class, combine, subset, and `SpatialExperiment`-coercion man pages, and to
+  `SpatialLayerList-class`, documenting the values returned by the constructors,
+  accessors, replacement, coercion, combining, and subsetting methods. Resolves
+  the `R CMD BiocCheck` "missing \value" WARNING.
+
 # MultiAssaySpatialExperiment 0.99.1
 
 ## Bug fixes

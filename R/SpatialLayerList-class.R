@@ -99,6 +99,12 @@ NULL
 #' df <- S4Vectors::DataFrame(id = 1:2, value = c("a", "b"))
 #' ShapesLayerList(regions = df)
 #'
+#' @return
+#' The constructors \code{RasterLayerList()}, \code{PointsLayerList()}, and
+#' \code{ShapesLayerList()} return an object of the corresponding class.
+#' Coercion via \code{as()} returns the requested \code{*LayerList}, and the
+#' \code{show()} method returns \code{NULL} invisibly.
+#'
 #' @aliases SpatialLayerList-class
 #' @aliases RasterLayerList-class
 #' @aliases PointsLayerList-class

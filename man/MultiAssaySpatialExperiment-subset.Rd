@@ -15,6 +15,12 @@
 \alias{subsetByPolygon,MultiAssaySpatialExperiment-method}
 \alias{[,MultiAssaySpatialExperiment,ANY,ANY,ANY-method}
 \title{MultiAssaySpatialExperiment subsetting}
+\value{
+\code{subsetByColData()} and \code{subsetByRow()} return a
+\linkS4class{MultiAssaySpatialExperiment} restricted to the selected
+specimens or rows; the linked spatial layers, \code{imgData}, and
+\code{spatialMap} are subset accordingly.
+}
 \description{
 Methods for subsetting a \linkS4class{MultiAssaySpatialExperiment}. They
 extend \code{\link[MultiAssayExperiment]{subsetBy}} with propagation to

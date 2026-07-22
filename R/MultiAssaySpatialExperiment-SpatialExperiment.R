@@ -87,6 +87,16 @@ NULL
 #'
 #' @author Patrick Aboyoun
 #'
+#' @return
+#' Coercion returns the requested object: a
+#' \linkS4class{MultiAssaySpatialExperiment} from a
+#' \linkS4class{SpatialExperiment}, or a \linkS4class{SpatialExperiment} from a
+#' MASE. \code{spatialCoords()} returns a numeric coordinate matrix and
+#' \code{scaleFactors()} a numeric vector. The image methods return image data
+#' (\code{getImg()}) or an updated MASE for the modifying methods (such as
+#' \code{addImg()}). \code{molecules()} returns the molecule data of the first
+#' assay, or \code{NULL}.
+#'
 #' @aliases coerce,SpatialExperiment,MultiAssaySpatialExperiment-method
 #' @aliases coerce,MultiAssaySpatialExperiment,SpatialExperiment-method
 #'

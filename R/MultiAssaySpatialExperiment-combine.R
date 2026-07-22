@@ -39,6 +39,11 @@ NULL
 #'
 #' @author Patrick Aboyoun
 #'
+#' @return
+#' \code{c()} and \code{cbind()} return a combined
+#' \linkS4class{MultiAssaySpatialExperiment}; \code{complete.cases()} returns a
+#' logical vector flagging specimens (primaries) present in all assays.
+#'
 #' @aliases c,MultiAssaySpatialExperiment-method
 #' @aliases cbind,MultiAssaySpatialExperiment-method
 #'
