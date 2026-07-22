@@ -1,0 +1,16 @@
+"cell_id","vertex_x","vertex_y"
+"cell1",5,10
+"cell1",10,10
+"cell1",10,15
+"cell1",5,15
+"cell1",5,10
+"cell2",15,20
+"cell2",20,20
+"cell2",20,25
+"cell2",15,25
+"cell2",15,20
+"cell3",25,30
+"cell3",30,30
+"cell3",30,35
+"cell3",25,35
+"cell3",25,30

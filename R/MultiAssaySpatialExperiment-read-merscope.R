@@ -29,11 +29,13 @@
 #' @seealso \code{\link{readCosMxMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @examples
-#' \dontrun{
-#' ## Requires a Vizgen MERSCOPE output directory (see package tests for mock layout)
-#' mase <- readMERSCOPEMASE("path/to/merscope")
+#' ## A minimal mock MERSCOPE output directory is bundled for a runnable
+#' ## example; in practice, point 'data_dir' at a real MERSCOPE region directory.
+#' dir <- system.file("extdata", "merscope_mock",
+#'                    package = "MultiAssaySpatialExperiment")
+#' mase <- readMERSCOPEMASE(dir, segmentation = "cellpose",
+#'                          images = FALSE, load_transcripts = FALSE)
 #' names(mase)
-#' }
 #'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom tools file_ext

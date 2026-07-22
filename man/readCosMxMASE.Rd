@@ -42,11 +42,12 @@ view, or \code{NULL} to load all FOVs into one object. Transcript coordinates
 are optional (\code{load_transcripts}).
 }
 \examples{
-\dontrun{
-## Requires a NanoString CosMx output directory (see package tests for mock layout)
-mase <- readCosMxMASE("path/to/cosmx")
+## A minimal mock CosMx output directory is bundled for a runnable example;
+## in practice, point 'data_dir' at a real CosMx output directory.
+dir <- system.file("extdata", "cosmx_mock",
+                   package = "MultiAssaySpatialExperiment")
+mase <- readCosMxMASE(dir, images = FALSE, load_transcripts = FALSE)
 names(mase)
-}
 
 }
 \seealso{

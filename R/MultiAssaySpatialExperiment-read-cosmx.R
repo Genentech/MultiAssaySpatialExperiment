@@ -26,11 +26,12 @@
 #' @seealso \code{\link{readMERSCOPEMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @examples
-#' \dontrun{
-#' ## Requires a NanoString CosMx output directory (see package tests for mock layout)
-#' mase <- readCosMxMASE("path/to/cosmx")
+#' ## A minimal mock CosMx output directory is bundled for a runnable example;
+#' ## in practice, point 'data_dir' at a real CosMx output directory.
+#' dir <- system.file("extdata", "cosmx_mock",
+#'                    package = "MultiAssaySpatialExperiment")
+#' mase <- readCosMxMASE(dir, images = FALSE, load_transcripts = FALSE)
 #' names(mase)
-#' }
 #'
 #' @importFrom S4Vectors isTRUEorFALSE wmsg
 #' @importFrom SummarizedExperiment colData<- SummarizedExperiment
