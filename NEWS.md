@@ -1,3 +1,10 @@
+# MultiAssaySpatialExperiment 0.99.3
+
+## Documentation
+
+- Added `URL` and `BugReports` fields to DESCRIPTION.
+- Added a package-level man page (`?MultiAssaySpatialExperiment`).
+
 # MultiAssaySpatialExperiment 0.99.2
 
 ## Documentation

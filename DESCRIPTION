@@ -1,6 +1,6 @@
 Package: MultiAssaySpatialExperiment
-Version: 0.99.2
-Date: 2026-07-22
+Version: 0.99.3
+Date: 2026-08-04
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
@@ -12,6 +12,8 @@ Authors@R:
         person("Genentech, Inc.", role="cph")
     )
 License: MIT + file LICENSE
+URL: https://github.com/Genentech/MultiAssaySpatialExperiment
+BugReports: https://github.com/Genentech/MultiAssaySpatialExperiment/issues
 Encoding: UTF-8
 Depends:
     R (>= 4.6.0),
@@ -52,6 +54,7 @@ Collate:
     'MultiAssaySpatialExperiment-combine.R'
     'MultiAssaySpatialExperiment-spatialMap.R'
     'MultiAssaySpatialExperiment-helpers.R'
+    'MultiAssaySpatialExperiment-package.R'
     'MultiAssaySpatialExperiment-read-components.R'
     'MultiAssaySpatialExperiment-read-config.R'
     'MultiAssaySpatialExperiment-read-cosmx.R'
