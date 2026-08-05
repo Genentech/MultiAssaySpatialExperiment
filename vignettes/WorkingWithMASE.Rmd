@@ -58,7 +58,7 @@ There are several approaches to constructing a MASE object:
 2. **From scratch**: Build all components manually
 3. **From existing objects**: Convert `SpatialExperiment` or wrap
    `SingleCellExperiment` objects in an `ExperimentList`
-4. **From vendor output**: Use platform readers (`readXeniumMASE()`, etc.) —
+4. **From vendor output**: Use platform readers (`readXeniumMASE()`, etc.), 
    covered in the **MultiAssaySpatialExperiment Use Cases** vignette
 5. **With prepMASE**: Wrap `prepMultiAssay()` for name harmonization and spatial
    FK cleanup (see below)
@@ -311,7 +311,7 @@ above, so you can run them independently.
 
 **Note:** `subsetByAssay()` keeps only spatial layers referenced in `spatialMap`
 for the retained assays. Auxiliary shape layers added for annotation (but not
-linked in `spatialMap`) are dropped — run `annotateWithRegions()` on the full
+linked in `spatialMap`) are dropped, run `annotateWithRegions()` on the full
 MASE when you need those layers.
 
 ## Basic subsetting

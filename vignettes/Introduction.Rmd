@@ -62,17 +62,17 @@ what would we build if we started from the problem we actually have?
 
 Spatial omics is at that stage. We already have excellent tools for
 *single-assay* spatial data: `SpatialExperiment` and `SpatialFeatureExperiment`
-handle one experiment at a time—one technology, one matrix, one set of spatial
+handle one experiment at a time, one technology, one matrix, one set of spatial
 coordinates. They work well when your question is "what genes are expressed in
 this Visium section?" or "where are these MERFISH cells in tissue?" But
 increasingly, people ask questions that cut across assays: "I have RNA, protein,
-and chromatin from the same tissue—how do I link them and their spatial
+and chromatin from the same tissue, how do I link them and their spatial
 coordinates in one place?" That is a different problem. It needs a *multi-assay*
 structure that can carry spatial context and keep everything consistent when you
 subset, or merge.
 
 `MultiAssayExperiment` (MAE) solves the multi-assay part. It gives you a central
-mapping table—the `sampleMap`—that links assay columns to specimens. One source
+mapping table, the `sampleMap`, that links assay columns to specimens. One source
 of truth, explicit foreign keys, and validity checks that keep the links
 correct. When you subset by specimen, the maps update. No orphaned rows. No
 hunting through metadata to figure out which assay column belongs to which
@@ -80,8 +80,8 @@ sample.
 
 What MAE does not have is spatial geometry: coordinates for cells or spots, cell
 boundaries, tissue images. That is where `MultiAssaySpatialExperiment` (MASE)
-comes in. MASE extends MAE with spatial elements—points, shapes, images,
-labels—and a second central mapping table, the `spatialMap`, that links assay
+comes in. MASE extends MAE with spatial elements, points, shapes, images,
+labels, and a second central mapping table, the `spatialMap`, that links assay
 columns to those elements. Same philosophy as MAE: one place to look, one place
 to update, referential integrity enforced. Subsetting updates `spatialMap` (and,
 for most column- and assay-level operations, linked spatial layers) so you do
@@ -95,7 +95,7 @@ Use `MultiAssaySpatialExperiment` when:
   transcriptomics, proteomics, ATAC-seq).
 - You need **one object** that holds the experiments, the specimen metadata, the
   spatial elements (coordinates, shapes, images), and the links between them.
-- You want **subsetting and merging** that keep all links consistent—no manual
+- You want **subsetting and merging** that keep all links consistent, no manual
   cleanup, no orphaned geometry.
 - You need to **convert** to or from `SpatialExperiment` or
   `SpatialFeatureExperiment` for downstream tools.
@@ -107,24 +107,24 @@ Use `MultiAssaySpatialExperiment` when:
 A `MultiAssaySpatialExperiment` object contains:
 
 1. **Inherited from MultiAssayExperiment**:
-   - `ExperimentList` — your assays (can be matrices, SummarizedExperiment,
+   - `ExperimentList`: your assays (can be matrices, SummarizedExperiment,
      SingleCellExperiment, SpatialExperiment, or other supported classes)
-   - `colData` — specimen/sample metadata (one row per biological unit)
-   - `sampleMap` — links assay columns to specimens (primary identifiers)
-   - `metadata` — experiment-level metadata
+   - `colData`: specimen/sample metadata (one row per biological unit)
+   - `sampleMap`: links assay columns to specimens (primary identifiers)
+   - `metadata`: experiment-level metadata
 
 2. **Spatial elements (MASE-specific)**:
-   - `points` — named lists of point coordinates (DataFrame with x, y,
+   - `points`: named lists of point coordinates (DataFrame with x, y,
      instance_id)
-   - `shapes` — named lists of polygons or other geometries (DataFrame with sfc
+   - `shapes`: named lists of polygons or other geometries (DataFrame with sfc
      geometry column)
-   - `images` — raster images (tissue photos, microscopy)
-   - `labels` — segmentation masks (raster with instance IDs)
+   - `images`: raster images (tissue photos, microscopy)
+   - `labels`: segmentation masks (raster with instance IDs)
 
 3. **Spatial mappings**:
-   - `spatialMap` — links assay columns to spatial element rows (`assay`,
+   - `spatialMap`: links assay columns to spatial element rows (`assay`,
      `colname`, `element_type`, `region`, `instance_id`)
-   - `imgData` — links specimens to images (`sample_id`, `image_id`, `scaleFactor`,
+   - `imgData`: links specimens to images (`sample_id`, `image_id`, `scaleFactor`,
      and optional raster metadata)
 
 The following diagram shows how these components relate:
@@ -136,17 +136,17 @@ knitr::include_graphics("mase_erd.png")
 The ERD shows the **actual class definition** with all slots:
 
 **Inherited from MultiAssayExperiment** (tan boxes):
-- `ExperimentList` — named list of assays (SE, SCE, matrices, etc.)
-- `colData` — specimen metadata (rownames = primary identifiers)
-- `sampleMap` — links assay columns to specimens via `(assay, primary, colname)`
+- `ExperimentList`: named list of assays (SE, SCE, matrices, etc.)
+- `colData`: specimen metadata (rownames = primary identifiers)
+- `sampleMap`: links assay columns to specimens via `(assay, primary, colname)`
 
 **MASE-specific slots** (blue boxes):
-- `points` — **PointsLayerList**: named list of DataFrames with coordinates
-- `shapes` — **ShapesLayerList**: named list of DataFrames with geometries  
-- `images` — **RasterLayerList**: named list of SpatialImage/matrix (tissue photos, H&E, etc.)
-- `labels` — **RasterLayerList**: named list of SpatialImage/matrix (segmentation masks)
-- `spatialMap` — DataFrame linking assay columns to spatial elements via `(assay, colname, element_type, region, instance_id)`
-- `imgData` — DataFrame linking specimens to images via `(sample_id, image_id)`
+- `points`: **PointsLayerList**: named list of DataFrames with coordinates
+- `shapes`: **ShapesLayerList**: named list of DataFrames with geometries  
+- `images`: **RasterLayerList**: named list of SpatialImage/matrix (tissue photos, H&E, etc.)
+- `labels`: **RasterLayerList**: named list of SpatialImage/matrix (segmentation masks)
+- `spatialMap`: DataFrame linking assay columns to spatial elements via `(assay, colname, element_type, region, instance_id)`
+- `imgData`: DataFrame linking specimens to images via `(sample_id, image_id)`
 
 **Key relationships:**
 - `spatialMap$element_type` specifies which spatial slot: `"points"` or `"shapes"`
@@ -162,11 +162,11 @@ The ERD shows the **actual class definition** with all slots:
 The `ExperimentList` holds your experimental data. Each element is an assay
 (e.g., RNA-seq, proteomics, ATAC-seq). Assays can be of different classes:
 
-- `matrix` — base R matrix
-- `SummarizedExperiment` — single-assay container with rowData, colData
-- `SingleCellExperiment` — extends SummarizedExperiment with reducedDims, etc.
-- `SpatialExperiment` — extends SingleCellExperiment with spatialCoords
-- `SpatialFeatureExperiment` — extends SpatialExperiment with sf geometries
+- `matrix`: base R matrix
+- `SummarizedExperiment`: single-assay container with rowData, colData
+- `SingleCellExperiment`: extends SummarizedExperiment with reducedDims, etc.
+- `SpatialExperiment`: extends SingleCellExperiment with spatialCoords
+- `SpatialFeatureExperiment`: extends SpatialExperiment with sf geometries
 
 Requirements for classes in `ExperimentList`:
 
@@ -203,8 +203,8 @@ The `points` slot is a `PointsLayerList` (a named list of `DataFrame` objects).
 Each element represents a set of point coordinates (e.g., cells, spots,
 molecules). Required columns:
 
-- `x`, `y` — numeric coordinates
-- `instance_id` — character identifier for each point
+- `x`, `y`: numeric coordinates
+- `instance_id`: character identifier for each point
 
 Optional columns: `z` (for 3D), feature annotations, quality metrics.
 
@@ -214,8 +214,8 @@ The `shapes` slot is a `ShapesLayerList` (a named list of `DataFrame` objects).
 Each element represents a set of polygons, lines, or other geometries. Required
 columns:
 
-- `geometry` — sfc (simple feature column from the `sf` package)
-- `instance_id` — character identifier for each shape
+- `geometry`: sfc (simple feature column from the `sf` package)
+- `instance_id`: character identifier for each shape
 
 Shapes are commonly used for cell boundaries, tissue regions, or annotation
 areas.
@@ -263,10 +263,10 @@ subsetting.
 The `imgData` is a `DataFrame` with one row per image–specimen pair (Visium
 readers populate SPE-compatible columns). Typical columns include:
 
-- `sample_id` — row name in `colData` (specimen identifier)
-- `image_id` — name of the image in the `images` slot
-- `scaleFactor` — numeric scale factor for pixel ↔ coordinate conversion
-- `data`, `width`, `height`, `path` — raster payload or file reference (when loaded).
+- `sample_id`: row name in `colData` (specimen identifier)
+- `image_id`: name of the image in the `images` slot
+- `scaleFactor`: numeric scale factor for pixel ↔ coordinate conversion
+- `data`, `width`, `height`, `path`: raster payload or file reference (when loaded).
 
 # Quick Start: Building a MASE object
 
@@ -370,22 +370,22 @@ imgData(mase)
 MASE supports all MAE subsetting operations, with propagation to spatial slots
 where applicable:
 
-- `subsetByColData(x, y)` — subset by specimen; updates `spatialMap` and
+- `subsetByColData(x, y)`: subset by specimen; updates `spatialMap` and
   `imgData` (point and shape rows are not trimmed unless removed via the map)
-- `subsetByRow(x, y, ...)` — subset assay features (spatial layers unchanged)
-- `subsetByColumn(x, y)` — subset assay columns; when `y` is a list, also
+- `subsetByRow(x, y, ...)`: subset assay features (spatial layers unchanged)
+- `subsetByColumn(x, y)`: subset assay columns; when `y` is a list, also
   trims linked points, shapes, images, and labels via `spatialMap`
-- `subsetByAssay(x, y)` — subset by assay name; keeps spatial layers referenced
+- `subsetByAssay(x, y)`: subset by assay name; keeps spatial layers referenced
   in `spatialMap` for the retained assays
-- `x[i, j, k, ...]` — combined subsetting (specimens, columns, assays, features)
+- `x[i, j, k, ...]`: combined subsetting (specimens, columns, assays, features)
 
 Filter by observation metadata using the standard MAE list interface, for
 example `subsetByColumn(mase, list(rna = colData(experiments(mase)[["rna"]])$tissue == "tumor"))`.
 
 **Spatial subsetting** (geometry first, then assays via `spatialMap`):
 
-- `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` — rectangular ROI
-- `subsetByPolygon(x, polygon, ...)` — polygon ROI
+- `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)`: rectangular ROI
+- `subsetByPolygon(x, polygon, ...)`: polygon ROI
 
 See the **Working with MultiAssaySpatialExperiment** vignette for detailed
 subsetting examples.
@@ -394,11 +394,11 @@ subsetting examples.
 
 MASE provides generics for spatial annotation and aggregation:
 
-- `annotateWithRegions(x, points =, shapes =, ...)` — annotate measurement
+- `annotateWithRegions(x, points =, shapes =, ...)`: annotate measurement
   points with the shapes (cells, segments) they fall in
-- `aggregateByRegion(x, by =, FUN =, ...)` — aggregate assay values by annotated
+- `aggregateByRegion(x, by =, FUN =, ...)`: aggregate assay values by annotated
   region (e.g., sum transcript counts per cell)
-- `spatialJoin(x, y, ...)` — join two spatial layer tables (DataFrame × DataFrame
+- `spatialJoin(x, y, ...)`: join two spatial layer tables (DataFrame × DataFrame
   via `sf`; lower-level primitive for custom annotation workflows)
 
 These functions use the `sf` package for spatial joins (default:
@@ -412,12 +412,12 @@ examples.
 MASE can convert to and from other Bioconductor spatial classes (when the
 relevant packages are installed):
 
-- `as(spe, "MultiAssaySpatialExperiment")` — wrap a
+- `as(spe, "MultiAssaySpatialExperiment")`: wrap a
   `SpatialExperiment` as a single-assay MASE
-- `as(mase, "SpatialExperiment")` — requires exactly one SPE-compatible assay
-- `as(sfe, "MultiAssaySpatialExperiment")` — wrap a
+- `as(mase, "SpatialExperiment")`: requires exactly one SPE-compatible assay
+- `as(sfe, "MultiAssaySpatialExperiment")`: wrap a
   `SpatialFeatureExperiment` (requires **SpatialFeatureExperiment**)
-- `as(mase, "SpatialFeatureExperiment")` — requires exactly one
+- `as(mase, "SpatialFeatureExperiment")`: requires exactly one
   SPE/SFE-compatible assay
 
 See the **MultiAssaySpatialExperiment use cases** vignette for coercion examples.

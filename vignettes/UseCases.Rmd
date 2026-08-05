@@ -35,11 +35,11 @@ This vignette demonstrates realistic workflows using `MultiAssaySpatialExperimen
 (MASE) for multi-assay spatial transcriptomics analysis. It is divided into two
 parts:
 
-**Part 1: Data Import** — Reading spatial omics data from vendor outputs (Xenium,
+**Part 1: Data Import**: Reading spatial omics data from vendor outputs (Xenium,
 Visium, Visium HD, CosMx, MERSCOPE) and converting from other Bioconductor
 spatial formats.
 
-**Part 2: Real-World Workflows** — Complete analysis examples integrating multiple
+**Part 2: Real-World Workflows**: Complete analysis examples integrating multiple
 technologies, spatial transformations, and deconvolution.
 
 **Scientific question**: How do cell-level and tissue-level spatial patterns
