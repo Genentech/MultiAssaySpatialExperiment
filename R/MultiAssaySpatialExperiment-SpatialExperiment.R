@@ -26,13 +26,17 @@ NULL
 #' @section Coercion:
 #' \describe{
 #'   \item{\code{as(spe, "MultiAssaySpatialExperiment")}:}{
-#'     Wraps a \linkS4class{SpatialExperiment} in MASE with a single assay.
-#'     \code{spatialCoords} are copied to points; \code{imgData} is passed
-#'     through.
+#'     Stores the assay data as a plain \linkS4class{SingleCellExperiment} (the
+#'     \linkS4class{SpatialExperiment} class itself is not retained);
+#'     \code{spatialCoords} are copied to \code{points} (with a matching
+#'     \code{spatialMap}), and \code{imgData} is passed through. This keeps all
+#'     spatial content in MASE's own layers, which is what
+#'     \code{writeParquet()} understands.
 #'   }
 #'   \item{\code{as(mase, "SpatialExperiment")}:}{
-#'     Requires exactly one assay that is or can be coerced to
-#'     \linkS4class{SpatialExperiment}.
+#'     Requires exactly one assay. Builds a \linkS4class{SpatialExperiment}
+#'     from that assay's data plus \code{spatialCoords} resolved from
+#'     \code{points(mase)} and \code{imgData(mase)}.
 #'   }
 #' }
 #'
@@ -137,6 +141,7 @@ NULL
 NULL
 
 #' @importClassesFrom SpatialExperiment SpatialExperiment
+#' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom MultiAssayExperiment ExperimentList MultiAssayExperiment
 #' @importFrom SpatialExperiment imgData spatialCoords
 #' @importFrom S4Vectors DataFrame
@@ -156,7 +161,9 @@ setAs("SpatialExperiment", "MultiAssaySpatialExperiment", function(from) {
         from <- initialize(from)
         colnames(from) <- colnms
     }
-    experiments <- ExperimentList(setNames(list(from), assay_name))
+    img <- imgData(from)
+    sce <- as(from, "SingleCellExperiment")
+    experiments <- ExperimentList(setNames(list(sce), assay_name))
     sids <- from$sample_id
     if (is.null(sids) || length(sids) != n)
         sids <- rep(primaries[1L], n)
@@ -166,6 +173,7 @@ setAs("SpatialExperiment", "MultiAssaySpatialExperiment", function(from) {
     mae <- MultiAssayExperiment(experiments = experiments, colData = cd,
                                 sampleMap = sm)
     pts <- PointsLayerList()
+    spatial_map <- NULL
     if (ncol(from) > 0L) {
         scoords <- spatialCoords(from)
         if (!is.null(scoords) && nrow(scoords) > 0L) {
@@ -173,9 +181,13 @@ setAs("SpatialExperiment", "MultiAssaySpatialExperiment", function(from) {
             rn <- rownames(scoords)
             pt_df[["instance_id"]] <- if (!is.null(rn) && length(rn) > 0L) rn else colnms
             pts <- PointsLayerList(coordinates = pt_df)
+            sm_inst <- sm
+            sm_inst[[".instance_id"]] <- pt_df[["instance_id"]]
+            spatial_map <- buildSpatialMap(sm_inst, region = "coordinates",
+                element_type = "points",
+                instance_from = ".instance_id")
         }
     }
-    img <- imgData(from)
     new("MultiAssaySpatialExperiment",
         mae,
         images = RasterLayerList(),
@@ -183,33 +195,74 @@ setAs("SpatialExperiment", "MultiAssaySpatialExperiment", function(from) {
         points = pts,
         shapes = ShapesLayerList(),
         imgData = img,
-        spatialMap = NULL)
+        spatialMap = spatial_map)
 })
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Materializing spatialCoords/SpatialExperiment from MASE-native layers
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#' @importFrom MultiAssayExperiment experiments
+.resolve_spatialCoords_from_points <- function(x, exp) {
+    pts <- spatialPoints(x)
+    if (length(pts) == 0L)
+        return(matrix(numeric(0L), ncol(exp), 0L))
+    spmap <- spatialMap(x)
+    region <- NULL
+    if (!is.null(spmap) && nrow(spmap) > 0L) {
+        pts_map <- spmap[spmap[["element_type"]] == "points", , drop = FALSE]
+        if (nrow(pts_map) > 0L)
+            region <- as.character(pts_map[["region"]][[1L]])
+    }
+    if (is.null(region))
+        region <- if ("coordinates" %in% names(pts)) "coordinates" else names(pts)[1L]
+    if (!region %in% names(pts))
+        return(matrix(numeric(0L), ncol(exp), 0L))
+    coords <- pts[[region]]
+    coord_cols <- setdiff(colnames(coords), "instance_id")
+    if (length(coord_cols) < 2L)
+        return(matrix(numeric(0L), ncol(exp), 0L))
+    mat <- do.call(cbind, lapply(coord_cols, function(cn) coords[[cn]]))
+    colnames(mat) <- coord_cols
+    cn <- colnames(exp)
+    if ("instance_id" %in% colnames(coords)) {
+        inst <- as.character(coords[["instance_id"]])
+        if (!is.null(cn) && length(cn) == nrow(mat) && all(cn %in% inst))
+            mat <- mat[match(cn, inst), , drop = FALSE]
+    }
+    rownames(mat) <- cn
+    mat
+}
+
+#' @importClassesFrom SpatialExperiment SpatialExperiment
+#' @importFrom MultiAssayExperiment experiments
+#' @importFrom SpatialExperiment SpatialExperiment imgData imgData<-
+#' @importFrom SummarizedExperiment assays colData rowData
+.materialize_SPE_from_MASE <- function(x, assay = 1L) {
+    exps <- experiments(x)
+    if (length(exps) != 1L)
+        stop("Coercion to SpatialExperiment requires exactly one assay; ",
+             "found ", length(exps))
+    exp <- exps[[assay]]
+    if (is(exp, "SpatialExperiment")) {
+        spe <- exp
+    } else {
+        scoords <- .resolve_spatialCoords_from_points(x, exp)
+        spe <- SpatialExperiment(assays = assays(exp), rowData = rowData(exp),
+            colData = colData(exp), spatialCoords = scoords)
+    }
+    mase_img <- imgData(x)
+    if (!is.null(mase_img))
+        imgData(spe) <- mase_img
+    spe
+}
 
 #' @importClassesFrom MultiAssayExperiment MultiAssayExperiment
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @importClassesFrom SpatialExperiment SpatialExperiment
-#' @importFrom MultiAssayExperiment experiments
-#' @importFrom SpatialExperiment imgData imgData<-
 #' @export
 setAs("MultiAssaySpatialExperiment", "SpatialExperiment", function(from) {
-    exps <- experiments(from)
-    if (length(exps) != 1L)
-        stop("Coercion to SpatialExperiment requires exactly one assay; ",
-             "found ", length(exps))
-    exp <- exps[[1L]]
-    if (is(exp, "SpatialExperiment")) {
-        spe <- exp
-    } else if (is(exp, "SingleCellExperiment")) {
-        spe <- as(exp, "SpatialExperiment")
-    } else {
-        stop("The single assay must be a SpatialExperiment or ",
-             "SingleCellExperiment; found ", class(exp)[1L])
-    }
-    mase_img <- imgData(from)
-    if (!is.null(mase_img))
-        imgData(spe) <- mase_img
-    spe
+    .materialize_SPE_from_MASE(from)
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

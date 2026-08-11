@@ -1,3 +1,50 @@
+# MultiAssaySpatialExperiment 0.99.5
+
+## Bug fixes
+
+- `as(spe/sfe, "MultiAssaySpatialExperiment")` now store the assay as a plain
+  `SingleCellExperiment` and keep all spatial content (colGeometries,
+  annotGeometries, `unit`, col-margin `spatialGraphs`) in MASE's own
+  `points`/`shapes`/`spatialMap`/`colPair()` layers, instead of retaining the
+  full `SpatialExperiment`/`SpatialFeatureExperiment` object. Previously,
+  `writeParquet()` (BiocDuckDB) only ever read those MASE-native layers, so
+  anything living only in a nested SFE's colGeometries beyond the primary
+  centroids, annotGeometries, or spatialGraphs was silently dropped on
+  write even though it looked preserved in memory. `as(mase,
+  "SpatialExperiment"/"SpatialFeatureExperiment")` and the SFE-delegating
+  methods (`dimGeometry`, `annotGeometry`, `bbox`, `unit`, `splitByCol`,
+  `aggregate`, `findDebrisCells`) now reconstruct a real SPE/SFE view from
+  those native layers on demand; `spatialGraphs`/`spatialGraph`/
+  `spatialGraphNames` read `colPair()` directly. `localResults` is not
+  carried over by this coercion (no MASE-native home for it yet); it now
+  errors with a message that says so instead of a misleading
+  "no SpatialFeatureExperiment assay" message.
+- Fixed a registration bug where the entire `SpatialFeatureExperiment`
+  integration (all coercions and the `dimGeometry`/`unit`/`bbox`/etc.
+  delegating methods) would silently fail to register whenever anything
+  loaded `MultiAssaySpatialExperiment` before the user loaded
+  `SpatialFeatureExperiment` in the same session (for example, loading
+  `BiocDuckDB` first, since it imports this package) -- `as(sfe,
+  "MultiAssaySpatialExperiment")` would then silently fall back to the
+  generic `SpatialExperiment` coercion with no error. The deferred
+  registration hook ran after this namespace was already sealed, and
+  `setAs()`/`setMethod()` need to create a new top-level binding the first
+  time a generic is used from a namespace; that's forbidden once a
+  namespace is sealed, and the resulting error was masked by an
+  overly-broad `grepl("locked", ...)` catch in the load hook. Registration
+  now targets a small dedicated, never-sealed environment instead of this
+  namespace, which works regardless of load order; the test suite's own
+  `pkgload::load_all()` workaround for this (`helper-sfe-register.R`) is no
+  longer needed and has been removed.
+
+## Documentation
+
+- Added the missing `@aliases coerce,...-method` entries for the
+  `list`/`List` -> `RasterLayerList`/`PointsLayerList`/`ShapesLayerList`
+  coercions in `?SpatialLayerList-class`; these were implemented but
+  undocumented, which `R CMD check` flagged as missing documentation
+  entries.
+
 # MultiAssaySpatialExperiment 0.99.4
 
 ## Documentation

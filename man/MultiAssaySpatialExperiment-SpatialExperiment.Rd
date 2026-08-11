@@ -38,13 +38,17 @@ functionality.
 
 \describe{
   \item{\code{as(spe, "MultiAssaySpatialExperiment")}:}{
-    Wraps a \linkS4class{SpatialExperiment} in MASE with a single assay.
-    \code{spatialCoords} are copied to points; \code{imgData} is passed
-    through.
+    Stores the assay data as a plain \linkS4class{SingleCellExperiment} (the
+    \linkS4class{SpatialExperiment} class itself is not retained);
+    \code{spatialCoords} are copied to \code{points} (with a matching
+    \code{spatialMap}), and \code{imgData} is passed through. This keeps all
+    spatial content in MASE's own layers, which is what
+    \code{writeParquet()} understands.
   }
   \item{\code{as(mase, "SpatialExperiment")}:}{
-    Requires exactly one assay that is or can be coerced to
-    \linkS4class{SpatialExperiment}.
+    Requires exactly one assay. Builds a \linkS4class{SpatialExperiment}
+    from that assay's data plus \code{spatialCoords} resolved from
+    \code{points(mase)} and \code{imgData(mase)}.
   }
 }
 }

@@ -1,10 +1,8 @@
-## devtools::load_all runs before test helpers; preload SFE and reload so
-## SFE coercions/methods register during .onLoad (SFE is Suggested, not Imported).
+## Preload SFE so its packageEvent("onLoad") hook fires and SFE
+## coercions/methods register (SFE is Suggested, not Imported).
+## Registration targets .sfe_ext_env (see zzz.R), not this namespace,
+## so it works regardless of whether this namespace was sealed before
+## SFE loaded.
 if (requireNamespace("SpatialFeatureExperiment", quietly = TRUE)) {
     loadNamespace("SpatialFeatureExperiment")
-    ns <- asNamespace("MultiAssaySpatialExperiment")
-    if (!isTRUE(get0(".sfe_registered", envir = ns, inherits = FALSE)) &&
-        requireNamespace("pkgload", quietly = TRUE)) {
-        pkgload::load_all(".", quiet = TRUE)
-    }
 }

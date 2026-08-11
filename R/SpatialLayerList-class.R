@@ -118,6 +118,13 @@ NULL
 #' @aliases show,PointsLayerList-method
 #' @aliases show,ShapesLayerList-method
 #'
+#' @aliases coerce,list,RasterLayerList-method
+#' @aliases coerce,List,RasterLayerList-method
+#' @aliases coerce,list,PointsLayerList-method
+#' @aliases coerce,List,PointsLayerList-method
+#' @aliases coerce,list,ShapesLayerList-method
+#' @aliases coerce,List,ShapesLayerList-method
+#'
 #' @seealso
 #' \itemize{
 #'   \item \linkS4class{MultiAssaySpatialExperiment} for usage in multi-assay context

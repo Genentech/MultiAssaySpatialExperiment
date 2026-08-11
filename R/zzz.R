@@ -8,13 +8,14 @@
 ###
 ### -------------------------------------------------------------------------
 
+.sfe_ext_env <- new.env(parent = globalenv())
+
 .register_SFE_all <- function() {
-    ns <- asNamespace("MultiAssaySpatialExperiment")
-    if (isTRUE(get0(".sfe_registered", envir = ns, inherits = FALSE)))
+    if (isTRUE(get0(".sfe_registered", envir = .sfe_ext_env, inherits = FALSE)))
         return(invisible(NULL))
     .register_SFE_coercion()
     .register_SFE_methods()
-    assign(".sfe_registered", TRUE, envir = ns)
+    assign(".sfe_registered", TRUE, envir = .sfe_ext_env)
     invisible(NULL)
 }
 
@@ -22,14 +23,7 @@
     do_register <- function() {
         if (!requireNamespace(pkg, quietly = TRUE))
             return(invisible(NULL))
-        tryCatch(
-            register_fn(),
-            error = function(e) {
-                if (grepl("locked", conditionMessage(e), fixed = TRUE))
-                    return(invisible(NULL))
-                stop(e)
-            }
-        )
+        register_fn()
     }
     setHook(packageEvent(pkg, "onLoad"), function(...) do_register(),
             action = "append")
@@ -38,7 +32,7 @@
 }
 
 .import_SFE_generic <- function(name, package = "SpatialFeatureExperiment") {
-    dest <- asNamespace("MultiAssaySpatialExperiment")
+    dest <- .sfe_ext_env
     if (exists(name, envir = dest, inherits = FALSE))
         return(invisible(get(name, envir = dest)))
     gen <- getGeneric(name, package = package)

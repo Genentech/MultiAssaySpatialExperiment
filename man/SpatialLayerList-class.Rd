@@ -11,6 +11,12 @@
 \alias{show,RasterLayerList-method}
 \alias{show,PointsLayerList-method}
 \alias{show,ShapesLayerList-method}
+\alias{coerce,list,RasterLayerList-method}
+\alias{coerce,List,RasterLayerList-method}
+\alias{coerce,list,PointsLayerList-method}
+\alias{coerce,List,PointsLayerList-method}
+\alias{coerce,list,ShapesLayerList-method}
+\alias{coerce,List,ShapesLayerList-method}
 \title{Spatial layer list objects}
 \value{
 The constructors \code{RasterLayerList()}, \code{PointsLayerList()}, and
