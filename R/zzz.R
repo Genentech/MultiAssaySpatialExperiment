@@ -8,7 +8,7 @@
 ###
 ### -------------------------------------------------------------------------
 
-.sfe_ext_env <- new.env(parent = globalenv())
+.sfe_ext_env <- new.env(parent = asNamespace("MultiAssaySpatialExperiment"))
 
 .register_SFE_all <- function() {
     if (isTRUE(get0(".sfe_registered", envir = .sfe_ext_env, inherits = FALSE)))

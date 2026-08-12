@@ -1,3 +1,22 @@
+# MultiAssaySpatialExperiment 0.99.6
+
+## Bug fixes
+
+- Fixed a spurious `no definition for class "MultiAssaySpatialExperiment"`
+  warning (one per `setAs()`/`setMethod()` call registered in
+  `.register_SFE_coercion()`/`.register_SFE_methods()`, ~20 total) emitted
+  whenever `SpatialFeatureExperiment` was already loaded before
+  `MultiAssaySpatialExperiment` (e.g. `library(SpatialFeatureExperiment);
+  library(MultiAssaySpatialExperiment)`). Registration in that case runs
+  synchronously inside `.onLoad`, which always completes *before* this
+  package is attached to `search()`; `.sfe_ext_env` (added in 0.99.5 to
+  work around namespace sealing) was parented to `globalenv()`, so at
+  registration time it couldn't yet see `"package:MultiAssaySpatialExperiment"`
+  to validate the class in the method signature. `.sfe_ext_env` is now
+  parented to this package's own namespace instead, where the class is
+  always immediately reachable regardless of attachment timing. Harmless
+  (registration and dispatch both still worked correctly), but noisy.
+
 # MultiAssaySpatialExperiment 0.99.5
 
 ## Bug fixes
