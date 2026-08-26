@@ -38,12 +38,6 @@ get_technology_config <- function(technology) {
     .TECHNOLOGY_REGISTRY[[technology]]
 }
 
-## List registered technologies
-#' @keywords internal
-list_technologies <- function() {
-    names(.TECHNOLOGY_REGISTRY)
-}
-
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Pre-defined technology configs
 ###

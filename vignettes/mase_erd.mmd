@@ -1,78 +1,117 @@
-%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '12px', primaryColor: '#9fc5e8' }}}%%
+%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '13px' }}}%%
+
+%% Entities are declared in the order the Introduction vignette describes them:
+%% first the MultiAssayExperiment core that MASE inherits (tan), then the
+%% spatial element layers MASE adds (blue), then the two tables that map
+%% observations onto specimens and onto space. Every entity label here appears
+%% verbatim in that description.
 
 erDiagram
-    "imgData(mase)" {
-        string sample_id FK "subject identifier"
-        string image_id "image file identifier"
-        float scaleFactor "pixels to spatial units"
+    %% ---- 1. Inherited from MultiAssayExperiment ----
+    colData["colData(mase)"] {
+        string rowname PK "specimen identifier"
+        string tissue "specimen metadata"
+        string condition "specimen metadata"
     }
 
-    "sampleMap(mase)" {
-        string assay FK "experimental assay identifier"
-        string primary FK "subject identifier"
-        string colname FK "column name in assay matrix"
-    }
-
-    "spatialMap(mase)" {
-        string assay FK "experimental assay identifier"
-        string colname FK "column name in assay matrix"
-        enum element_type "'points' or 'shapes'"
-        string region FK "spatial layer"
-        string instance_id FK "spatial element"
-    }
-    
-    "colData(mase)" {
-        string rowname PK "subject identifier"
-        string tissue
-        string condition
-    }
-    
-    "experiments(mase)" {
+    experiments["experiments(mase)"] {
         string name PK "assay name"
-        Experiment experiment "experimental assay"
+        Experiment experiment "one element per assay"
     }
-    
-    Experiment {
+
+    Experiment["Experiment (SummarizedExperiment)"] {
         string rowname PK "feature name"
-        string colname PK "sample name"
+        string colname PK "observation name"
         Matrix-like assay "assay data"
         DataFrame rowData "feature metadata"
-        DataFrame colData "sample metadata"
+        DataFrame colData "observation metadata"
     }
-    
-    "spatialPoints(mase)" {
-        string name PK "point layer name"
-        PointLayer region "points"
+
+    sampleMap["sampleMap(mase)"] {
+        string assay FK "assay name"
+        string primary FK "specimen identifier"
+        string colname FK "column in the assay matrix"
     }
-    
-    PointLayer {
+
+    %% ---- 2. Spatial element layers added by MASE ----
+    spatialPoints["spatialPoints(mase)"] {
+        string name PK "points layer name"
+        PointsLayer layer "one element per layer"
+    }
+
+    PointsLayer["points layer (DataFrame)"] {
         string instance_id PK "spatial element"
         float x "coordinate"
         float y "coordinate"
-        string cell_type
+        string cell_type "element metadata"
     }
-    
-    "spatialShapes(mase)" {
-        string name PK "shape layer name"
-        ShapeLayer region "shapes"
+
+    spatialShapes["spatialShapes(mase)"] {
+        string name PK "shapes layer name"
+        ShapesLayer layer "one element per layer"
     }
-    
-    ShapeLayer {
+
+    ShapesLayer["shapes layer (DataFrame)"] {
         string instance_id PK "spatial element"
-        geometry geometry "sf object"
-        float area
+        geometry geometry "sf geometry column"
+        float area "element metadata"
     }
-    
-    %% Relationships
-    "colData(mase)" ||--o{ "imgData(mase)" : "rowname"
-    "colData(mase)" ||--o{ "sampleMap(mase)" : "primary"
-    "sampleMap(mase)" ||--o{ "spatialMap(mase)" : "assay,colname"
-    "sampleMap(mase)" }o--|| Experiment : "assay,colname"
-    "spatialMap(mase)" }o--|| "spatialPoints(mase)" : "element_type,region"
-    "spatialMap(mase)" }o--|| "spatialShapes(mase)" : "element_type,region"
-    "experiments(mase)" ||--|| Experiment : "name"
-    "experiments(mase)" ||--o{ "sampleMap(mase)" : "assay"
-    "spatialPoints(mase)" ||--|| PointLayer : "name"
-    "spatialShapes(mase)" ||--|| ShapeLayer : "name"
-    PointLayer ||--o{ "spatialMap(mase)" : "instance_id"
-    ShapeLayer ||--o{ "spatialMap(mase)" : "instance_id"
+
+    spatialImages["spatialImages(mase)"] {
+        string name PK "image layer name"
+        Raster raster "tissue image"
+    }
+
+    spatialLabels["spatialLabels(mase)"] {
+        string name PK "label layer name"
+        Raster raster "segmentation mask"
+    }
+
+    %% ---- 3. Tables mapping observations to specimens and to space ----
+    spatialMap["spatialMap(mase)"] {
+        string assay FK "assay name"
+        string colname FK "column in the assay matrix"
+        enum element_type "'points' or 'shapes'"
+        string region FK "spatial layer name"
+        string instance_id FK "spatial element"
+    }
+
+    imgData["imgData(mase)"] {
+        string sample_id FK "specimen identifier"
+        string image_id "image layer name"
+        float scaleFactor "pixels to spatial units"
+    }
+
+    %% ---- Relationships ----
+    colData ||--o{ sampleMap : "primary"
+    experiments ||--|| Experiment : "name"
+    experiments ||--o{ sampleMap : "assay"
+    sampleMap }o--|| Experiment : "assay,colname"
+
+    spatialPoints ||--|| PointsLayer : "name"
+    spatialShapes ||--|| ShapesLayer : "name"
+
+    sampleMap ||--o{ spatialMap : "assay,colname"
+    spatialMap }o--|| spatialPoints : "element_type,region"
+    spatialMap }o--|| spatialShapes : "element_type,region"
+    PointsLayer ||--o{ spatialMap : "instance_id"
+    ShapesLayer ||--o{ spatialMap : "instance_id"
+
+    colData ||--o{ imgData : "rowname"
+    imgData }o--|| spatialImages : "image_id"
+    imgData }o--o| spatialLabels : "image_id"
+
+    %% ---- Colours: tan = inherited from MultiAssayExperiment, blue = MASE ----
+    style colData fill:#e8d5b7,stroke:#7f6a4d
+    style experiments fill:#e8d5b7,stroke:#7f6a4d
+    style Experiment fill:#e8d5b7,stroke:#7f6a4d
+    style sampleMap fill:#e8d5b7,stroke:#7f6a4d
+
+    style spatialPoints fill:#9fc5e8,stroke:#3d6b93
+    style PointsLayer fill:#9fc5e8,stroke:#3d6b93
+    style spatialShapes fill:#9fc5e8,stroke:#3d6b93
+    style ShapesLayer fill:#9fc5e8,stroke:#3d6b93
+    style spatialImages fill:#9fc5e8,stroke:#3d6b93
+    style spatialLabels fill:#9fc5e8,stroke:#3d6b93
+    style spatialMap fill:#9fc5e8,stroke:#3d6b93
+    style imgData fill:#9fc5e8,stroke:#3d6b93

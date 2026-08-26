@@ -99,11 +99,12 @@ function(data_dir, sample_id = NULL, type = c("HDF5", "sparse"),
 
 #' @importFrom S4Vectors wmsg
 .check_visium_files <- function(data_dir, data, config) {
-    matrix_dir <- file.path(data_dir, paste0(data, "_feature_bc_matrix"))
+    matrix_subdir <- paste0(data, "_feature_bc_matrix")
+    matrix_dir <- file.path(data_dir, matrix_subdir)
     if (!dir.exists(matrix_dir)) {
         stop(wmsg("Matrix directory not found: ", matrix_dir, ". ",
                   "Expected a Space Ranger output directory with '",
-                  paste0(data, "_feature_bc_matrix"), "' subdirectory."))
+                  matrix_subdir, "' subdirectory."))
     }
 
     h5_file <- file.path(matrix_dir, "matrix.h5")

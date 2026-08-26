@@ -20,14 +20,6 @@ get_block_size <- function() {
     getOption("MASE.block.size", DEFAULT_BLOCK_SIZE)
 }
 
-set_block_size <- function(size) {
-    if (!isSingleNumber(size) || size <= 0L)
-        stop(wmsg("Block size must be a positive number (bytes)"))
-
-    options(MASE.block.size = size)
-    invisible(NULL)
-}
-
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### MASE-specific normalization functions
 ###

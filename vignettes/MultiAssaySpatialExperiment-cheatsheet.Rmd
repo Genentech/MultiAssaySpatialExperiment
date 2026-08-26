@@ -1,0 +1,116 @@
+---
+title: "MultiAssaySpatialExperiment Cheatsheet"
+author:
+- name: Patrick Aboyoun
+  email: aboyounp@gene.com
+  affiliation: Genentech, Inc.
+date: "Compiled: `r BiocStyle::doc_date()`"
+package: MultiAssaySpatialExperiment
+output:
+  BiocStyle::html_document:
+    number_sections: false
+    toc: false
+vignette: >
+  %\VignetteIndexEntry{5. MultiAssaySpatialExperiment cheatsheet}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+# Summary of the MultiAssaySpatialExperiment API
+
+A one-page reference. `MultiAssaySpatialExperiment` (MASE) extends
+`MultiAssayExperiment` (MAE), so the whole MAE API applies as well; see the
+[MultiAssayExperiment cheatsheet](https://bioconductor.org/packages/MultiAssayExperiment/)
+for that half. Listed below is what MASE adds, plus the inherited functions used
+most often alongside it.
+
+Worked examples are in *Introduction to MultiAssaySpatialExperiment*; the slots
+and mapping tables are documented in *Design of MultiAssaySpatialExperiment*.
+
+## Constructors
+
+| Function | Description | Returns |
+|:---------|:------------|:--------|
+| `MultiAssaySpatialExperiment()` | Create a MASE from experiments, maps and spatial layers | `MultiAssaySpatialExperiment` |
+| `prepMASE()` | Wrap `prepMultiAssay()`, harmonizing names and spatial keys | `list` of constructor arguments |
+| `buildSpatialMap()` | Assemble a `spatialMap` from a `sampleMap` | `DataFrame` |
+| `PointsLayerList()` | Named list of point layers | `PointsLayerList` |
+| `ShapesLayerList()` | Named list of geometry layers | `ShapesLayerList` |
+| `RasterLayerList()` | Named list of image or label layers | `RasterLayerList` |
+
+## Platform readers
+
+| Function | Platform |
+|:---------|:---------|
+| `readXeniumMASE()` | 10x Xenium |
+| `readVisiumMASE()` | 10x Visium |
+| `readVisiumHDMASE()` | 10x Visium HD |
+| `readCosMxMASE()` | NanoString CosMx |
+| `readMERSCOPEMASE()` | Vizgen MERSCOPE |
+
+## Spatial accessors
+
+| Function | Description | Returns |
+|:---------|:------------|:--------|
+| `spatialPoints()` | Get or set the point layers | `PointsLayerList` |
+| `spatialShapes()` | Get or set the geometry layers | `ShapesLayerList` |
+| `spatialImages()` | Get or set the image layers | `RasterLayerList` |
+| `spatialLabels()` | Get or set the segmentation-mask layers | `RasterLayerList` |
+| `spatialMap()` | Get or set the observation-to-element map | `DataFrame` |
+| `imgData()` | Get or set the specimen-to-image map | `DataFrame` |
+
+## Inherited accessors used most often
+
+| Function | Description | Returns |
+|:---------|:------------|:--------|
+| `experiments()` | Get or set the assays | `ExperimentList` |
+| `colData()` | Get or set specimen metadata | `DataFrame` |
+| `sampleMap()` | Get or set the observation-to-specimen map | `DataFrame` |
+| `metadata()` | Get or set experiment-level metadata | `list` |
+
+## Subsetting
+
+| Expression | Cuts on | Effect on spatial layers |
+|:-----------|:--------|:-------------------------|
+| `mase[i, j, k]` | features, specimens, assays | links updated |
+| `mase[, "P1"]` | one specimen, across every assay | links updated |
+| `mase[, list(rna = ...)]` | columns of one named assay | that assay's links updated |
+| `subsetByColData()` | specimens | updates `spatialMap` and `imgData` |
+| `subsetByRow()` | assay features | unchanged |
+| `subsetByColumn()` | assay columns | trims linked points, shapes, images, labels |
+| `subsetByAssay()` | assay name | keeps layers still referenced |
+| `subsetByBoundingBox()` | a rectangle in space | selects elements, then the columns mapped to them |
+| `subsetByPolygon()` | an arbitrary region | as above |
+
+## Spatial operations
+
+| Function | Description | Returns |
+|:---------|:------------|:--------|
+| `annotateWithRegions()` | Point-in-polygon join; records the region on `spatialMap` | `MultiAssaySpatialExperiment` |
+| `aggregateByRegion()` | Summarise assay values per annotated region | `list` of matrices |
+| `spatialJoin()` | Join two layer `DataFrame` objects directly | `DataFrame` |
+
+The join predicate defaults to `sf::st_intersects`; pass `join =` to change it,
+for example `sf::st_nearest_feature`.
+
+## Coercion
+
+| Expression | Requires |
+|:-----------|:---------|
+| `as(spe, "MultiAssaySpatialExperiment")` | a `SpatialExperiment` |
+| `as(mase, "SpatialExperiment")` | exactly one compatible assay |
+| `as(sfe, "MultiAssaySpatialExperiment")` | `SpatialFeatureExperiment` installed |
+| `as(mase, "SpatialFeatureExperiment")` | exactly one compatible assay |
+
+## Combining
+
+| Function | Description |
+|:---------|:------------|
+| `c()` | Merge two objects, unioning assays and spatial layers |
+| `cbind()` | Bind objects that share assay names, along observations |
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```

@@ -112,15 +112,15 @@ NULL
     imgx <- imgData(x)
     imgy <- imgData(y)
     new_img <- if (is.null(imgx) && is.null(imgy)) NULL
-    else if (is.null(imgx)) imgy
-    else if (is.null(imgy)) imgx
-    else rbind(imgx, imgy)
+        else if (is.null(imgx)) imgy
+        else if (is.null(imgy)) imgx
+        else rbind(imgx, imgy)
     spx <- spatialMap(x)
     spy <- spatialMap(y)
     new_sp <- if (is.null(spx) && is.null(spy)) NULL
-    else if (is.null(spx)) spy
-    else if (is.null(spy)) spx
-    else rbind(spx, spy)
+        else if (is.null(spx)) spy
+        else if (is.null(spy)) spx
+        else rbind(spx, spy)
     .mergeSpatialLayers <- function(acc) {
         lx <- acc(x)
         ly <- acc(y)
@@ -214,10 +214,10 @@ setMethod("cbind", "MultiAssaySpatialExperiment", function(..., deparse.level = 
     new_meta <- do.call(c, unname(lapply(args, metadata)))
     img_list <- lapply(args, imgData)
     new_img <- if (all(vapply(img_list, is.null, logical(1L)))) NULL
-    else do.call(rbind, Filter(Negate(is.null), img_list))
+        else do.call(rbind, Filter(Negate(is.null), img_list))
     sp_list <- lapply(args, spatialMap)
     new_sp <- if (all(vapply(sp_list, is.null, logical(1L)))) NULL
-    else do.call(rbind, Filter(Negate(is.null), sp_list))
+        else do.call(rbind, Filter(Negate(is.null), sp_list))
     .reduceLayerList <- function(acc, constructor) {
         layers <- lapply(args, acc)
         out <- layers[[1L]]

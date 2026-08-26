@@ -75,21 +75,25 @@ Xenium Explorer output directory contains:
 
 ### Basic usage
 
+Two arguments matter more than the rest. `segmentations` chooses whether to load
+the cell boundaries, the nucleus boundaries, or neither, and it is what decides
+whether the object gets a shapes layer at all. `add_transcripts` controls the
+transcript table, which is by far the largest part of a Xenium run and is worth
+skipping until you need molecule-level detail.
+
 ```{r read_xenium, eval = FALSE}
-# Read Xenium data from output directory
 mase_xenium <- readXeniumMASE(
   data_dir = "path/to/xenium_output",
   sample_id = "sample1",
   segmentations = "cell",
   add_transcripts = FALSE  # Skip transcripts for faster loading
 )
-
-# The MASE object contains:
-# - experiments$rna: SingleCellExperiment with cell × gene matrix
-# - spatialPoints(): cell centroid coordinates (x, y, z)
-# - spatialShapes(): cell or nucleus segmentation polygons (when segmentations loaded)
-# - spatialMap(): links assay columns to spatial elements
 ```
+
+The result holds the cell-by-gene matrix as a `SingleCellExperiment` in
+`experiments(mase)$rna`, the cell centroids in `spatialPoints()`, and, when
+`segmentations` is set, the cell or nucleus boundaries in `spatialShapes()`.
+`spatialMap()` records which spatial element each assay column sits at.
 
 ### Options
 
@@ -125,22 +129,24 @@ output contains:
 
 ### Basic usage
 
+`data` selects the filtered matrix (spots under tissue) or the raw one (every
+spot on the slide); filtered is what most analyses want. `images = TRUE` loads
+the H&E image, which is what makes `imgData()` and the image-aware plotting
+useful later, at the cost of reading the image file.
+
 ```{r read_visium, eval = FALSE}
-# Read Visium data
 mase_visium <- readVisiumMASE(
   data_dir = "path/to/spaceranger_output",
   sample_id = "sample1",
   images = TRUE,
   data = "filtered"
 )
-
-# The MASE object contains:
-# - experiments: spot × gene matrix (SummarizedExperiment or SCE)
-# - spatialPoints(): spot coordinates (x, y in pixels or microns)
-# - spatialImages(): H&E image metadata (if images = TRUE)
-# - imgData(): links specimens to images
-# - spatialMap(): links assay columns to spatial elements
 ```
+
+The result holds the spot-by-gene matrix in `experiments()` and the spot
+coordinates in `spatialPoints()`. With `images = TRUE` the H&E image is
+available through `spatialImages()`, and `imgData()` records which image belongs
+to which specimen along with its scale factor.
 
 ### Visium HD support
 
@@ -170,20 +176,21 @@ segmentation (nucleus, membrane, cytoplasm). Output files include:
 
 ### Basic usage
 
+CosMx runs are organized into fields of view, and a whole slide can be more than
+you want in memory. `fov_ids` restricts the read to named FOVs; leaving it `NULL`
+loads all of them.
+
 ```{r read_cosmx, eval = FALSE}
-# Read CosMx data
 mase_cosmx <- readCosMxMASE(
   data_dir = "path/to/cosmx_output",
   sample_id = "cosmx_sample",
   fov_ids = NULL  # NULL loads all FOVs; or c("1", "3", "5")
 )
-
-# The MASE object contains:
-# - experiments: cell × gene matrix
-# - spatialPoints(): cell coordinates
-# - spatialShapes(): cell segmentation (includes compartments when available)
-# - spatialMap(): links assay columns to spatial elements
 ```
+
+As with the other readers, the counts land in `experiments()`, the cell
+coordinates in `spatialPoints()`, and the segmentation in `spatialShapes()`,
+which for CosMx includes subcellular compartments when the run provides them.
 
 ### FOV (Field of View) handling
 
@@ -205,21 +212,22 @@ to as MERFISH). Output directory contains:
 
 ### Basic usage
 
+`segmentation` names which segmentation run to load, since a MERSCOPE output
+directory can hold more than one; `"cellpose"` is the usual default. As with
+Xenium, `load_transcripts` gates the largest table in the run.
+
 ```{r read_merfish, eval = FALSE}
-# Read MERSCOPE data
 mase_merscope <- readMERSCOPEMASE(
   data_dir = "path/to/vizgen_output",
   sample_id = "merscope_sample",
   segmentation = "cellpose",
   load_transcripts = FALSE
 )
-
-# The MASE object contains:
-# - experiments: cell × gene matrix
-# - spatialPoints(): cell coordinates (x, y, z when present)
-# - spatialShapes(): cell segmentation polygons
-# - spatialMap(): links assay columns to spatial elements
 ```
+
+MERSCOPE runs are often three-dimensional, so `spatialPoints()` carries a `z`
+column when the data provide one; the segmentation polygons are in
+`spatialShapes()`.
 
 ## Choosing a reader
 
@@ -235,44 +243,42 @@ Select the reader that matches your platform output directory:
 
 ## Converting from other Bioconductor classes
 
+If the data are already in a single-assay spatial class, there is no need to go
+back to the vendor output. Coercion is the usual way into MASE when you want to
+add a second assay to an analysis that started as one.
+
 ### From SpatialExperiment
 
 ```{r from_spe, eval = FALSE}
 library(SpatialExperiment)
 
-# Load or create a SpatialExperiment
 # spe <- read10xVisium("path/to/visium")
-
-# Convert to MASE
 mase_from_spe <- as(spe, "MultiAssaySpatialExperiment")
-
-# The conversion:
-# - Places SPE assay(s) into experiments
-# - Copies colData to specimen metadata
-# - Extracts spatialCoords to points layer
-# - Creates appropriate sampleMap and spatialMap
 ```
+
+The assays become the single element of the `ExperimentList`, `colData` carries
+over as specimen metadata, and `spatialCoords` becomes a points layer. The
+`sampleMap` and `spatialMap` are generated for you, so the result is immediately
+a valid MASE with one assay: the point of the exercise is that you can now add a
+second one alongside it.
 
 ### From SpatialFeatureExperiment
 
 ```{r from_sfe, eval = FALSE}
 library(SpatialFeatureExperiment)
 
-# Load or create a SpatialFeatureExperiment
 # sfe <- read10xVisiumSFE("path/to/visium")
-
-# Convert to MASE
 mase_from_sfe <- as(sfe, "MultiAssaySpatialExperiment")
-
-# The conversion:
-# - Preserves all assays
-# - Converts colGeometries to points or shapes
-# - Preserves annotGeometries
-# - Creates spatialMap linking geometries to assay columns
 ```
 
+`SpatialFeatureExperiment` already carries geometry, so more survives the trip:
+every assay is preserved, each `colGeometry` becomes a points or shapes layer
+depending on whether it holds centroids or polygons, and the `annotGeometries`
+are kept as further shapes layers. The generated `spatialMap` is what ties those
+geometries back to the assay columns they describe.
 
-See **Part 2** below and the **Working with MultiAssaySpatialExperiment**
+
+See Part 2 below and the *Working with MultiAssaySpatialExperiment*
 vignette for coercion details and limitations (e.g., multi-assay objects require
 manual assembly).
 
@@ -281,23 +287,28 @@ manual assembly).
 For multi-sample experiments, read each sample separately and combine:
 
 ```{r multi_sample_read, eval = FALSE}
-# Read sample 1 (Xenium)
 mase1 <- readXeniumMASE(data_dir = "path/to/sample1", sample_id = "P001_xenium")
-
-# Read sample 2 (Xenium)
 mase2 <- readXeniumMASE(data_dir = "path/to/sample2", sample_id = "P002_xenium")
 
-# Combine samples
 mase_multi <- c(mase1, mase2)
-
-# The combined MASE has:
-# - All experiments from both samples
-# - Updated colData with sample identifiers
-# - Preserved spatial elements from both samples
-# - Updated sampleMap and spatialMap
 ```
 
+Each `sample_id` becomes a specimen in the combined object's `colData`, and both
+sets of spatial layers are carried across under their own names. `c()` also
+rebuilds `sampleMap` and `spatialMap` over the union, which is what makes the
+result subsettable by specimen afterwards: asking for one patient's data returns
+their assay columns and their geometry, and nothing from the other sample.
+
 # Part 2: Real-World Workflows
+
+Part 1 got data into the object. The workflows below are what you do once it is
+there, and each is chosen to exercise a different reason for using a multi-assay
+container: combining two platforms over one tissue, reconciling coordinate
+systems that do not agree, keeping many specimens straight, and the shape a
+typical analysis session takes end to end.
+
+Unlike Part 1, these examples run on simulated data, so they execute when the
+vignette is built and you can modify them without vendor output to hand.
 
 # Workflow 1: Xenium + Visium integration
 
@@ -320,6 +331,7 @@ By integrating both, we can:
 
 We will create synthetic data that mimics a real experiment. In practice, you
 would load your own data from:
+
 - Xenium: Cell-by-gene matrix + cell centroids
 - Visium: Spot-by-gene matrix + spot centroids
 
@@ -466,7 +478,16 @@ mase
 
 ## Exploratory analysis
 
-### Visualize spatial distribution
+With both assays in one object, the first thing worth checking is that they
+describe the same piece of tissue. Everything downstream, transferring labels,
+deconvolving spots, comparing expression, assumes the two coordinate systems
+agree, so it is cheap to confirm that before relying on it.
+
+### Do the two assays overlap in space?
+
+Plotting the two side by side on the same axes shows both the resolution
+difference, thousands of cells against a coarse grid of spots, and whether they
+cover the same region:
 
 ```{r vis_spatial, fig.width = 10, fig.height = 5}
 # Extract coordinates
@@ -477,13 +498,16 @@ visium_pts <- spatialPoint(mase, "visium_coords")
 par(mfrow = c(1, 2))
 
 # Xenium cells colored by type
+# widen the x range so the legend sits beside the points rather than on top of them
 plot(xenium_pts$x, xenium_pts$y,
      col = as.factor(cell_types),
      pch = 16, cex = 0.5,
      main = "Xenium: Single cells",
-     xlab = "x (µm)", ylab = "y (µm)")
-legend("topright", legend = unique(cell_types),
-       col = 1:length(unique(cell_types)), pch = 16, cex = 0.7)
+     xlab = "x (µm)", ylab = "y (µm)",
+     xlim = c(min(xenium_pts$x), max(xenium_pts$x) * 1.35))
+legend("topright", legend = levels(as.factor(cell_types)),
+       col = seq_along(levels(as.factor(cell_types))), pch = 16,
+       cex = 0.7, bg = "white", box.col = "grey70")
 
 # Visium spots
 plot(visium_pts$x, visium_pts$y,
@@ -492,18 +516,20 @@ plot(visium_pts$x, visium_pts$y,
      xlab = "x (µm)", ylab = "y (µm)")
 ```
 
-### Gene expression overlap
+### Which genes are shared between assays
 
-Check which genes are shared between assays:
+The two platforms target different panels, so the first thing to establish is how
+much of the gene space they have in common.
 
 ```{r gene_overlap}
 xenium_genes <- rownames(experiments(mase)$xenium)
 visium_genes <- rownames(experiments(mase)$visium)
 
 shared_genes <- intersect(xenium_genes, visium_genes)
-cat("Shared genes:", length(shared_genes), "\n")
-cat("Xenium-only genes:", length(setdiff(xenium_genes, visium_genes)), "\n")
-cat("Visium-only genes:", length(setdiff(visium_genes, xenium_genes)), "\n")
+
+c(shared = length(shared_genes),
+  xenium_only = length(setdiff(xenium_genes, visium_genes)),
+  visium_only = length(setdiff(visium_genes, xenium_genes)))
 ```
 
 ## Spatial annotation: Cell types in Visium spots
@@ -511,7 +537,7 @@ cat("Visium-only genes:", length(setdiff(visium_genes, xenium_genes)), "\n")
 Use Xenium cell types to annotate Visium spots. For each spot, find which cells
 fall within it and calculate cell type proportions. The loop below is explicit
 for teaching; when spot polygons are stored in `spatialShapes()`, you can also
-use `annotateWithRegions()` (see **Working with MultiAssaySpatialExperiment**).
+use `annotateWithRegions()` (see *Working with MultiAssaySpatialExperiment*).
 
 ```{r spatial_annotation}
 # Create circular regions for Visium spots (55 µm diameter = 27.5 µm radius)
@@ -569,7 +595,13 @@ spot_annotations[is.na(spot_annotations)] <- 0
 head(spot_annotations)
 ```
 
-### Visualize deconvolution results
+### Reading the deconvolution result
+
+Each spot now has a cell-type composition rather than a single label. The plots
+below show, per spot, the proportion of each Xenium cell type it contains, which
+is the quantity a deconvolution method would otherwise have to estimate: here it
+is counted directly, because the two assays share a coordinate system and the
+cells inside each spot are known.
 
 ```{r vis_deconv, fig.width = 10, fig.height = 8}
 # Plot cell type proportions per spot
@@ -632,9 +664,10 @@ xenium_by_region <- aggregateByRegion(mase, by = "regions",
 xenium_by_region[["xenium"]][1:5, ]
 ```
 
-## Comparative analysis
+## Comparing expression between the two platforms
 
-Compare gene expression patterns between Xenium and Visium for shared genes.
+With the shared genes identified, the question is whether the two platforms agree on
+the genes they both measure.
 
 ```{r compare_assays}
 # Extract counts for shared genes
@@ -724,7 +757,14 @@ visium_microns
 
 ## Applying affine transformations
 
-For precise alignment, use affine transformations (translation, rotation, scaling):
+The code in this section is deliberately plain R rather than MASE API. MASE does not
+impose a transformation framework: an affine transform is a matrix multiply, and which
+package computes it is your choice. What the container contributes comes immediately
+afterwards, in *Storing transformed coordinates*, where the original and transformed
+coordinates are held side by side as named layers of one object and stay attached to
+the assays through `spatialMap`.
+
+An affine transform composes translation, rotation and scaling into a single matrix:
 
 ```{r affine_transform}
 # Define affine matrix: translate by (50, 30), scale by 1.2, no rotation
@@ -777,17 +817,14 @@ visium_landmarks <- matrix(c(
   150, 100,
   250, 150
 ), ncol = 2, byrow = TRUE)
-
-cat("Landmark-based alignment workflow:\n")
-cat("1. Identify 3+ corresponding landmarks in both modalities\n")
-cat("2. Compute affine/rigid transformation using:\n")
-cat("   - Procrustes analysis (for rigid transformations)\n")
-cat("   - Least squares fitting (for affine transformations)\n")
-cat("   - Or use packages like RNiftyReg, imager, or EBImage\n")
-cat("3. Apply transformation to all points\n")
-cat("4. Validate alignment visually\n")
-cat("5. Store transformed coordinates in MASE\n")
 ```
+
+The workflow around those landmarks is the same whichever package computes the
+transformation. Identify at least three corresponding points in both modalities, then
+fit a transformation to them: Procrustes analysis for a rigid fit, least squares for a
+full affine one, or a dedicated registration package such as `RNiftyReg`, `imager` or
+`EBImage`. Apply the result to every point, check it visually, and store the
+transformed coordinates back into the object as their own layer.
 
 ## Storing transformed coordinates
 
@@ -803,17 +840,17 @@ pts_aligned <- PointsLayerList(xenium_aligned = xenium_aligned)
 
 # Visium coordinates
 pts_visium <- PointsLayerList(visium_coords = visium_microns)
-
-# You can store all in the same MASE object
-# This allows:
-# - Comparing original vs aligned coordinates
-# - Refining alignment iteratively
-# - Switching between coordinate systems as needed
 ```
 
-## Visualizing alignment
+Keeping the original and aligned coordinates as separate layers of one object is
+deliberate: the two can be compared directly, the transformation can be refined and
+re-applied without re-reading anything, and downstream code chooses a coordinate system
+by naming a layer rather than by tracking which object holds which version.
 
-Check alignment quality visually:
+## Checking the alignment visually
+
+Plotting the two modalities before and after the transformation is the quickest way to
+tell whether the alignment is sound.
 
 ```{r vis_alignment, fig.width = 10, fig.height = 5}
 par(mfrow = c(1, 2))
@@ -843,14 +880,16 @@ legend("topright", legend = c("Xenium (aligned)", "Visium (spots)"),
 
 # Workflow 3: Multi-sample analysis
 
-MASE excels at managing multiple tissue sections or patients. Here's a brief
-example:
+Once several patients or tissue sections are involved, the thing that usually
+goes wrong is bookkeeping: which columns of which assay belong to which patient,
+and which geometry belongs with them. Handling that by hand across a list of
+objects is where orphaned coordinates and mismatched subsets come from.
+
+In MASE the answer is that specimens are first-class. Each patient is a row of
+`colData`, and every assay column and every spatial element is tied back to one
+of those rows through `sampleMap` and `spatialMap`.
 
 ```{r multi_sample, eval = FALSE}
-# Suppose we have data from 3 patients
-# Each with Xenium + Visium
-
-# Specimen metadata
 specimens_multi <- DataFrame(
   patient_id = c(rep("P001", 150), rep("P002", 120), rep("P003", 180)),
   tissue = "mouse_brain",
@@ -858,66 +897,97 @@ specimens_multi <- DataFrame(
   row.names = paste0("Sample", 1:450)
 )
 
-# Build sampleMap linking all assays to specimens
-# ... (similar to single-sample example)
-
-# With MASE, you can:
-# - Subset by patient: mase[, colData(mase)$patient_id == "P001", ]
-# - Subset by condition: mase[, colData(mase)$condition == "control", ]
-# - Subset one assay: subsetByAssay(mase, "xenium")
-# - Analyze spatial patterns per patient
-# - Compare conditions across patients
+# sampleMap is built exactly as in the single-sample example above, with one
+# row per assay column across all three patients.
 ```
+
+Because those maps exist, the questions you actually want to ask are ordinary
+subsetting operations, and each returns a complete, self-consistent object
+rather than a matrix that has lost track of its coordinates:
+
+```{r multi_sample_subset, eval = FALSE}
+mase[, colData(mase)$patient_id == "P001", ]   # one patient, every assay
+mase[, colData(mase)$condition == "control", ] # one arm of the study
+subsetByAssay(mase, "xenium")                  # one modality, every patient
+```
+
+Comparing conditions then means running the same per-patient analysis over those
+subsets, with the confidence that each carries its own geometry.
 
 # Workflow 4: Iterative analysis pattern
 
-A typical analysis workflow using MASE generics:
+The three workflows above each made a specific point. This one is the shape most
+sessions actually take, and the reason to show it is the ordering: every step
+narrows the object, and doing them in this order means each subsequent step runs
+on less data while still being correct.
 
-```{r workflow, eval = FALSE}
-# 1. Load data with the appropriate reader
+Start by reading the vendor output, then drop the specimens that failed quality
+control. Doing QC first is worth the habit, because everything after it is more
+expensive per observation:
+
+```{r workflow_qc, eval = FALSE}
 mase <- readXeniumMASE(data_dir = "path/to/xenium_output", sample_id = "sample1")
-
-# 2. Quality control: subset specimens
 mase_qc <- mase[, colData(mase)$qc_pass, ]
+```
 
-# 3. Spatial filtering: focus on region of interest
+Restricting to a region of interest is the next cut. It is a spatial operation
+rather than an assay one, but because the links are maintained it narrows the
+assays too, so the annotation step that follows sees only the cells you care
+about:
+
+```{r workflow_roi, eval = FALSE}
 library(sf)
-roi <- st_polygon(list(matrix(c(100, 200, 500, 200, 500, 600, 100, 600, 100, 200),
-                              ncol = 2, byrow = TRUE)))
-mase_roi <- subsetByPolygon(mase_qc, roi)
 
-# 4. Annotate points with cell boundaries
+roi <- st_polygon(list(matrix(
+  c(100, 200, 500, 200, 500, 600, 100, 600, 100, 200),
+  ncol = 2, byrow = TRUE)))
+mase_roi <- subsetByPolygon(mase_qc, roi)
+```
+
+Then annotate and aggregate. These two belong together and in this order:
+`aggregateByRegion()` summarises over an annotation, so it needs
+`annotateWithRegions()` to have recorded one on `spatialMap` first. Running them
+on the narrowed object rather than the original is the payoff for the two cuts
+above:
+
+```{r workflow_agg, eval = FALSE}
 mase_annotated <- annotateWithRegions(mase_roi,
     points = "centroids", shapes = "cells")
 
-# 5. Aggregate expression per cell for downstream analysis
 cell_expr <- aggregateByRegion(mase_annotated, by = "cells", FUN = "sum")
-
-# 6. Differential expression, clustering, etc. on cell_expr matrices
 ```
+
+`cell_expr` is an ordinary list of matrices, so differential expression,
+clustering and the rest proceed with whatever tools you normally use. The object
+is the thing that kept the coordinates, the specimens and the counts aligned up
+to that point; it does not need to be involved afterwards.
 
 # Summary
 
-`MultiAssaySpatialExperiment` provides a unified framework for:
+Across these workflows the same property did the work each time. Two platforms
+could be compared because both were mapped onto one coordinate system; a region
+of interest could be cut without losing track of which cells it contained; three
+patients could be held in one object and separated again on demand. In each case
+what made it straightforward was that the links between assay columns, specimens
+and spatial elements are recorded once, in `sampleMap` and `spatialMap`, and are
+maintained by the operations rather than by the analyst.
 
-- **Integrating** multiple spatial assays (Xenium, Visium, MERSCOPE, CosMx, etc.)
-- **Managing** specimen metadata and spatial coordinates consistently
-- **Linking** assay columns to spatial elements via `sampleMap` and `spatialMap`
-- **Subsetting** by specimen, observation metadata, or spatial ROI
-- **Annotating** and **aggregating** spatial data
-- **Analyzing** multi-assay, multi-sample spatial experiments
+That is also the limit of what the container claims. It does not implement
+deconvolution, registration or differential expression, and Workflow 2 was
+deliberately plain R for exactly that reason. What it offers is that the inputs
+to those methods, and their outputs, stay consistent with each other and with the
+tissue they came from, and that a single-assay slice can be handed to
+`SpatialExperiment` or `SpatialFeatureExperiment` whenever a tool expects one.
 
-The relational database design ensures:
-- **Referential integrity**: All links stay consistent during subsetting
-- **Flexibility**: Add or remove assays/spatial elements as needed
-- **Interoperability**: Convert to/from other Bioconductor spatial classes
+# See also
 
-For more examples, see:
-
-- **Introduction to MultiAssaySpatialExperiment**: MASE structure and design principles
-- **Working with MultiAssaySpatialExperiment**: Construction, subsetting,
-  annotation, and aggregation
-- **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common operations
+- *Introduction to MultiAssaySpatialExperiment*: a worked example from
+  construction through aggregation
+- *Working with MultiAssaySpatialExperiment*: construction, subsetting,
+  annotation and aggregation
+- *Design of MultiAssaySpatialExperiment*: slots, mapping tables and the
+  relational schema
+- *MultiAssaySpatialExperiment cheatsheet*: one-page API reference
 
 # Session info
 

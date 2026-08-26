@@ -33,8 +33,8 @@ This vignette covers the core operations for working with
 `MultiAssaySpatialExperiment` (MASE) objects:
 
 1. **Construction**: Building MASE objects from matrices, existing Bioconductor
-   objects, or vendor output (see **MultiAssaySpatialExperiment Use Cases**)
-2. **Subsetting**: Filtering by specimens, assays, columns, and spatial regions
+   objects, or vendor output (see *MultiAssaySpatialExperiment use cases*)
+2. **Subsetting**: Filtering by specimens, assays, columns and spatial regions
 3. **Spatial operations**: Annotation and aggregation by spatial regions
 4. **Labels ↔ shapes**: Converting between raster masks and vector polygons
 
@@ -59,28 +59,15 @@ There are several approaches to constructing a MASE object:
 3. **From existing objects**: Convert `SpatialExperiment` or wrap
    `SingleCellExperiment` objects in an `ExperimentList`
 4. **From vendor output**: Use platform readers (`readXeniumMASE()`, etc.), 
-   covered in the **MultiAssaySpatialExperiment Use Cases** vignette
+   covered in the *MultiAssaySpatialExperiment use cases* vignette
 5. **With prepMASE**: Wrap `prepMultiAssay()` for name harmonization and spatial
    FK cleanup (see below)
 
-## prepMASE and buildSpatialMap
-
-For manual construction, `buildSpatialMap()` assembles a `spatialMap` from
-`sampleMap` (analogous to MAE's `listToMap()`), and `prepMASE()` wraps
-`prepMultiAssay()` while harmonizing spatial slots:
-
-```{r prep_mase, eval = FALSE}
-spmap <- buildSpatialMap(sample_map, region = "cells", element_type = "shapes")
-prepared <- prepMASE(
-  ExperimentList(rna = counts, protein = protein_counts),
-  colData = specimens,
-  sample_map,
-  shapes = ShapesLayerList(cells = cell_boundaries),
-  spatialMap = spmap
-)
-mase <- do.call(MultiAssaySpatialExperiment, prepared)
-drops(prepared$metadata$drops)  # rows removed during harmonization, if any
-```
+Throughout, the `sampleMap` is the three-column `DataFrame` that says which specimen
+each assay column belongs to, with one row per column: `assay` names the element of
+the `ExperimentList`, `primary` is a row name of `colData`, and `colname` is the
+column name within that assay. The *Introduction to MultiAssaySpatialExperiment*
+vignette covers it, and `spatialMap`, in more detail.
 
 ## Optional: lazy Parquet I/O via BiocDuckDB
 
@@ -254,6 +241,25 @@ mase_from_sce <- MultiAssaySpatialExperiment(
 mase_from_sce
 ```
 
+## prepMASE and buildSpatialMap
+
+For manual construction, `buildSpatialMap()` assembles a `spatialMap` from
+`sampleMap` (analogous to MAE's `listToMap()`), and `prepMASE()` wraps
+`prepMultiAssay()` while harmonizing spatial slots:
+
+```{r prep_mase, eval = FALSE}
+spmap <- buildSpatialMap(sample_map, region = "cells", element_type = "shapes")
+prepared <- prepMASE(
+  ExperimentList(rna = counts, protein = protein_counts),
+  colData = specimens,
+  sample_map,
+  shapes = ShapesLayerList(cells = cell_boundaries),
+  spatialMap = spmap
+)
+mase <- do.call(MultiAssaySpatialExperiment, prepared)
+drops(prepared$metadata$drops)  # rows removed during harmonization, if any
+```
+
 ## Validation checklist
 
 Before constructing a MASE, ensure:
@@ -304,7 +310,7 @@ above, so you can run them independently.
 | `subsetByColData(x, y)` | Specimens (primary identifiers) | `spatialMap`, `imgData` |
 | `subsetByRow(x, y, ...)` | Rows of experiments | Spatial layers unchanged |
 | `subsetByColumn(x, y)` | Assay columns (names, indices, or logical vectors per assay) | `spatialMap`, `imgData`, points, shapes, images, labels |
-| `subsetByAssay(x, y)` | Assays | Points, shapes, images, labels, and `spatialMap` rows tied to retained assays |
+| `subsetByAssay(x, y)` | Assays | Points, shapes, images, labels and `spatialMap` rows tied to retained assays |
 | `x[i, j, k, ..., drop]` | Row, column, assay indices | Composes the above |
 | `subsetByBoundingBox(x, xmin, xmax, ymin, ymax, ...)` | Points/shapes by rectangle | Assays via `spatialMap` |
 | `subsetByPolygon(x, polygon, ...)` | Points/shapes by polygon | Assays via `spatialMap` |
@@ -316,71 +322,79 @@ MASE when you need those layers.
 
 ## Basic subsetting
 
+Two assays are enough to show what the different subsetting axes actually do. Here `P1`
+and `P2` are the specimens, the rows of `colData`; `S1` to `S4` are observations, the
+assay columns. Both assays measure the same four cells, and both are mapped onto one
+shared points layer.
+
 ```{r basic-subset-setup}
-# Create a simple MASE for subsetting examples
-mat <- matrix(rnorm(25), nrow = 5, ncol = 5,
-  dimnames = list(paste0("G", 1:5), paste0("S", 1:5)))
-ex <- SummarizedExperiment(
-  assays = list(counts = mat),
-  colData = DataFrame(region = rep(c("core", "margin"), length.out = 5))
-)
-pts <- DataFrame(
-  x = c(1, 2, 3, 4, 5),
-  y = c(1, 2, 3, 4, 5),
-  instance_id = paste0("S", 1:5))
+make_assay <- function() {
+  SummarizedExperiment(
+    assays = list(counts = matrix(rnorm(20), nrow = 5, ncol = 4,
+      dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))),
+    colData = DataFrame(region = rep(c("core", "margin"), length.out = 4)))
+}
+
+pts <- DataFrame(x = 1:4, y = 1:4, instance_id = paste0("S", 1:4))
 
 mase <- MultiAssaySpatialExperiment(
-  experiments = ExperimentList(assay1 = ex),
-  colData = DataFrame(row.names = paste0("S", 1:5)),
+  experiments = ExperimentList(rna = make_assay(), protein = make_assay()),
+  colData = DataFrame(row.names = c("P1", "P2")),
   sampleMap = DataFrame(
-    assay = factor("assay1"),
-    primary = paste0("S", 1:5),
-    colname = paste0("S", 1:5)
+    assay = factor(rep(c("rna", "protein"), each = 4)),
+    primary = rep(c("P1", "P1", "P2", "P2"), 2),
+    colname = rep(paste0("S", 1:4), 2)
   ),
   points = PointsLayerList(coords = pts),
   spatialMap = DataFrame(
-    assay = factor("assay1"),
-    colname = paste0("S", 1:5),
+    assay = factor(rep(c("rna", "protein"), each = 4)),
+    colname = rep(paste0("S", 1:4), 2),
     element_type = "points",
     region = "coords",
-    instance_id = paste0("S", 1:5)
+    instance_id = rep(paste0("S", 1:4), 2)
   )
 )
+
+vapply(experiments(mase), ncol, integer(1))
 ```
 
-### Subset by specimen (colData)
+### Subset by specimen
 
-Filter by primary identifiers (rownames of `colData`):
+Naming specimens cuts across the whole object. `P1` owns `S1` and `S2` in both assays,
+so both come back with two columns:
 
 ```{r subsetByColData}
-mase[, c("S1", "S3", "S5")]
+by_specimen <- mase[, "P1"]
+vapply(experiments(by_specimen), ncol, integer(1))
 ```
 
-### Subset by assay columns
+### Subset by assay column
 
-When subsetting by list, each element applies to the corresponding assay:
+Passing a *list* instead targets one assay by name. Only `rna` is cut here; `protein`
+keeps all four columns, which is the difference from the previous example:
 
 ```{r subsetByColumn}
-mase[, list(assay1 = c("S2", "S4"))]
+by_column <- mase[, list(rna = c("S1", "S3"))]
+vapply(experiments(by_column), ncol, integer(1))
 ```
 
-Filter assay columns by observation metadata (`colData` of the experiment),
-using the standard MAE `subsetByColumn` list interface. This is the idiomatic
-replacement for ad hoc “query by metadata” patterns:
+The same list interface filters on observation metadata, which is the idiomatic
+replacement for ad hoc "query by metadata" patterns:
 
 ```{r subsetByColumnColData}
-cdf <- colData(experiments(mase)[["assay1"]])
-mase_core <- subsetByColumn(mase, list(assay1 = cdf$region == "core"))
-ncol(experiments(mase_core)[["assay1"]])
+cdf <- colData(experiments(mase)[["rna"]])
+mase_core <- subsetByColumn(mase, list(rna = cdf$region == "core"))
+ncol(experiments(mase_core)[["rna"]])
 nrow(spatialPoints(mase_core)[["coords"]])
 ```
 
 ### Bracket notation
 
-The `[i, j, k, drop]` operator composes row, column, and assay subsetting:
+The `[i, j, k, drop]` operator composes feature, specimen and assay subsetting in one
+call:
 
 ```{r bracket}
-mase[1:3, c("S1", "S2"), "assay1", drop = FALSE]
+mase[1:3, "P1", "rna", drop = FALSE]
 ```
 
 ## Spatial subsetting
@@ -413,9 +427,10 @@ nrow(spatialPoints(m3)[["coords"]])
 ncol(experiments(m3)[["assay1"]])
 ```
 
-### Multi-region subsets
+### Select data from multiple non-contiguous regions
 
-Select data from multiple non-contiguous regions:
+A region of interest need not be a single connected shape. Subsetting once per region
+and keeping the results separate lets you compare them directly:
 
 ```{r multiregion}
 # Define two regions of interest
@@ -426,8 +441,8 @@ region2 <- st_polygon(list(matrix(c(4, 4, 5, 4, 5, 5, 4, 5, 4, 4), ncol = 2, byr
 m_r1 <- subsetByPolygon(mase, region1)
 m_r2 <- subsetByPolygon(mase, region2)
 
-cat("Region 1:", ncol(experiments(m_r1)[[1]]), "observations\n")
-cat("Region 2:", ncol(experiments(m_r2)[[1]]), "observations\n")
+c(region1 = ncol(experiments(m_r1)[[1]]),
+  region2 = ncol(experiments(m_r2)[[1]]))
 ```
 
 ### Buffer-based subsets
@@ -492,10 +507,10 @@ expr <- matrix(c(10, 20, 5,  15,
 # Construct MASE
 mase_agg <- MultiAssaySpatialExperiment(
   experiments = ExperimentList(rna = expr),
-  colData = DataFrame(row.names = paste0("S", 1:4)),
+  colData = DataFrame(row.names = "P1"),
   sampleMap = DataFrame(
     assay = factor("rna"),
-    primary = paste0("S", 1:4),
+    primary = rep("P1", 4),
     colname = paste0("S", 1:4)
   ),
   points = PointsLayerList(centroids = pts_agg),
@@ -563,8 +578,7 @@ agg_mean[["rna"]]
 
 `annotateWithRegions()` wraps a point-in-polygon join and writes results to
 `spatialMap`. For ad hoc layer-to-layer joins, use `spatialJoin()` on
-`DataFrame` layers with `geometry` columns (see **MultiAssaySpatialExperiment
-Cheatsheet**).
+`DataFrame` layers with `geometry` columns.
 
 ## Aggregation strategies
 
@@ -646,14 +660,13 @@ shapes_df <- DataFrame(
   instance_id = c("cell1", "cell2", "cell3"),
   geometry = st_sfc(cell1_rast, cell2_rast, cell3_rast)
 )
-
-cat("Rasterization workflow:\n")
-cat("1. Define target grid dimensions and extent\n")
-cat("2. For each polygon, determine which pixels it covers\n")
-cat("3. Assign polygon ID to those pixels\n")
-cat("4. Store as RasterLayerList in MASE\n")
-cat("\nRecommended packages: stars::st_rasterize, terra::rasterize\n")
 ```
+
+MASE stores the result of rasterization rather than performing it. The steps are to
+choose a target grid extent and resolution, determine which pixels each polygon covers,
+write the polygon identifier into those pixels, and store the resulting raster as a
+`RasterLayerList` in the `labels` slot. `stars::st_rasterize()` and `terra::rasterize()`
+both do the middle two steps.
 
 ## Vectorization: labels → shapes
 
@@ -667,14 +680,12 @@ label_matrix <- matrix(c(
   3, 3, 0, 0,
   3, 3, 0, 0
 ), nrow = 4, byrow = TRUE)
-
-cat("Vectorization workflow:\n")
-cat("1. Load label matrix (from file or RasterLayerList)\n")
-cat("2. Extract polygon boundaries for each unique label value\n")
-cat("3. Convert to sf polygons with instance_id\n")
-cat("4. Store as ShapesLayerList in MASE\n")
-cat("\nRecommended packages: stars::st_as_sf, sf::st_polygonize\n")
 ```
+
+Vectorization runs the same path in reverse: read the label matrix, trace the boundary
+of each distinct non-zero value, convert those boundaries to `sf` polygons carrying the
+label as `instance_id`, and store them as a `ShapesLayerList` in the `shapes` slot.
+`stars::st_as_sf()` and `sf::st_polygonize()` cover the tracing step.
 
 ## Use cases
 
@@ -690,13 +701,15 @@ cat("\nRecommended packages: stars::st_as_sf, sf::st_polygonize\n")
 - Spatial subsetting (point-in-polygon, overlap)
 - Visualization with ggplot2 + sf
 
-# Next steps
+# See also
 
-- **MultiAssaySpatialExperiment Use Cases**: Realistic workflows with data readers
-  and spatial transformations
-- **Introduction to MultiAssaySpatialExperiment**: MASE structure, design
-  principles, and terminology
-- **MultiAssaySpatialExperiment Cheatsheet**: Quick reference for common operations
+- *Introduction to MultiAssaySpatialExperiment*: a worked example from
+  construction through aggregation
+- *MultiAssaySpatialExperiment use cases*: platform readers and complete
+  analysis workflows
+- *Design of MultiAssaySpatialExperiment*: slots, mapping tables and the
+  relational schema
+- *MultiAssaySpatialExperiment cheatsheet*: one-page API reference
 
 # Session info
 

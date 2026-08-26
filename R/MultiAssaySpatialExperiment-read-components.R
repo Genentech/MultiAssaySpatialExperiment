@@ -378,16 +378,6 @@ function(spatial_dir, sample_id, load_images = FALSE, scale_factors = NULL) {
     do.call(RasterLayerList, layers)
 }
 
-.spatialLabels_from_rasters <- function(rasters) {
-    if (is.null(rasters) || length(rasters) == 0L)
-        return(RasterLayerList())
-    if (is(rasters, "RasterLayerList"))
-        return(rasters)
-    if (is.list(rasters) && !is.null(names(rasters)))
-        return(RasterLayerList(rasters))
-    stop(wmsg("'rasters' must be a named list or RasterLayerList"))
-}
-
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Label raster readers
 ###
@@ -408,39 +398,6 @@ function(spatial_dir, sample_id, load_images = FALSE, scale_factors = NULL) {
     names(r) <- layer_name
 
     r
-}
-
-#' @importFrom S4Vectors wmsg
-.read_label_rasters <- function(tiff_paths, layer_names = NULL, ...) {
-    if (is.null(tiff_paths) || length(tiff_paths) == 0L) {
-        return(NULL)
-    }
-
-    if (is.null(layer_names)) {
-        layer_names <- paste0("segmentation_", seq_along(tiff_paths))
-    }
-
-    if (length(tiff_paths) != length(layer_names)) {
-        stop(wmsg("Length of tiff_paths and layer_names must match"))
-    }
-
-    rasters <- lapply(seq_along(tiff_paths), function(i) {
-        .read_label_raster(tiff_path = tiff_paths[i],
-                           layer_name = layer_names[i],
-                           ...)
-    })
-
-    rasters <- Filter(Negate(is.null), rasters)
-
-    if (length(rasters) == 0L) {
-        return(NULL)
-    }
-
-    if (length(rasters) == 1L) {
-        rasters[[1L]]
-    } else {
-        rasters
-    }
 }
 
 #' @importFrom S4Vectors wmsg

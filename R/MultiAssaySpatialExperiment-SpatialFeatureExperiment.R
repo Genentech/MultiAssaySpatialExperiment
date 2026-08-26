@@ -261,9 +261,9 @@ NULL
     if (length(sample_ids) == 0L)
         sample_ids <- "sample01"
     graphs_arg <- if (length(graphs))
-        stats::setNames(lapply(sample_ids, function(sid)
-            list(row = NULL, col = graphs, annot = NULL)), sample_ids)
-    else NULL
+            stats::setNames(lapply(sample_ids, function(sid)
+                list(row = NULL, col = graphs, annot = NULL)), sample_ids)
+        else NULL
 
     sfe <- SpatialFeatureExperiment::SpatialFeatureExperiment(
         assays = assays(exp), rowData = rowData(exp), colData = colData(exp),

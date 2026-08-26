@@ -1,0 +1,300 @@
+---
+title: "Introduction to MultiAssaySpatialExperiment"
+author:
+- name: Patrick Aboyoun
+  email: aboyounp@gene.com
+  affiliation: Genentech, Inc.
+date: "Compiled: `r BiocStyle::doc_date()`; Modified: 6 July 2026"
+package: MultiAssaySpatialExperiment
+output:
+  BiocStyle::html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+vignette: >
+  %\VignetteIndexEntry{1. Introduction to MultiAssaySpatialExperiment}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+# Installation
+
+```{r install, eval = FALSE}
+if (!require("BiocManager"))
+    install.packages("BiocManager")
+BiocManager::install("MultiAssaySpatialExperiment")
+```
+
+Load the package:
+
+```{r load_packages, message = FALSE, warning = FALSE}
+library(MultiAssaySpatialExperiment)
+library(SummarizedExperiment)
+library(S4Vectors)
+```
+
+# Citing MultiAssaySpatialExperiment
+
+If you use `MultiAssaySpatialExperiment` in your research, please cite the
+package. Citation information is available via:
+
+```{r citation, eval = FALSE}
+citation("MultiAssaySpatialExperiment")
+```
+
+# Why another spatial data structure?
+
+If you have spent a few decades designing databases, you have seen the same
+story many times: someone builds a system that works for one use case, and it
+spreads. Later, a new use case appears that does not quite fit. People bolt on
+workarounds, and the design gets messy. Eventually, someone steps back and asks:
+what would we build if we started from the problem we actually have?
+
+Spatial omics is at that stage. We already have excellent tools for
+*single-assay* spatial data: `SpatialExperiment` and `SpatialFeatureExperiment`
+handle one experiment at a time, one technology, one matrix, one set of spatial
+coordinates. They work well when your question is "what genes are expressed in
+this Visium section?" or "where are these MERFISH cells in tissue?" But
+increasingly, people ask questions that cut across assays: "I have RNA, protein,
+and chromatin from the same tissue, how do I link them and their spatial
+coordinates in one place?" That is a different problem. It needs a *multi-assay*
+structure that can carry spatial context and keep everything consistent when you
+subset, or merge.
+
+`MultiAssayExperiment` (MAE) solves the multi-assay part. It gives you a central
+mapping table, the `sampleMap`, that links assay columns to specimens. One source
+of truth, explicit foreign keys, and validity checks that keep the links
+correct. When you subset by specimen, the maps update. No orphaned rows. No
+hunting through metadata to figure out which assay column belongs to which
+specimen.
+
+What MAE does not have is spatial geometry: coordinates for cells or spots, cell
+boundaries, tissue images. That is where `MultiAssaySpatialExperiment` (MASE)
+comes in. MASE extends MAE with spatial elements, points, shapes, images,
+labels, and a second central mapping table, the `spatialMap`, that links assay
+columns to those elements. Same philosophy as MAE: one place to look, one place
+to update, referential integrity enforced. Subsetting updates `spatialMap` (and,
+for most column- and assay-level operations, linked spatial layers) so you do
+not have to clean up coordinates or drop orphaned geometries manually.
+
+# When to use MASE
+
+Use `MultiAssaySpatialExperiment` when:
+
+- You have **multiple spatial assays** from the same or related tissue (e.g.,
+  transcriptomics, proteomics, ATAC-seq).
+- You need **one object** that holds the experiments, the specimen metadata, the
+  spatial elements (coordinates, shapes, images), and the links between them.
+- You want **subsetting and merging** that keep all links consistent, no manual
+  cleanup, no orphaned geometry.
+- You need to **convert** to or from `SpatialExperiment` or
+  `SpatialFeatureExperiment` for downstream tools.
+
+# Prerequisites
+
+This vignette assumes you are comfortable with `SummarizedExperiment` and, ideally,
+`MultiAssayExperiment`: MASE is a `MultiAssayExperiment` with spatial slots added, and
+the assay, `colData` and `sampleMap` machinery behaves exactly as it does there.
+
+No prior `sf` experience is needed to read this vignette. `sf` appears in one place
+only, the `shapes` slot, whose geometries are stored in an `sf` geometry column so that
+polygon operations (point-in-polygon, area, intersection) come from a standard spatial
+package rather than a bespoke one. If you only work with point coordinates, images or
+labels, you can use MASE without touching `sf` at all. When you do reach for shapes,
+the [sf vignettes](https://r-spatial.github.io/sf/articles/) are the reference.
+
+# A worked example
+
+The rest of this vignette follows one small example from construction to a
+per-cell summary. It is deliberately synthetic so that it runs anywhere; the
+*MultiAssaySpatialExperiment use cases* vignette runs the same shape of workflow
+on real Xenium and Visium output.
+
+The scenario is the one MASE exists for: two assays measured over the *same*
+piece of tissue, sharing one set of cell boundaries.
+
+```{r libs, message = FALSE}
+library(MultiAssaySpatialExperiment)
+library(SummarizedExperiment)
+library(S4Vectors)
+library(sf)
+```
+
+## Building the object
+
+Two specimens, `P1` and `P2`, contribute four observations between them. Both an
+RNA and a protein assay were run on those same four observations.
+
+```{r build_assays}
+make_assay <- function(seed) {
+  set.seed(seed)
+  SummarizedExperiment(
+    assays = list(counts = matrix(rpois(20, 10), nrow = 5, ncol = 4,
+      dimnames = list(paste0("Gene", 1:5), paste0("S", 1:4)))))
+}
+
+rna <- make_assay(1)
+protein <- make_assay(2)
+```
+
+The observations sit somewhere in the tissue, and each falls inside one of two
+annotated regions:
+
+```{r build_spatial}
+centroids <- DataFrame(
+  x = c(1.5, 2.5, 4.5, 5.5),
+  y = c(1.5, 2.5, 4.5, 5.5),
+  instance_id = paste0("S", 1:4))
+
+square <- function(x0, y0, side) {
+  st_polygon(list(cbind(
+    c(x0, x0 + side, x0 + side, x0, x0),
+    c(y0, y0, y0 + side, y0 + side, y0))))
+}
+
+regions <- DataFrame(
+  instance_id = c("left", "right"),
+  geometry = st_sfc(square(0, 0, 3), square(3, 3, 3)))
+```
+
+`sampleMap` says which specimen each observation belongs to, and `spatialMap`
+says where each observation sits. Both assays point at the same `centroids`
+layer, which is the part a single-assay container cannot express:
+
+```{r build_mase}
+observations <- paste0("S", 1:4)
+specimens <- c("P1", "P1", "P2", "P2")
+
+mase <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = rna, protein = protein),
+  colData = DataFrame(row.names = c("P1", "P2")),
+  sampleMap = DataFrame(
+    assay = factor(rep(c("rna", "protein"), each = 4)),
+    primary = rep(specimens, 2),
+    colname = rep(observations, 2)),
+  points = PointsLayerList(centroids = centroids),
+  shapes = ShapesLayerList(regions = regions),
+  spatialMap = DataFrame(
+    assay = factor(rep(c("rna", "protein"), each = 4)),
+    colname = rep(observations, 2),
+    element_type = "points",
+    region = "centroids",
+    instance_id = rep(observations, 2)))
+
+mase
+```
+
+## Looking at what it holds
+
+The `MultiAssayExperiment` accessors behave as they always do, and the spatial
+slots have accessors of their own:
+
+```{r accessors}
+experiments(mase)
+spatialPoints(mase)[["centroids"]]
+spatialShapes(mase)[["regions"]]
+```
+
+`spatialMap()` is the table that ties the two together, one row per assay column:
+
+```{r show_spatialmap}
+head(spatialMap(mase), 4)
+```
+
+## Subsetting keeps the links consistent
+
+This is the property that motivates the container. Take a rectangle covering only
+the lower-left corner of the tissue:
+
+```{r subset_region}
+corner <- subsetByBoundingBox(mase, xmin = 0, xmax = 3, ymin = 0, ymax = 3)
+
+vapply(experiments(corner), ncol, integer(1))
+spatialPoints(corner)[["centroids"]]
+```
+
+Both assays narrowed to the two observations inside the box, the points layer was
+trimmed to match, and `spatialMap` was rewritten. Nothing was left dangling, and
+no coordinate bookkeeping was needed.
+
+Cutting on the specimen axis instead affects every assay, whereas passing a named
+list targets one:
+
+```{r subset_axes}
+vapply(experiments(mase[, "P1"]), ncol, integer(1))
+vapply(experiments(mase[, list(rna = c("S1", "S3"))]), ncol, integer(1))
+```
+
+## Annotating and aggregating
+
+`annotateWithRegions()` runs the point-in-polygon join and stores the answer on
+the object, as a new column of `spatialMap`:
+
+```{r annotate}
+mase <- annotateWithRegions(mase, points = "centroids", shapes = "regions")
+spatialMap(mase)
+```
+
+`aggregateByRegion()` then summarises the assays over that annotation, turning
+observation-level counts into region-level ones:
+
+```{r aggregate}
+aggregateByRegion(mase, by = "regions", FUN = "sum")
+```
+
+Because the annotation lives in `spatialMap` rather than in one assay's metadata,
+both assays were aggregated over the same geometry in a single call.
+
+## Handing the data to other tools
+
+A single-assay slice can be converted to `SpatialExperiment` for tools written
+against that class, and converted back:
+
+```{r coerce}
+library(SpatialExperiment)
+
+spe <- SpatialExperiment(
+  assays = list(counts = matrix(rpois(20, 5), 5, 4,
+    dimnames = list(paste0("Gene", 1:5), paste0("S", 1:4)))),
+  colData = DataFrame(sample_id = rep("P1", 4), row.names = paste0("S", 1:4)),
+  spatialCoords = cbind(x = c(1.5, 2.5, 4.5, 5.5), y = c(1.5, 2.5, 4.5, 5.5)))
+
+from_spe <- as(spe, "MultiAssaySpatialExperiment")
+spatialPoints(from_spe)
+
+identical(unname(spatialCoords(as(from_spe, "SpatialExperiment"))),
+          unname(spatialCoords(spe)))
+```
+
+Converting *to* `SpatialExperiment` or `SpatialFeatureExperiment` requires exactly
+one compatible assay, since neither class has a notion of several assays over
+shared geometry.
+
+# Where to go next
+
+That example touched every part of the object. The remaining vignettes go deeper:
+
+- *Working with MultiAssaySpatialExperiment* covers construction in full, the
+  validity rules, every subsetting axis, and the label/shape conversions.
+- *MultiAssaySpatialExperiment use cases* runs real Xenium, Visium, CosMx and
+  MERSCOPE output through the platform readers, including cross-platform
+  alignment.
+- *Design of MultiAssaySpatialExperiment* documents the slots, the mapping tables
+  and the relational schema, for readers extending the class.
+- *MultiAssaySpatialExperiment cheatsheet* is a one-page API reference.
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```

@@ -1,3 +1,62 @@
+# MultiAssaySpatialExperiment 0.99.7
+
+## Documentation
+
+- Restructured the vignettes in response to the Bioconductor review, which
+  observed that the introduction read like a developer vignette. The
+  introduction is now motivation followed by a single worked example carried
+  from construction through subsetting, annotation and aggregation to
+  coercion, matching the shape of `SingleCellExperiment`'s `intro.Rmd`. The
+  slot-by-slot anatomy, the mapping tables and the entity-relationship
+  diagram move to a new *Design of MultiAssaySpatialExperiment* vignette,
+  which is both the split `SingleCellExperiment` makes between `intro` and
+  `devel` and the `<Package>-design` convention already used by the sibling
+  packages in this suite.
+- Added a *MultiAssaySpatialExperiment cheatsheet* vignette, a one-page API
+  reference modelled on `MultiAssayExperiment`'s. Two vignettes previously
+  pointed readers at a cheatsheet that did not exist.
+- Vignette files follow the suite naming convention, so pkgdown links the
+  introduction as the package landing page:
+  `Introduction.Rmd` becomes `MultiAssaySpatialExperiment.Rmd`,
+  `WorkingWithMASE.Rmd` becomes `MultiAssaySpatialExperiment-workflows.Rmd`,
+  and `UseCases.Rmd` becomes `MultiAssaySpatialExperiment-usecases.Rmd`.
+- The entity-relationship diagram is rebuilt at roughly four times the
+  resolution, with entities declared in the order the text introduces them and
+  genuine per-entity colouring. The prose had described "tan" and "blue" boxes,
+  but the source set a single colour and defined no per-entity styling, so no
+  such distinction was ever rendered. `spatialImages` and `spatialLabels` are
+  included for the first time; their absence was part of why the diagram and
+  its description could not be reconciled. Crow's-foot notation is now
+  explained.
+- Added a prerequisites section stating what background is assumed, and that
+  `sf` is required only for the `shapes` slot.
+- Replaced the remaining bullet lists that stood in for explanation with
+  prose, removed the `cat()` calls that printed static workflow text from code
+  chunks, gave the subsetting, spatial-operation and coercion sections
+  runnable examples, and renamed headings that merely repeated the sentence
+  below them.
+- The subsetting examples use two assays and distinguish specimen identifiers
+  (`P1`, `P2`) from observation identifiers (`S1`...`S4`). With one assay whose
+  column names matched its specimen names, subsetting by specimen and by assay
+  column produced identical output and the distinction was invisible.
+- Fixed bullet lists that were not separated from the preceding line, which
+  pkgdown did not render as lists.
+- Renamed "Next steps" sections to "See also", as they enumerate the other
+  vignettes rather than a progression.
+
+## Bug fixes
+
+- Added `Spatial` to `biocViews`.
+- `.check_visium_files()` no longer builds a message with `paste0()` inside
+  the condition signal; the subdirectory name is computed once and reused.
+
+## Internal changes
+
+- Removed four unused internal functions: `.spatialLabels_from_rasters()`,
+  `.read_label_rasters()`, `set_block_size()` and `list_technologies()`.
+- Fixed the indentation of `else` continuations in `.mergeMASE()`, the `cbind`
+  method, and the `SpatialFeatureExperiment` coercion.
+
 # MultiAssaySpatialExperiment 0.99.6
 
 ## Bug fixes
