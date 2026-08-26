@@ -1,7 +1,57 @@
+# MultiAssaySpatialExperiment 0.99.8
+
+## Internal changes
+
+- `subsetByBoundingBox()` and `subsetByPolygon()` were structurally identical
+  apart from the functions used to index each layer, and each contained four
+  near-duplicate loops. Both now delegate to one `.subsetMASEByGeometry()`
+  engine, which also removes redundant work: each method previously indexed
+  every spatial layer **twice**, once to build the retained-instance map and
+  again, with identical arguments, to build the filtered layers, so
+  `subsetByPolygon()` ran its point-in-polygon join twice per layer on every
+  call. Equivalence was checked against the previous implementation across
+  partial-hit, everything-retained and empty-result cases for both methods,
+  comparing dimensions, layer contents, layer names and `spatialMap`.
+- The review asked whether the package's `for` loops could use the apply
+  family. Eight are removed by the refactor above. Of the remainder, fifteen
+  are file-pattern searches that `break` on the first hit, where an apply
+  variant cannot short-circuit and would test every candidate path; the rest
+  either fold state across iterations or exist for their side effects, where a
+  loop is the clearer form. The two examples named in the review are kept:
+  `.get_img_idx_mase()` is a near-verbatim port of
+  `SpatialExperiment:::.get_img_idx()`, deliberately structured like its
+  upstream counterpart, and `.import_SFE_generics()` is a two-line side-effect
+  loop registering generics.
+
 # MultiAssaySpatialExperiment 0.99.7
 
 ## Documentation
 
+- Expanded the narrative in *MultiAssaySpatialExperiment use cases*, which the
+  Bioconductor review found short on explanation of what each step does and
+  why. The reader sections now describe the arguments that actually change the
+  result and what they cost; the coercion sections say why you would coerce
+  rather than re-read the vendor output, and what survives each conversion;
+  Workflow 3 states the problem it solves instead of listing what could be
+  done; Workflow 4 explains why its steps are in that order, since the point of
+  that section is the ordering; and the summary says plainly what the container
+  does not do, which is also why the affine-transformation example is
+  deliberately plain R.
+- Removed three further blocks of explanatory comments from code chunks
+  (`# The conversion:` twice and `# The combined MASE has:`), matching the ones
+  already removed in 0.99.7. No `cat()` call or comment block now stands in for
+  prose in any vignette.
+- Copy edit across all five vignettes for correctness, consistency, clarity and
+  concision. Substantive fixes: three cross-references named a vignette
+  *MultiAssaySpatialExperiment Use Cases* when the title is lower case; one
+  sentence in the introduction said an assay column belongs to a "sample" two
+  lines after establishing that it belongs to a *specimen*, which is the exact
+  distinction that section teaches. Consistency fixes: vignette
+  cross-references were split between bold and italic and are now uniformly
+  italic, as elsewhere in the suite; the two "See also" lists disagreed on
+  heading, ordering and capitalisation and are now identical in form; two
+  Oxford commas were brought into line with the prevailing style. One 60-word
+  sentence was split.
 - Restructured the vignettes in response to the Bioconductor review, which
   observed that the introduction read like a developer vignette. The
   introduction is now motivation followed by a single worked example carried

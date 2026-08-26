@@ -504,59 +504,65 @@ setGeneric("subsetByBoundingBox", function(x, xmin, xmax, ymin, ymax, ...)
 setGeneric("subsetByPolygon", function(x, polygon, ...)
     standardGeneric("subsetByPolygon"))
 
+# Shared engine for the two geometry-first subsetters. 'point_idx' and
+# 'shape_idx' take one layer and return the row indices it retains; everything
+# after that (rewriting spatialMap, filtering the layers, cropping the rasters)
+# is identical between the bounding-box and polygon entry points.
+#
+# Each layer is indexed exactly once. The two methods previously ran their
+# bounding-box test, or their point-in-polygon join, twice per layer: once to
+# build the retained-instance map and again to build the filtered layers.
+.subsetMASEByGeometry <- function(x, point_idx, shape_idx, bbox, crop_rasters) {
+    orig_imgs <- spatialImages(x)
+    orig_labs <- spatialLabels(x)
+    pts <- as.list(spatialPoints(x))
+    shps <- as.list(spatialShapes(x))
+
+    pt_idx <- lapply(pts, point_idx)
+    shp_idx <- lapply(shps, shape_idx)
+    shp_hit <- lengths(shp_idx) > 0L
+
+    retained_by_region <- c(
+        Map(.getInstanceIds, pts, pt_idx),
+        Map(.getInstanceIds, shps[shp_hit], shp_idx[shp_hit]))
+    x <- .subsetMASEBySpatialFilter(x, retained_by_region)
+
+    keep <- function(layers, idx) {
+        hit <- lengths(idx) > 0L
+        Map(function(el, i) el[i, , drop = FALSE], layers[hit], idx[hit])
+    }
+
+    replaceSlots(x,
+                points = PointsLayerList(keep(pts, pt_idx)),
+                shapes = ShapesLayerList(keep(shps, shp_idx)),
+                images = if (isTRUE(crop_rasters)) {
+                    .cropRasterLayerList(orig_imgs, bbox$xmin, bbox$xmax,
+                                         bbox$ymin, bbox$ymax)
+                } else {
+                    spatialImages(x)
+                },
+                labels = if (isTRUE(crop_rasters)) {
+                    .cropRasterLayerList(orig_labs, bbox$xmin, bbox$xmax,
+                                         bbox$ymin, bbox$ymax)
+                } else {
+                    spatialLabels(x)
+                },
+                check = FALSE)
+}
+
 #' @importFrom MultiAssayExperiment experiments
 #' @importFrom S4Vectors DataFrame
 #' @exportMethod subsetByBoundingBox
 setMethod("subsetByBoundingBox", "MultiAssaySpatialExperiment",
 function(x, xmin, xmax, ymin, ymax, x_col = "x", y_col = "y",
          crop_rasters = TRUE, ...) {
-    orig_imgs <- spatialImages(x)
-    orig_labs <- spatialLabels(x)
-    pts <- spatialPoints(x)
-    shps <- spatialShapes(x)
-    retained_by_region <- list()
-    pt_nms <- names(pts)
-    for (nm in pt_nms) {
-        el <- pts[[nm]]
-        idx <- .subsetPointsByBbox(el, xmin, xmax, ymin, ymax, x_col, y_col)
-        retained_by_region[[nm]] <- .getInstanceIds(el, idx)
-    }
-    shp_nms <- names(shps)
-    for (nm in shp_nms) {
-        el <- shps[[nm]]
-        idx <- .subsetShapesByBbox(el, xmin, xmax, ymin, ymax)
-        if (length(idx) > 0L)
-            retained_by_region[[nm]] <- .getInstanceIds(el, idx)
-    }
-    x <- .subsetMASEBySpatialFilter(x, retained_by_region)
-    filt_pts <- list()
-    for (nm in pt_nms) {
-        el <- pts[[nm]]
-        idx <- .subsetPointsByBbox(el, xmin, xmax, ymin, ymax, x_col, y_col)
-        if (length(idx) > 0L)
-            filt_pts[[nm]] <- el[idx, , drop = FALSE]
-    }
-    filt_shps <- list()
-    for (nm in shp_nms) {
-        el <- shps[[nm]]
-        idx <- .subsetShapesByBbox(el, xmin, xmax, ymin, ymax)
-        if (length(idx) > 0L)
-            filt_shps[[nm]] <- el[idx, , drop = FALSE]
-    }
-    replaceSlots(x,
-                points = PointsLayerList(filt_pts),
-                shapes = ShapesLayerList(filt_shps),
-                images = if (isTRUE(crop_rasters)) {
-                    .cropRasterLayerList(orig_imgs, xmin, xmax, ymin, ymax)
-                } else {
-                    spatialImages(x)
-                },
-                labels = if (isTRUE(crop_rasters)) {
-                    .cropRasterLayerList(orig_labs, xmin, xmax, ymin, ymax)
-                } else {
-                    spatialLabels(x)
-                },
-                check = FALSE)
+    .subsetMASEByGeometry(x,
+        point_idx = function(el)
+            .subsetPointsByBbox(el, xmin, xmax, ymin, ymax, x_col, y_col),
+        shape_idx = function(el)
+            .subsetShapesByBbox(el, xmin, xmax, ymin, ymax),
+        bbox = list(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+        crop_rasters = crop_rasters)
 })
 
 #' @importFrom MultiAssayExperiment experiments
@@ -565,60 +571,17 @@ function(x, xmin, xmax, ymin, ymax, x_col = "x", y_col = "y",
 #' @exportMethod subsetByPolygon
 setMethod("subsetByPolygon", "MultiAssaySpatialExperiment",
 function(x, polygon, x_col = "x", y_col = "y", crop_rasters = TRUE, ...) {
-    orig_imgs <- spatialImages(x)
-    orig_labs <- spatialLabels(x)
     if (inherits(polygon, "sfg"))
         polygon <- st_sfc(polygon)
     else if (inherits(polygon, "sf"))
         polygon <- st_geometry(polygon)
-    pts <- spatialPoints(x)
-    shps <- spatialShapes(x)
-    retained_by_region <- list()
-    pt_nms <- names(pts)
-    for (nm in pt_nms) {
-        el <- pts[[nm]]
-        idx <- .subsetPointsByPolygon(el, polygon, x_col, y_col)
-        retained_by_region[[nm]] <- .getInstanceIds(el, idx)
-    }
-    shp_nms <- names(shps)
-    for (nm in shp_nms) {
-        el <- shps[[nm]]
-        idx <- .subsetShapesByPolygon(el, polygon)
-        if (length(idx) > 0L)
-            retained_by_region[[nm]] <- .getInstanceIds(el, idx)
-    }
-    x <- .subsetMASEBySpatialFilter(x, retained_by_region)
-    filt_pts <- list()
-    for (nm in pt_nms) {
-        el <- pts[[nm]]
-        idx <- .subsetPointsByPolygon(el, polygon, x_col, y_col)
-        if (length(idx) > 0L)
-            filt_pts[[nm]] <- el[idx, , drop = FALSE]
-    }
-    filt_shps <- list()
-    for (nm in shp_nms) {
-        el <- shps[[nm]]
-        idx <- .subsetShapesByPolygon(el, polygon)
-        if (length(idx) > 0L)
-            filt_shps[[nm]] <- el[idx, , drop = FALSE]
-    }
-    bb <- if (isTRUE(crop_rasters)) .bboxFromPolygon(polygon) else NULL
-    replaceSlots(x,
-                points = PointsLayerList(filt_pts),
-                shapes = ShapesLayerList(filt_shps),
-                images = if (isTRUE(crop_rasters)) {
-                    .cropRasterLayerList(orig_imgs,
-                                         bb$xmin, bb$xmax, bb$ymin, bb$ymax)
-                } else {
-                    spatialImages(x)
-                },
-                labels = if (isTRUE(crop_rasters)) {
-                    .cropRasterLayerList(orig_labs,
-                                         bb$xmin, bb$xmax, bb$ymin, bb$ymax)
-                } else {
-                    spatialLabels(x)
-                },
-                check = FALSE)
+    .subsetMASEByGeometry(x,
+        point_idx = function(el)
+            .subsetPointsByPolygon(el, polygon, x_col, y_col),
+        shape_idx = function(el)
+            .subsetShapesByPolygon(el, polygon),
+        bbox = if (isTRUE(crop_rasters)) .bboxFromPolygon(polygon) else NULL,
+        crop_rasters = crop_rasters)
 })
 
 #' @importFrom MultiAssayExperiment ExperimentList experiments experiments<-
