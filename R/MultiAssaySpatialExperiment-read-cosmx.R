@@ -141,15 +141,7 @@ function(data_dir, sample_id = NULL, fov_ids = NULL, load_transcripts = FALSE,
     ## Cell metadata file
     cell_meta_patterns <- c("*_metadata_file.csv", "*_cell_metadata.csv",
                             "cell_metadata.csv")
-    cell_metadata <- NULL
-    for (pattern in cell_meta_patterns) {
-        candidates <- list.files(data_dir, pattern = pattern, full.names = TRUE,
-                                 recursive = TRUE)
-        if (length(candidates) > 0L) {
-            cell_metadata <- candidates[1L]
-            break
-        }
-    }
+    cell_metadata <- .firstMatchingFile(data_dir, cell_meta_patterns)
 
     ## Cell boundaries (GeoParquet or Parquet)
     boundaries_patterns <- c("*_cell_boundaries_sf.parquet",
@@ -157,53 +149,21 @@ function(data_dir, sample_id = NULL, fov_ids = NULL, load_transcripts = FALSE,
                              "cell_boundaries.parquet",
                              "cell_boundaries.csv",
                              "*_cell_boundaries.csv")
-    boundaries <- NULL
-    for (pattern in boundaries_patterns) {
-        candidates <- list.files(data_dir, pattern = pattern, full.names = TRUE,
-                                 recursive = TRUE)
-        if (length(candidates) > 0L) {
-            boundaries <- candidates[1L]
-            break
-        }
-    }
+    boundaries <- .firstMatchingFile(data_dir, boundaries_patterns)
 
     ## Expression matrix
     expression_patterns <- c("*_exprMat_file.csv", "*_expression.csv",
                              "expression_matrix.csv")
-    expression <- NULL
-    for (pattern in expression_patterns) {
-        candidates <- list.files(data_dir, pattern = pattern, full.names = TRUE,
-                                 recursive = TRUE)
-        if (length(candidates) > 0L) {
-            expression <- candidates[1L]
-            break
-        }
-    }
+    expression <- .firstMatchingFile(data_dir, expression_patterns)
 
     ## Transcripts
     tx_patterns <- c("*_tx_file.csv", "*_transcripts.csv",
                      "transcripts.parquet")
-    transcripts <- NULL
-    for (pattern in tx_patterns) {
-        candidates <- list.files(data_dir, pattern = pattern, full.names = TRUE,
-                                 recursive = TRUE)
-        if (length(candidates) > 0L) {
-            transcripts <- candidates[1L]
-            break
-        }
-    }
+    transcripts <- .firstMatchingFile(data_dir, tx_patterns)
 
     ## FOV positions
     fov_patterns <- c("*_fov_positions_file.csv", "fov_positions.csv")
-    fov_positions <- NULL
-    for (pattern in fov_patterns) {
-        candidates <- list.files(data_dir, pattern = pattern, full.names = TRUE,
-                                 recursive = TRUE)
-        if (length(candidates) > 0L) {
-            fov_positions <- candidates[1L]
-            break
-        }
-    }
+    fov_positions <- .firstMatchingFile(data_dir, fov_patterns)
 
     ## FOV list
     fovs <- if (!is.null(fov_positions)) {

@@ -141,14 +141,8 @@ function(data_dir, sample_id = NULL,
 
 #' @importFrom S4Vectors wmsg
 .check_xenium_files <- function(data_dir, config) {
-    matrix_file <- NULL
-    for (pattern in config@file_patterns$matrix) {
-        candidate <- file.path(data_dir, pattern)
-        if (file.exists(candidate) || dir.exists(candidate)) {
-            matrix_file <- candidate
-            break
-        }
-    }
+    matrix_file <- .firstExistingPath(data_dir, config@file_patterns$matrix,
+        check = function(p) file.exists(p) || dir.exists(p))
 
     if (is.null(matrix_file)) {
         stop(wmsg(
@@ -157,48 +151,22 @@ function(data_dir, sample_id = NULL,
         ))
     }
 
-    cells_file <- NULL
-    for (pattern in config@file_patterns$cells) {
-        candidate <- file.path(data_dir, pattern)
-        if (file.exists(candidate)) {
-            cells_file <- candidate
-            break
-        }
-    }
+    cells_file <- .firstExistingPath(data_dir, config@file_patterns$cells)
 
     if (is.null(cells_file)) {
         stop(wmsg("No cells file found in: ", data_dir, ". ",
                   "Tried: ", paste(config@file_patterns$cells, collapse = ", ")))
     }
 
-    cell_boundaries_file <- NULL
-    for (pattern in config@file_patterns$cell_boundaries) {
-        candidate <- file.path(data_dir, pattern)
-        if (file.exists(candidate)) {
-            cell_boundaries_file <- candidate
-            break
-        }
-    }
+    cell_boundaries_file <- .firstExistingPath(data_dir,
+        config@file_patterns$cell_boundaries)
 
-    nucleus_boundaries_file <- NULL
-    for (pattern in config@file_patterns$nucleus_boundaries) {
-        candidate <- file.path(data_dir, pattern)
-        if (file.exists(candidate)) {
-            nucleus_boundaries_file <- candidate
-            break
-        }
-    }
+    nucleus_boundaries_file <- .firstExistingPath(data_dir,
+        config@file_patterns$nucleus_boundaries)
 
     ## Transcripts file (optional)
-    transcripts_file <- NULL
     tx_patterns <- c("transcripts.parquet", "transcripts.csv.gz", "transcripts.csv")
-    for (pattern in tx_patterns) {
-        candidate <- file.path(data_dir, pattern)
-        if (file.exists(candidate)) {
-            transcripts_file <- candidate
-            break
-        }
-    }
+    transcripts_file <- .firstExistingPath(data_dir, tx_patterns)
 
     image_files <- list.files(data_dir, pattern = config@file_patterns$images,
                               full.names = TRUE)

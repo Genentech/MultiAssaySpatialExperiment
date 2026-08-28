@@ -138,57 +138,31 @@ function(data_dir, sample_id = NULL, fov_ids = NULL,
 }
 
 .check_merscope_files <- function(data_dir, fov_ids, segmentation) {
+    region_dir <- file.path(data_dir, "region_0")
+
     ## Cell metadata file (CSV or Parquet)
     cell_meta_patterns <- c("cell_metadata.csv", "cell_metadata.parquet",
                             "cells.csv", "cells.parquet")
-    cell_metadata <- NULL
-    for (pattern in cell_meta_patterns) {
-        candidate <- file.path(data_dir, "region_0", pattern)
-        if (file.exists(candidate)) {
-            cell_metadata <- candidate
-            break
-        }
-    }
+    cell_metadata <- .firstExistingPath(region_dir, cell_meta_patterns)
 
     ## Cell boundaries files
-    cellpose_boundaries <- NULL
-    cellpose_patterns <- c("cellpose_micron_space.parquet", 
+    cellpose_patterns <- c("cellpose_micron_space.parquet",
                            "cell_boundaries_cellpose.parquet",
                            "cell_boundaries.parquet",
                            "cell_boundaries.csv")
-    for (pattern in cellpose_patterns) {
-        candidate <- file.path(data_dir, "region_0", pattern)
-        if (file.exists(candidate)) {
-            cellpose_boundaries <- candidate
-            break
-        }
-    }
+    cellpose_boundaries <- .firstExistingPath(region_dir, cellpose_patterns)
 
-    watershed_boundaries <- NULL
     watershed_patterns <- c("watershed_micron_space.parquet",
                             "cell_boundaries_watershed.parquet")
-    for (pattern in watershed_patterns) {
-        candidate <- file.path(data_dir, "region_0", pattern)
-        if (file.exists(candidate)) {
-            watershed_boundaries <- candidate
-            break
-        }
-    }
+    watershed_boundaries <- .firstExistingPath(region_dir, watershed_patterns)
 
     ## Transcript files
-    transcripts <- NULL
     tx_patterns <- c("detected_transcripts.csv", "transcripts.parquet",
                      "detected_transcripts.parquet")
-    for (pattern in tx_patterns) {
-        candidate <- file.path(data_dir, "region_0", pattern)
-        if (file.exists(candidate)) {
-            transcripts <- candidate
-            break
-        }
-    }
+    transcripts <- .firstExistingPath(region_dir, tx_patterns)
 
     ## FOV information
-    fov_dir <- file.path(data_dir, "region_0", "images")
+    fov_dir <- file.path(region_dir, "images")
     fovs <- if (dir.exists(fov_dir)) {
         list.files(fov_dir, pattern = "^mosaic_", full.names = TRUE)
     } else {

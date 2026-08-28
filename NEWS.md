@@ -1,3 +1,95 @@
+# MultiAssaySpatialExperiment 0.99.9
+
+## Documentation
+
+- Fixed a real terminology collision the 0.99.7 copy edit missed: three
+  vignettes built a shapes layer literally named `"regions"`, which collides
+  with `spatialMap`'s own `region` column (the points/shapes layer name each
+  row references). Renamed to `cells` in the introduction vignette and
+  `anatomical_regions` in *use cases* (where the layer is tissue-scale, not
+  per-cell); added a paragraph after `annotateWithRegions()` in the
+  introduction distinguishing the pre-existing `region` column from the new
+  annotation column the function adds. A `colData` column separately named
+  `region` in *Working with MultiAssaySpatialExperiment*'s subsetting example
+  collided for an unrelated reason and is now `zone`. The cheatsheet's
+  `annotateWithRegions()` entry made the identical mistake in prose
+  ("records the region on `spatialMap`") and now describes what the function
+  actually does: add a new column named for the shapes layer.
+- Introduced `ExperimentList`, `colData` and `sampleMap` before their first
+  use in the introduction vignette instead of leaving them to appear
+  unexplained in code output, added the "each row reads ..." sentence for
+  `sampleMap` that *Design of MultiAssaySpatialExperiment* already used for
+  `spatialMap`, explained `st_polygon()`/`st_sfc()`/`sfc_POLYGON` where they
+  are first used, and noted that `read*()` functions exist for real platform
+  data before walking through manual construction.
+- Copy edit across all five vignettes for correctness, consistency, clarity
+  and concision. Correctness: a cross-reference in *use cases* promised
+  "coercion details and limitations" in a section that does not discuss
+  them (removed); a heading and a summary bullet called a direct
+  point-in-polygon count "the deconvolution result"/"cell type
+  deconvolution" when the adjacent body text explicitly says it is not
+  deconvolution (reworded to "composition result"/"cell type transfer");
+  the *use cases* summary referenced a "deliberately plain R" sentence that
+  had been removed from Workflow 2 earlier in this same round of edits
+  (reworded to stand on its own); "FOV" was used before being spelled out;
+  a comma splice in the `subsetByAssay()` note in *Working with
+  MultiAssaySpatialExperiment*. Consistency: "Part 1: Data Import" and
+  "Part 2: Real-World Workflows" used Title Case where every other heading
+  in the same document uses sentence case after a colon; the Xenium reader
+  section had an "Options" table that the Visium, CosMx and MERSCOPE
+  sections did not (added, values taken from each function's own roxygen
+  `@param` docs); two sentences in *use cases* used first-person-plural
+  narrative voice ("We will create...") where the rest of the document
+  describes what the code does. Concision: the entity-relationship diagram's
+  intro sentence in *Design of MultiAssaySpatialExperiment* duplicated its
+  own figure caption almost verbatim (trimmed); the "Scientific question"
+  callout in *use cases* used more promotional language ("leverage...
+  improve our understanding of") than the plain register used elsewhere in
+  the document.
+
+## Bug fixes
+
+- `aggregateByRegion(x, by, FUN = "count")` named its result column `region`
+  regardless of `by`; the `"sum"`/`"mean"` branches already name result
+  columns after `by`, so `"count"` was the odd one out and, for any `by`
+  other than a layer literally named `"region"`, produced a column name that
+  did not match the argument that produced it. It now names the column after
+  `by`, e.g. `by = "cells"` produces a `cells` column.
+
+## Internal changes
+
+- Replaced fourteen further `for` loops with `lapply()`/`vapply()`/
+  `Reduce()`/vectorized code, in the same spirit as 0.99.8's refactor:
+  `spatialMatch()`'s two loops (one needed no loop or `apply` at all, just
+  vectorized arithmetic); `.subsetSpatialMapByColumn()` and
+  `.subsetMASEBySpatialFilter()`; `.aggregateMatrixByRegion()` and
+  `aggregateByRegion()`'s per-assay loop; `.mergeLayerList()` and
+  `.reduceLayerList()` (the latter was a manual fold, now a `Reduce()`);
+  four loops in `.check_visiumhd_files()`/`.build_mase_from_visiumhd()`, two
+  of which re-tested a loop-invariant `is.null(boundaries)` condition on
+  every iteration and are now hoisted out; the `ShapesLayerList()`
+  constructor's coercion loop; the `annotGeometryNames` loop in the
+  `SpatialFeatureExperiment` coercion; `.spatialImages_from_imgData()`'s
+  rename-and-filter loop; and a test helper's loop around `file.remove()`,
+  which already vectorizes. Verified against the full test suite plus
+  targeted re-runs of every touched test file, and (for `spatialMatch()`'s
+  vectorized branch) a direct comparison against the original loop's output.
+- Consolidated the fifteen file-pattern-search loops kept as-is in 0.99.8
+  (correctly: they `break` on the first match, so an apply variant can't
+  short-circuit) into two shared helpers, `.firstExistingPath()` and
+  `.firstMatchingFile()`, in a new "File discovery" section of
+  `MultiAssaySpatialExperiment-read-helpers.R`. Those fifteen loops were the
+  same six-line block copy-pasted across the CosMx, MERSCOPE, Xenium and
+  Visium readers; all fifteen call sites now delegate to one of the two
+  helpers instead, including the one Xenium case that also checks
+  `dir.exists()` (passed in as a `check` override). Behavior is unchanged,
+  confirmed by directly unit-testing both helpers against no-match, match,
+  and the Xenium dual-check case, and by the full read-technology test file
+  (151 assertions) passing unchanged. `for` loops in `R/` go from 43 to 15
+  overall between this entry and 0.99.8; the remainder are the validity-check
+  accumulators, side-effect-only loops, and upstream-fidelity ports (e.g.
+  `.get_img_idx_mase()`) that 0.99.8 already explains.
+
 # MultiAssaySpatialExperiment 0.99.8
 
 ## Internal changes

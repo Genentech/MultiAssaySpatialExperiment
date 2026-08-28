@@ -83,7 +83,8 @@ test_that("aggregateByRegion count returns DataFrame", {
     mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
     cnt <- aggregateByRegion(mase, by = "cells", FUN = "count")
     expect_s4_class(cnt, "DataFrame")
-    expect_equal(cnt$region, "cell1")
+    expect_identical(colnames(cnt), c("cells", "count"))
+    expect_equal(cnt$cells, "cell1")
     expect_equal(cnt$count, 2L)
 })
 

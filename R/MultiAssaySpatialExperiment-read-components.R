@@ -365,14 +365,9 @@ function(spatial_dir, sample_id, load_images = FALSE, scale_factors = NULL) {
     if (is.null(imgData) || nrow(imgData) == 0L ||
             !"data" %in% colnames(imgData))
         return(RasterLayerList())
-    layers <- list()
-    for (i in seq_len(nrow(imgData))) {
-        raster_data <- imgData[["data"]][[i]]
-        if (is.null(raster_data))
-            next
-        layer_name <- as.character(imgData[["image_id"]][[i]])
-        layers[[layer_name]] <- raster_data
-    }
+    layers <- setNames(as.list(imgData[["data"]]),
+                       as.character(imgData[["image_id"]]))
+    layers <- Filter(Negate(is.null), layers)
     if (!length(layers))
         return(RasterLayerList())
     do.call(RasterLayerList, layers)

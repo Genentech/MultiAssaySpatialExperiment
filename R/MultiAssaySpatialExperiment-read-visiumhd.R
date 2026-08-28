@@ -98,10 +98,9 @@ function(data_dir, sample_id = NULL, bin_size = c("008", "002", "016"),
 }
 
 #' @importFrom S4Vectors wmsg
-.check_visiumhd_files <- function(data_dir, bin_sizes) {    
+.check_visiumhd_files <- function(data_dir, bin_sizes) {
     ## Check for binned matrices
-    bins <- list()
-    for (bs in bin_sizes) {
+    bins <- setNames(lapply(bin_sizes, function(bs) {
         bin_dir <- file.path(data_dir, paste0("binned_outputs/square_", bs, "um"))
 
         if (!dir.exists(bin_dir)) {
@@ -125,8 +124,8 @@ function(data_dir, sample_id = NULL, bin_size = c("008", "002", "016"),
             stop(wmsg("Positions file not found: ", positions_file))
         }
 
-        bins[[bs]] <- list(matrix = matrix_file, positions = positions_file)
-    }
+        list(matrix = matrix_file, positions = positions_file)
+    }), bin_sizes)
 
     ## Optional: Cell boundaries (GeoJSON)
     boundaries_file <- file.path(data_dir, "spatial/tissue_positions.geojson")
@@ -164,14 +163,14 @@ function(exp_data, boundaries, imgData, sample_id, labels = RasterLayerList())
     names(exp_list) <- names(exp_data)
 
     assay_names <- names(exp_list)
-    for (bin_name in assay_names) {
+    exp_list <- setNames(lapply(assay_names, function(bin_name) {
         counts <- exp_list[[bin_name]]
         barcodes <- .observation_ids(counts)
         if (is(counts, "SummarizedExperiment") &&
                 (is.null(colnames(counts)) || !length(colnames(counts))))
             colnames(counts) <- barcodes
-        exp_list[[bin_name]] <- counts
-    }
+        counts
+    }), assay_names)
     experiments <- do.call(ExperimentList, exp_list)
 
     all_barcodes <- unique(unlist(lapply(exp_list, colnames)))
@@ -190,10 +189,10 @@ function(exp_data, boundaries, imgData, sample_id, labels = RasterLayerList())
     spatialMap_rows <- list()
     shapes_list <- list()
 
-    for (bin_name in names(exp_data)) {
-        positions <- exp_data[[bin_name]]$positions
-
-        if (is.null(boundaries)) {
+    if (is.null(boundaries)) {
+        bin_names <- names(exp_data)
+        per_bin <- lapply(bin_names, function(bin_name) {
+            positions <- exp_data[[bin_name]]$positions
             bin_um <- as.numeric(sub("bin_", "", bin_name))
             radius <- bin_um / 2
 
@@ -208,8 +207,6 @@ function(exp_data, boundaries, imgData, sample_id, labels = RasterLayerList())
                 radius = radius
             )
 
-            shapes_list[[bin_name]] <- spot_geoms
-
             geom_ids <- if ("instance_id" %in% colnames(spot_geoms)) {
                 as.character(spot_geoms$instance_id)
             } else {
@@ -221,23 +218,24 @@ function(exp_data, boundaries, imgData, sample_id, labels = RasterLayerList())
                                 element_type = "shapes",
                                 assays = bin_name),
                 geom_ids)
-            spatialMap_rows[[length(spatialMap_rows) + 1L]] <- bin_map
-        }
+            list(shape = spot_geoms, spatialMap = bin_map)
+        })
+        shapes_list <- setNames(lapply(per_bin, `[[`, "shape"), bin_names)
+        spatialMap_rows <- lapply(per_bin, `[[`, "spatialMap")
     }
 
     if (!is.null(boundaries)) {
         shapes_list$cells <- boundaries
 
         boundary_ids <- as.character(boundaries$instance_id)
-        for (bin_name in names(exp_data)) {
-            cell_map <- .filterSpatialMapByInstances(
+        spatialMap_rows <- lapply(names(exp_data), function(bin_name) {
+            .filterSpatialMapByInstances(
                 buildSpatialMap(sampleMap,
                                 region = "cells",
                                 element_type = "shapes",
                                 assays = bin_name),
                 boundary_ids)
-            spatialMap_rows[[length(spatialMap_rows) + 1L]] <- cell_map
-        }
+        })
     }
 
     spatialMap <- if (length(spatialMap_rows) > 0L) {

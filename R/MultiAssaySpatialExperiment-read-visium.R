@@ -126,14 +126,7 @@ function(data_dir, sample_id = NULL, type = c("HDF5", "sparse"),
                   "Expected a Space Ranger output directory with 'spatial/' subdirectory."))
     }
 
-    positions_file <- NULL
-    for (pattern in config@file_patterns$positions) {
-        candidate <- file.path(spatial_dir, pattern)
-        if (file.exists(candidate)) {
-            positions_file <- candidate
-            break
-        }
-    }
+    positions_file <- .firstExistingPath(spatial_dir, config@file_patterns$positions)
 
     if (is.null(positions_file)) {
         stop(wmsg("No tissue_positions file found in: ", spatial_dir, ". ",

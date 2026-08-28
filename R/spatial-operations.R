@@ -174,18 +174,12 @@ setMethod("spatialMatch", c("DataFrame", "DataFrame"),
         tbl_geom <- table[[geom]]
         res <- join(pts_sfc, tbl_geom)
         n <- nrow(x)
-        out <- integer(n)
         if (inherits(res, "sgbp") || (is.list(res) && length(res) == n)) {
-            for (i in seq_len(n)) {
-                idx <- res[[i]]
-                out[i] <- if (length(idx) > 0L) idx[1L] else NA_integer_
-            }
+            out <- vapply(res, function(idx)
+                if (length(idx) > 0L) idx[1L] else NA_integer_, integer(1L))
         } else if (is.integer(res) || is.numeric(res)) {
-            for (i in seq_len(n)) {
-                idx <- res[i]
-                out[i] <- if (!is.na(idx) && idx >= 1L && idx <= nrow(table))
-                    as.integer(idx) else NA_integer_
-            }
+            valid <- !is.na(res) & res >= 1L & res <= nrow(table)
+            out <- ifelse(valid, as.integer(res), NA_integer_)
         } else {
             stop("'join' must return an sgbp list or an integer vector")
         }

@@ -150,10 +150,9 @@ NULL
             # annotGeometries -> 'shapes' entries with NO spatialMap rows;
             # that absence is what marks them as annotation-level on the way
             # back (they are not one-row-per-cell).
-            for (nm in SpatialFeatureExperiment::annotGeometryNames(from)) {
-                ag <- SpatialFeatureExperiment::annotGeometry(from, type = nm)
-                shapes_list[[nm]] <- .sf_to_shapes_df(ag)
-            }
+            ag_names <- SpatialFeatureExperiment::annotGeometryNames(from)
+            shapes_list[ag_names] <- lapply(ag_names, function(nm)
+                .sf_to_shapes_df(SpatialFeatureExperiment::annotGeometry(from, type = nm)))
 
             # Col-margin spatial graphs -> colPair()s on the stored SCE.
             graph_names <- tryCatch(SpatialFeatureExperiment::colGraphNames(from),

@@ -179,15 +179,14 @@ setMethod("c", "MultiAssaySpatialExperiment", function(x, ..., sampleMap = NULL,
     if (length(ly) == 0L)
         return(lx)
     all_nms <- union(names(lx), names(ly))
-    lst <- setNames(vector("list", length(all_nms)), all_nms)
-    for (nm in all_nms) {
+    lst <- setNames(lapply(all_nms, function(nm) {
         if (nm %in% names(lx) && nm %in% names(ly))
-            lst[[nm]] <- rbind(lx[[nm]], ly[[nm]])
+            rbind(lx[[nm]], ly[[nm]])
         else if (nm %in% names(lx))
-            lst[[nm]] <- lx[[nm]]
+            lx[[nm]]
         else
-            lst[[nm]] <- ly[[nm]]
-    }
+            ly[[nm]]
+    }), all_nms)
     do.call(constructor, lst)
 }
 
@@ -220,10 +219,7 @@ setMethod("cbind", "MultiAssaySpatialExperiment", function(..., deparse.level = 
         else do.call(rbind, Filter(Negate(is.null), sp_list))
     .reduceLayerList <- function(acc, constructor) {
         layers <- lapply(args, acc)
-        out <- layers[[1L]]
-        for (i in seq(2L, length(layers)))
-            out <- .mergeLayerList(out, layers[[i]], constructor)
-        out
+        Reduce(function(a, b) .mergeLayerList(a, b, constructor), layers)
     }
     new_img_layers <- .reduceLayerList(spatialImages, RasterLayerList)
     new_lbl_layers <- .reduceLayerList(spatialLabels, RasterLayerList)

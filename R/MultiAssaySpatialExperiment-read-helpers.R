@@ -139,6 +139,33 @@ normarg_images <- function(images, load_images) {
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### File discovery
+###
+### Shared by the technology-specific .check_*_files() functions: try each
+### candidate filename pattern in order, return the first that exists, or
+### NULL if none do.
+###
+
+.firstExistingPath <- function(dir, patterns, check = file.exists) {
+    for (pattern in patterns) {
+        candidate <- file.path(dir, pattern)
+        if (check(candidate))
+            return(candidate)
+    }
+    NULL
+}
+
+.firstMatchingFile <- function(dir, patterns, recursive = TRUE) {
+    for (pattern in patterns) {
+        candidates <- list.files(dir, pattern = pattern, full.names = TRUE,
+                                 recursive = recursive)
+        if (length(candidates) > 0L)
+            return(candidates[1L])
+    }
+    NULL
+}
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Column discovery
 ###
 

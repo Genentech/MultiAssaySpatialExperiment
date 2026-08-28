@@ -162,8 +162,7 @@ or file reference in `data`, `width`, `height` and `path`.
 
 ## The relational schema
 
-Putting those together, the object is a small relational schema. Tan entities are
-inherited from `MultiAssayExperiment`; blue entities are what MASE adds.
+Putting those together, the object is a small relational schema:
 
 ```{r mase_erd, echo = FALSE, out.width = "100%", fig.cap = "Entity-relationship diagram of the MASE schema. Tan entities are inherited from MultiAssayExperiment; blue entities are added by MASE."}
 knitr::include_graphics("mase_erd.png")

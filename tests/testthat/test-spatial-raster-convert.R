@@ -24,8 +24,7 @@ test_that("readers attach loaded image rasters to spatialImages", {
 
     spatial_dir <- file.path(data_dir, "spatial")
     png_files <- list.files(spatial_dir, pattern = "\\.png$", full.names = TRUE)
-    for (old_png in png_files)
-        file.remove(old_png)
+    file.remove(png_files)
 
     png_path <- file.path(spatial_dir, "tissue_lowres_image.png")
     terra::writeRaster(

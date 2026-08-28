@@ -44,9 +44,9 @@ NULL
 #' shape instance IDs as columns.
 #'
 #' @return
-#' A list of matrices (or for \code{FUN = "count"} a single \code{DataFrame}),
-#' one element per assay. Each matrix has features (rows) and shape instance IDs
-#' (columns).
+#' A list of matrices (or for \code{FUN = "count"} a single \code{DataFrame} with
+#' columns \code{by} and \code{count}), one element per assay. Each matrix has
+#' features (rows) and shape instance IDs (columns).
 #'
 #' @section Polymorphism:
 #' Uses S3/S4 generics only. Table-like elements (\code{spatialMap}, experiments)
@@ -126,15 +126,14 @@ setGeneric("aggregateByRegion",
         return(NULL)
     col_by_region <- split(sm[["colname"]], sm[[by]])
     regions <- names(col_by_region)
-    out <- matrix(NA_real_, nrow = nrow(mat), ncol = length(regions),
-        dimnames = list(rn, regions))
-    for (reg in regions) {
+    out <- vapply(regions, function(reg) {
         cols <- intersect(col_by_region[[reg]], cn)
         if (length(cols) == 0L)
-            next
-        sub <- mat[, cols, drop = FALSE]
-        out[, reg] <- .applyAggregateFun(sub, FUN)
-    }
+            rep(NA_real_, nrow(mat))
+        else
+            .applyAggregateFun(mat[, cols, drop = FALSE], FUN)
+    }, numeric(nrow(mat)))
+    dimnames(out) <- list(rn, regions)
     out
 }
 
@@ -165,20 +164,17 @@ function(x, by, assays = NULL, FUN = "sum") {
 
     if (identical(FUN, "count")) {
         cnt <- table(spmap[[by]])
-        return(DataFrame(region = names(cnt), count = as.integer(cnt)))
+        out <- DataFrame(names(cnt), as.integer(cnt))
+        colnames(out) <- c(by, "count")
+        return(out)
     }
 
-    result <- list()
     exps <- experiments(x)
-    for (nm in assay_nms) {
+    result <- setNames(lapply(assay_nms, function(nm) {
         sm <- spmap[spmap[["assay"]] == nm, , drop = FALSE]
         if (nrow(sm) == 0L)
-            next
-        ex <- exps[[nm]]
-        mat <- .getAssayMatrix(ex)
-        out <- .aggregateMatrixByRegion(mat, sm, by, FUN)
-        if (!is.null(out))
-            result[[nm]] <- out
-    }
-    result
+            return(NULL)
+        .aggregateMatrixByRegion(.getAssayMatrix(exps[[nm]]), sm, by, FUN)
+    }), assay_nms)
+    Filter(Negate(is.null), result)
 })

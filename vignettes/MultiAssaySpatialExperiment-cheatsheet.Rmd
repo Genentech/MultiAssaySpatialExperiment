@@ -86,7 +86,7 @@ and mapping tables are documented in *Design of MultiAssaySpatialExperiment*.
 
 | Function | Description | Returns |
 |:---------|:------------|:--------|
-| `annotateWithRegions()` | Point-in-polygon join; records the region on `spatialMap` | `MultiAssaySpatialExperiment` |
+| `annotateWithRegions()` | Point-in-polygon join; adds a new `spatialMap` column named for the shapes layer | `MultiAssaySpatialExperiment` |
 | `aggregateByRegion()` | Summarise assay values per annotated region | `list` of matrices |
 | `spatialJoin()` | Join two layer `DataFrame` objects directly | `DataFrame` |
 

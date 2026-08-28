@@ -152,11 +152,8 @@ NULL
     if (!all(cols %in% colnames(spatialMap)))
         return(spatialMap)
     exp_names <- names(experiments)
-    kept <- character()
-    for (nm in exp_names) {
-        cn <- colnames(experiments[[nm]])
-        kept <- c(kept, paste(nm, cn, sep = "\r"))
-    }
+    kept <- unlist(lapply(exp_names, function(nm)
+        paste(nm, colnames(experiments[[nm]]), sep = "\r")))
     sp_keys <- paste(spatialMap[["assay"]], spatialMap[["colname"]], sep = "\r")
     spatialMap[sp_keys %in% kept, , drop = FALSE]
 }
@@ -373,14 +370,10 @@ NULL
     }
     if (!all(c("assay", "colname", "element_type", "region", "instance_id") %in% colnames(spmap)))
         return(x)
-    keep_sp <- logical(nrow(spmap))
-    for (i in seq_len(nrow(spmap))) {
-        reg <- spmap[i, "region"]
-        inst <- spmap[i, "instance_id"]
+    keep_sp <- mapply(function(reg, inst) {
         kept_inst <- retained_by_region[[reg]]
-        if (!is.null(kept_inst) && inst %in% kept_inst)
-            keep_sp[[i]] <- TRUE
-    }
+        !is.null(kept_inst) && inst %in% kept_inst
+    }, spmap[["region"]], spmap[["instance_id"]])
     spmap <- spmap[keep_sp, , drop = FALSE]
     if (nrow(spmap) == 0L)
         return(x)

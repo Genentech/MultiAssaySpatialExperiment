@@ -67,7 +67,7 @@ Throughout, the `sampleMap` is the three-column `DataFrame` that says which spec
 each assay column belongs to, with one row per column: `assay` names the element of
 the `ExperimentList`, `primary` is a row name of `colData`, and `colname` is the
 column name within that assay. The *Introduction to MultiAssaySpatialExperiment*
-vignette covers it, and `spatialMap`, in more detail.
+vignette covers `sampleMap` and `spatialMap` in more detail.
 
 ## Optional: lazy Parquet I/O via BiocDuckDB
 
@@ -317,8 +317,8 @@ above, so you can run them independently.
 
 **Note:** `subsetByAssay()` keeps only spatial layers referenced in `spatialMap`
 for the retained assays. Auxiliary shape layers added for annotation (but not
-linked in `spatialMap`) are dropped, run `annotateWithRegions()` on the full
-MASE when you need those layers.
+linked in `spatialMap`) are dropped; run `annotateWithRegions()` on the full
+MASE first if you need those layers.
 
 ## Basic subsetting
 
@@ -332,7 +332,10 @@ make_assay <- function() {
   SummarizedExperiment(
     assays = list(counts = matrix(rnorm(20), nrow = 5, ncol = 4,
       dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))),
-    colData = DataFrame(region = rep(c("core", "margin"), length.out = 4)))
+    # "zone", not "region": this is an arbitrary per-column covariate on the
+    # assay's own colData, unrelated to spatialMap's "region" column below,
+    # which names a points/shapes layer
+    colData = DataFrame(zone = rep(c("core", "margin"), length.out = 4)))
 }
 
 pts <- DataFrame(x = 1:4, y = 1:4, instance_id = paste0("S", 1:4))
@@ -383,7 +386,7 @@ replacement for ad hoc "query by metadata" patterns:
 
 ```{r subsetByColumnColData}
 cdf <- colData(experiments(mase)[["rna"]])
-mase_core <- subsetByColumn(mase, list(rna = cdf$region == "core"))
+mase_core <- subsetByColumn(mase, list(rna = cdf$zone == "core"))
 ncol(experiments(mase_core)[["rna"]])
 nrow(spatialPoints(mase_core)[["coords"]])
 ```
@@ -595,7 +598,7 @@ data.frame(
   cell = cells,
   sum = agg_sum[["rna"]]["Gene1", ],
   mean = agg_mean[["rna"]]["Gene1", ],
-  n_spots = agg_count$count[match(cells, agg_count$region)]
+  n_spots = agg_count$count[match(cells, agg_count$cells)]
 )
 ```
 

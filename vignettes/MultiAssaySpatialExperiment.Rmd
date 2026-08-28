@@ -116,9 +116,12 @@ the [sf vignettes](https://r-spatial.github.io/sf/articles/) are the reference.
 # A worked example
 
 The rest of this vignette follows one small example from construction to a
-per-cell summary. It is deliberately synthetic so that it runs anywhere; the
-*MultiAssaySpatialExperiment use cases* vignette runs the same shape of workflow
-on real Xenium and Visium output.
+per-cell summary, building the object by hand, argument by argument, so that
+every piece the constructor expects is visible. Real data rarely arrives this
+way: if you already have Xenium, Visium, CosMx or MERSCOPE output, the
+`read*()` functions build a MASE directly from platform files, and the
+*MultiAssaySpatialExperiment use cases* vignette runs this same workflow on
+that real output instead.
 
 The scenario is the one MASE exists for: two assays measured over the *same*
 piece of tissue, sharing one set of cell boundaries.
@@ -148,7 +151,7 @@ protein <- make_assay(2)
 ```
 
 The observations sit somewhere in the tissue, and each falls inside one of two
-annotated regions:
+cell boundaries:
 
 ```{r build_spatial}
 centroids <- DataFrame(
@@ -162,14 +165,25 @@ square <- function(x0, y0, side) {
     c(y0, y0, y0 + side, y0 + side, y0))))
 }
 
-regions <- DataFrame(
+cells <- DataFrame(
   instance_id = c("left", "right"),
   geometry = st_sfc(square(0, 0, 3), square(3, 3, 3)))
 ```
 
-`sampleMap` says which specimen each observation belongs to, and `spatialMap`
-says where each observation sits. Both assays point at the same `centroids`
-layer, which is the part a single-assay container cannot express:
+`st_polygon()` builds one polygon from a matrix of ring coordinates, and
+`st_sfc()` collects one or more such geometries into a single list-column (an
+`sfc_POLYGON`) that a `DataFrame` can hold like any other column. That is the
+only `sf` machinery this vignette needs; everything downstream (point-in-polygon
+joins, subsetting by a bounding box) works through this `geometry` column.
+
+Three tables tie the pieces together. `ExperimentList` is a named list of the
+assay `SummarizedExperiment`s (`rna`, `protein`). `colData` holds one row per
+specimen (`P1`, `P2`). `sampleMap` is the crosswalk between them: each row
+reads "column `colname` of assay `assay` belongs to specimen `primary`."
+`spatialMap` is the same idea for geometry: each row reads "column `colname`
+of assay `assay` sits at instance `instance_id` of the `region` layer." Both
+assays point at the same `centroids` layer, which is the part a single-assay
+container cannot express:
 
 ```{r build_mase}
 observations <- paste0("S", 1:4)
@@ -183,7 +197,7 @@ mase <- MultiAssaySpatialExperiment(
     primary = rep(specimens, 2),
     colname = rep(observations, 2)),
   points = PointsLayerList(centroids = centroids),
-  shapes = ShapesLayerList(regions = regions),
+  shapes = ShapesLayerList(cells = cells),
   spatialMap = DataFrame(
     assay = factor(rep(c("rna", "protein"), each = 4)),
     colname = rep(observations, 2),
@@ -202,7 +216,7 @@ slots have accessors of their own:
 ```{r accessors}
 experiments(mase)
 spatialPoints(mase)[["centroids"]]
-spatialShapes(mase)[["regions"]]
+spatialShapes(mase)[["cells"]]
 ```
 
 `spatialMap()` is the table that ties the two together, one row per assay column:
@@ -237,19 +251,27 @@ vapply(experiments(mase[, list(rna = c("S1", "S3"))]), ncol, integer(1))
 
 ## Annotating and aggregating
 
-`annotateWithRegions()` runs the point-in-polygon join and stores the answer on
-the object, as a new column of `spatialMap`:
+`annotateWithRegions()` runs the point-in-polygon join between a points layer
+and a shapes layer, and stores the answer as a new `spatialMap` column named
+after the shapes layer, here `cells`:
 
 ```{r annotate}
-mase <- annotateWithRegions(mase, points = "centroids", shapes = "regions")
+mase <- annotateWithRegions(mase, points = "centroids", shapes = "cells")
 spatialMap(mase)
 ```
 
+`spatialMap` now has two layer-related columns, and they mean different
+things. `region` was set when the object was built; it names the *points*
+layer each row's `instance_id` comes from (`centroids`). The new `cells`
+column is the annotation `annotateWithRegions()` just added; it holds, for
+each observation, the `instance_id` of the *shape* (`left` or `right`) its
+point fell inside.
+
 `aggregateByRegion()` then summarises the assays over that annotation, turning
-observation-level counts into region-level ones:
+observation-level counts into per-shape ones:
 
 ```{r aggregate}
-aggregateByRegion(mase, by = "regions", FUN = "sum")
+aggregateByRegion(mase, by = "cells", FUN = "sum")
 ```
 
 Because the annotation lives in `spatialMap` rather than in one assay's metadata,

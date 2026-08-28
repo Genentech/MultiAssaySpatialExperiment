@@ -35,16 +35,16 @@ This vignette demonstrates realistic workflows using `MultiAssaySpatialExperimen
 (MASE) for multi-assay spatial transcriptomics analysis. It is divided into two
 parts:
 
-**Part 1: Data Import**: Reading spatial omics data from vendor outputs (Xenium,
+**Part 1: Data import**: Reading spatial omics data from vendor outputs (Xenium,
 Visium, Visium HD, CosMx, MERSCOPE) and converting from other Bioconductor
 spatial formats.
 
-**Part 2: Real-World Workflows**: Complete analysis examples integrating multiple
-technologies, spatial transformations, and deconvolution.
+**Part 2: Real-world workflows**: Complete analysis examples integrating multiple
+technologies, spatial transformations, and cross-platform label transfer.
 
 **Scientific question**: How do cell-level and tissue-level spatial patterns
-complement each other? Can we leverage high-resolution Xenium data to deconvolve
-Visium spots and improve our understanding of tissue architecture?
+complement each other, and can high-resolution Xenium data help interpret
+lower-resolution Visium spots?
 
 ```{r load_packages, message = FALSE, warning = FALSE}
 library(MultiAssaySpatialExperiment)
@@ -58,7 +58,7 @@ library(ggplot2)
 set.seed(123)
 ```
 
-# Part 1: Data Import
+# Part 1: Data import
 
 MASE provides readers for major spatial omics platforms and coercion methods
 for interoperability with other Bioconductor spatial classes.
@@ -148,6 +148,20 @@ coordinates in `spatialPoints()`. With `images = TRUE` the H&E image is
 available through `spatialImages()`, and `imgData()` records which image belongs
 to which specimen along with its scale factor.
 
+### Options
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `data_dir` | required | Path to Space Ranger output directory |
+| `sample_id` | `NULL` | Sample identifier (uses directory name if NULL) |
+| `type` | `"HDF5"` | Matrix format: `"HDF5"` or `"sparse"` |
+| `data` | `"filtered"` | Matrix to read: `"filtered"` (spots under tissue) or `"raw"` |
+| `images` | `TRUE` | Load image metadata |
+| `load_images` | `FALSE` | Load image raster data |
+| `unit` | `"pixel"` | Coordinate units: `"pixel"` or `"micron"` |
+| `min_area` | `NULL` | Minimum polygon area for filtering |
+| `block_size` | 100 MB | Block size for chunked reading |
+
 ### Visium HD support
 
 Visium HD provides higher resolution with multiple binning levels (2 µm, 8 µm,
@@ -176,9 +190,9 @@ segmentation (nucleus, membrane, cytoplasm). Output files include:
 
 ### Basic usage
 
-CosMx runs are organized into fields of view, and a whole slide can be more than
-you want in memory. `fov_ids` restricts the read to named FOVs; leaving it `NULL`
-loads all of them.
+CosMx runs are organized into fields of view (FOVs), and a whole slide can be
+more than you want in memory. `fov_ids` restricts the read to named FOVs; leaving
+it `NULL` loads all of them.
 
 ```{r read_cosmx, eval = FALSE}
 mase_cosmx <- readCosMxMASE(
@@ -191,6 +205,18 @@ mase_cosmx <- readCosMxMASE(
 As with the other readers, the counts land in `experiments()`, the cell
 coordinates in `spatialPoints()`, and the segmentation in `spatialShapes()`,
 which for CosMx includes subcellular compartments when the run provides them.
+
+### Options
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `data_dir` | required | Path to CosMx output directory |
+| `sample_id` | `NULL` | Sample identifier (uses directory name if NULL) |
+| `fov_ids` | `NULL` | FOVs to load (`NULL` loads all) |
+| `load_transcripts` | `FALSE` | Load transcript-level coordinates |
+| `images` | `TRUE` | Load image metadata |
+| `load_images` | `FALSE` | Load image raster data |
+| `min_area` | `NULL` | Minimum polygon area for filtering |
 
 ### FOV (Field of View) handling
 
@@ -229,6 +255,20 @@ MERSCOPE runs are often three-dimensional, so `spatialPoints()` carries a `z`
 column when the data provide one; the segmentation polygons are in
 `spatialShapes()`.
 
+### Options
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `data_dir` | required | Path to MERSCOPE output directory |
+| `sample_id` | `NULL` | Sample identifier (uses directory name if NULL) |
+| `fov_ids` | `NULL` | FOVs to load (`NULL` loads all) |
+| `segmentation` | `"cellpose"` | Segmentation to load: `"cellpose"`, `"watershed"`, or `"both"` |
+| `load_transcripts` | `FALSE` | Load transcript-level coordinates |
+| `images` | `TRUE` | Load image metadata |
+| `load_images` | `FALSE` | Load image raster data |
+| `min_area` | `NULL` | Minimum polygon area for filtering |
+| `min_qv` | 20 | Minimum quality value for transcripts |
+
 ## Choosing a reader
 
 Select the reader that matches your platform output directory:
@@ -245,7 +285,7 @@ Select the reader that matches your platform output directory:
 
 If the data are already in a single-assay spatial class, there is no need to go
 back to the vendor output. Coercion is the usual way into MASE when you want to
-add a second assay to an analysis that started as one.
+add a second assay to an analysis that started with just one.
 
 ### From SpatialExperiment
 
@@ -277,11 +317,6 @@ depending on whether it holds centroids or polygons, and the `annotGeometries`
 are kept as further shapes layers. The generated `spatialMap` is what ties those
 geometries back to the assay columns they describe.
 
-
-See Part 2 below and the *Working with MultiAssaySpatialExperiment*
-vignette for coercion details and limitations (e.g., multi-assay objects require
-manual assembly).
-
 ## Reading multiple samples
 
 For multi-sample experiments, read each sample separately and combine:
@@ -299,7 +334,7 @@ rebuilds `sampleMap` and `spatialMap` over the union, which is what makes the
 result subsettable by specimen afterwards: asking for one patient's data returns
 their assay columns and their geometry, and nothing from the other sample.
 
-# Part 2: Real-World Workflows
+# Part 2: Real-world workflows
 
 Part 1 got data into the object. The workflows below are what you do once it is
 there, and each is chosen to exercise a different reason for using a multi-assay
@@ -321,7 +356,7 @@ A common experimental design combines:
 - **Visium**: Spot-level resolution (55 µm spots), whole transcriptome,
   but multiple cells per spot
 
-By integrating both, we can:
+Integrating both makes it possible to:
 1. Use Xenium to identify cell types and their spatial organization
 2. Use Visium to capture broader transcriptomic programs
 3. Transfer cell type labels from Xenium to Visium spots
@@ -329,7 +364,7 @@ By integrating both, we can:
 
 ## Data preparation
 
-We will create synthetic data that mimics a real experiment. In practice, you
+This example uses synthetic data that mimics a real experiment. In practice, you
 would load your own data from:
 
 - Xenium: Cell-by-gene matrix + cell centroids
@@ -595,13 +630,13 @@ spot_annotations[is.na(spot_annotations)] <- 0
 head(spot_annotations)
 ```
 
-### Reading the deconvolution result
+### Reading the composition result
 
 Each spot now has a cell-type composition rather than a single label. The plots
-below show, per spot, the proportion of each Xenium cell type it contains, which
-is the quantity a deconvolution method would otherwise have to estimate: here it
-is counted directly, because the two assays share a coordinate system and the
-cells inside each spot are known.
+below show, per spot, the proportion of each Xenium cell type it contains. This is
+the quantity a deconvolution method would otherwise have to estimate; here it is
+counted directly, because the two assays share a coordinate system and the cells
+inside each spot are known.
 
 ```{r vis_deconv, fig.width = 10, fig.height = 8}
 # Plot cell type proportions per spot
@@ -641,25 +676,27 @@ regions_sf <- st_sf(
 )
 
 # Convert to DataFrame for MASE
-regions_df <- DataFrame(
+anatomical_regions_df <- DataFrame(
   geometry = st_geometry(regions_sf),
   instance_id = c("cortex", "subcortex")
 )
 
-# Add to MASE
+# Add to MASE, as a shapes layer named "anatomical_regions" (not "regions": that
+# name is reserved for spatialMap's own `region` column, which names the points
+# layer each row's instance_id comes from, "xenium_coords" here)
 spatialShapes(mase) <- ShapesLayerList(
   visium_spots = visium_shapes,
-  regions = regions_df
+  anatomical_regions = anatomical_regions_df
 )
 ```
 
 ```{r aggregate_by_region}
 # Annotate Xenium centroids with anatomical regions, then aggregate expression.
-# Run on the full MASE so the regions layer is retained (subsetByAssay drops
-# shapes not referenced in spatialMap).
+# Run on the full MASE so the anatomical_regions layer is retained
+# (subsetByAssay drops shapes not referenced in spatialMap).
 mase <- annotateWithRegions(mase,
-    points = "xenium_coords", shapes = "regions")
-xenium_by_region <- aggregateByRegion(mase, by = "regions",
+    points = "xenium_coords", shapes = "anatomical_regions")
+xenium_by_region <- aggregateByRegion(mase, by = "anatomical_regions",
     assays = "xenium", FUN = "sum")
 xenium_by_region[["xenium"]][1:5, ]
 ```
@@ -703,8 +740,9 @@ Key findings from this analysis:
 2. **Gene overlap**: Shared genes allow direct comparison and validation between
    technologies.
 
-3. **Cell type deconvolution**: Xenium cell type information can be transferred
-   to Visium spots, revealing cellular composition.
+3. **Cell type transfer**: Xenium cell type information can be transferred
+   to Visium spots, revealing the cellular composition that a deconvolution
+   method would otherwise have to estimate.
 
 4. **Regional patterns**: Both assays can be aggregated by anatomical regions
    for comparative analysis.
@@ -757,12 +795,11 @@ visium_microns
 
 ## Applying affine transformations
 
-The code in this section is deliberately plain R rather than MASE API. MASE does not
-impose a transformation framework: an affine transform is a matrix multiply, and which
-package computes it is your choice. What the container contributes comes immediately
-afterwards, in *Storing transformed coordinates*, where the original and transformed
-coordinates are held side by side as named layers of one object and stay attached to
-the assays through `spatialMap`.
+MASE allows storing the original and transformed coordinates side by side as named
+layers of one object that stay attached to the assays through `spatialMap`; that
+step comes right after this one, in *Storing transformed coordinates*. Computing
+the transform itself is plain R: an affine transform is a matrix multiply, and
+MASE does not impose a particular package or framework for computing it.
 
 An affine transform composes translation, rotation and scaling into a single matrix:
 
@@ -922,8 +959,8 @@ narrows the object, and doing them in this order means each subsequent step runs
 on less data while still being correct.
 
 Start by reading the vendor output, then drop the specimens that failed quality
-control. Doing QC first is worth the habit, because everything after it is more
-expensive per observation:
+control. Doing QC first is a habit worth keeping, because everything after it is
+more expensive per observation:
 
 ```{r workflow_qc, eval = FALSE}
 mase <- readXeniumMASE(data_dir = "path/to/xenium_output", sample_id = "sample1")
@@ -973,11 +1010,12 @@ and spatial elements are recorded once, in `sampleMap` and `spatialMap`, and are
 maintained by the operations rather than by the analyst.
 
 That is also the limit of what the container claims. It does not implement
-deconvolution, registration or differential expression, and Workflow 2 was
-deliberately plain R for exactly that reason. What it offers is that the inputs
-to those methods, and their outputs, stay consistent with each other and with the
-tissue they came from, and that a single-assay slice can be handed to
-`SpatialExperiment` or `SpatialFeatureExperiment` whenever a tool expects one.
+deconvolution, registration or differential expression; Workflow 2 computed its
+coordinate transform in plain R for that reason, with MASE only storing the
+result. What it offers is that the inputs to those methods, and their outputs,
+stay consistent with each other and with the tissue they came from, and that a
+single-assay slice can be handed to `SpatialExperiment` or
+`SpatialFeatureExperiment` whenever a tool expects one.
 
 # See also
 

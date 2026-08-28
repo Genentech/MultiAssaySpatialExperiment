@@ -278,10 +278,8 @@ ShapesLayerList <- function(...) {
                  "Did you mean 'spatialShapes()' or similar?", call. = FALSE)
     }
     listData <- .normarg_simple_list(...)
-    for (i in seq_along(listData)) {
-        if (is.data.frame(listData[[i]]) && !is(listData[[i]], "DataFrame"))
-            listData[[i]] <- DataFrame(listData[[i]])
-    }
+    listData <- lapply(listData, function(el)
+        if (is.data.frame(el) && !is(el, "DataFrame")) DataFrame(el) else el)
     new("ShapesLayerList", do.call(SimpleList, listData))
 }
 

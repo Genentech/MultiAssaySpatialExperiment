@@ -25,9 +25,9 @@ submatrix (features as rows, observations in the same shape as columns)
 and must return a numeric vector of length \code{nrow(submatrix)}.}
 }
 \value{
-A list of matrices (or for \code{FUN = "count"} a single \code{DataFrame}),
-one element per assay. Each matrix has features (rows) and shape instance IDs
-(columns).
+A list of matrices (or for \code{FUN = "count"} a single \code{DataFrame} with
+columns \code{by} and \code{count}), one element per assay. Each matrix has
+features (rows) and shape instance IDs (columns).
 }
 \description{
 Aggregate assay values (e.g., counts, expression) by shape region. Each assay
