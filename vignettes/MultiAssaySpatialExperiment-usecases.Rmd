@@ -108,11 +108,9 @@ The result holds the cell-by-gene matrix as a `SingleCellExperiment` in
 
 ### When to load transcripts
 
-Transcript-level data (millions of points) is useful for:
-
-- Visualizing subcellular localization
-- Quality control (transcript counts per cell)
-- Custom aggregation strategies
+Transcript-level data (millions of points) is useful for visualizing subcellular
+localization, quality control (transcript counts per cell), or custom aggregation
+strategies.
 
 Skip transcripts (`add_transcripts = FALSE`) for faster loading and smaller
 memory footprint when working with cell-level data only.
@@ -349,14 +347,11 @@ vignette is built and you can modify them without vendor output to hand.
 
 ## Background
 
-A common experimental design combines:
-
-- **Xenium**: Single-cell resolution, subcellular localization, limited gene panel
-  (~300-500 genes)
-- **Visium**: Spot-level resolution (55 µm spots), whole transcriptome,
-  but multiple cells per spot
-
-Integrating both makes it possible to:
+A common experimental design combines Xenium, which gives single-cell resolution
+and subcellular localization but covers a limited gene panel (~300-500 genes),
+with Visium, which gives spot-level resolution (55 µm spots) across the whole
+transcriptome, at the cost of multiple cells per spot. Integrating both makes it
+possible to:
 1. Use Xenium to identify cell types and their spatial organization
 2. Use Visium to capture broader transcriptomic programs
 3. Transfer cell type labels from Xenium to Visium spots
@@ -365,10 +360,8 @@ Integrating both makes it possible to:
 ## Data preparation
 
 This example uses synthetic data that mimics a real experiment. In practice, you
-would load your own data from:
-
-- Xenium: Cell-by-gene matrix + cell centroids
-- Visium: Spot-by-gene matrix + spot centroids
+would load your own Xenium cell-by-gene matrix and cell centroids, and your own
+Visium spot-by-gene matrix and spot centroids.
 
 ```{r prepare_xenium}
 # Xenium data: single-cell resolution
@@ -758,12 +751,9 @@ spatial transformations.
 
 ## Background
 
-Xenium and Visium may use different coordinate systems:
-
-- **Xenium**: Microns (µm) from a reference origin
-- **Visium**: Grid indices (row/column) or pixel coordinates
-
-To overlay them, you need to:
+Xenium and Visium may use different coordinate systems: Xenium reports microns
+(µm) from a reference origin, while Visium reports grid indices (row/column) or
+pixel coordinates. To overlay them, you need to:
 
 1. Convert Visium grid indices to physical coordinates (microns)
 2. Apply transformations (translation, scaling, rotation) to align modalities

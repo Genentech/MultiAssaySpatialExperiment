@@ -294,6 +294,36 @@ Check validity manually:
 validObject(mase_with_map)
 ```
 
+Most of these are checked at construction time, not just by `validObject()`.
+`sampleMap` rows that fail the `colname`/`primary` checks are dropped with a
+message rather than an error, since a partial mismatch is common when
+building a `sampleMap` by hand:
+
+```{r validation_harmonize}
+bad_sample_map <- sample_map2
+bad_sample_map$colname[1] <- "NotARealColumn"
+mase_dropped <- MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = rna_counts, protein = prot_counts),
+  colData = specimens2,
+  sampleMap = bad_sample_map
+)
+```
+
+A broken `spatialMap`, by contrast, fails `validObject()` outright, since
+there is no reasonable way to silently drop a dangling geometry reference:
+
+```{r validation_error, error = TRUE}
+bad_spatial_map <- spatial_map2
+bad_spatial_map$instance_id[1] <- "NotACell"
+MultiAssaySpatialExperiment(
+  experiments = ExperimentList(rna = rna_counts, protein = prot_counts),
+  colData = specimens2,
+  sampleMap = sample_map2,
+  points = PointsLayerList(coords = coords2),
+  spatialMap = bad_spatial_map
+)
+```
+
 # Subsetting operations
 
 MASE extends MultiAssayExperiment with spatial slots (points, shapes, images,
@@ -585,11 +615,10 @@ agg_mean[["rna"]]
 
 ## Aggregation strategies
 
-Different strategies serve different purposes:
-
-- **Sum**: Preserve total signal (RNA-seq, ATAC-seq counts)
-- **Mean**: Compare regions with different numbers of points (normalized comparison)
-- **Count**: Quality control, density analysis, normalization factor
+Different strategies serve different purposes: sum preserves total signal (useful
+for RNA-seq or ATAC-seq counts), mean allows comparing regions with different
+numbers of points (a normalized comparison), and count supports quality control,
+density analysis, or use as a normalization factor.
 
 ```{r compare_strategies}
 # Compare sum vs mean for Gene1
@@ -643,11 +672,10 @@ text(st_coordinates(st_centroid(cells_sf)),
 # Labels ↔ shapes interoperability
 
 MASE supports both **labels** (raster segmentation masks) and **shapes**
-(vector polygons). The package stores both slot types; converting between them
-is a manual workflow using external tools (see below).
-
-- **Rasterization**: shapes → labels (convert polygons to a mask)
-- **Vectorization**: labels → shapes (extract polygon boundaries from a mask)
+(vector polygons). The package stores both slot types; converting between them,
+rasterization from shapes to labels, and vectorization from labels back to
+shapes, is a manual workflow using external tools, covered in the next two
+sections.
 
 ## Rasterization: shapes → labels
 

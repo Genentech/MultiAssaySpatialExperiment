@@ -219,6 +219,9 @@ spatialPoints(mase)[["centroids"]]
 spatialShapes(mase)[["cells"]]
 ```
 
+`S1` and `S2` sit inside `left`; `S3` and `S4` sit inside `right`, the layout
+the bounding-box subset and the annotation step below both act on.
+
 `spatialMap()` is the table that ties the two together, one row per assay column:
 
 ```{r show_spatialmap}
@@ -302,18 +305,17 @@ Converting *to* `SpatialExperiment` or `SpatialFeatureExperiment` requires exact
 one compatible assay, since neither class has a notion of several assays over
 shared geometry.
 
-# Where to go next
+# See also
 
 That example touched every part of the object. The remaining vignettes go deeper:
 
-- *Working with MultiAssaySpatialExperiment* covers construction in full, the
-  validity rules, every subsetting axis, and the label/shape conversions.
-- *MultiAssaySpatialExperiment use cases* runs real Xenium, Visium, CosMx and
-  MERSCOPE output through the platform readers, including cross-platform
-  alignment.
-- *Design of MultiAssaySpatialExperiment* documents the slots, the mapping tables
-  and the relational schema, for readers extending the class.
-- *MultiAssaySpatialExperiment cheatsheet* is a one-page API reference.
+- *Working with MultiAssaySpatialExperiment*: construction, subsetting,
+  annotation and aggregation
+- *MultiAssaySpatialExperiment use cases*: platform readers and complete
+  analysis workflows
+- *Design of MultiAssaySpatialExperiment*: slots, mapping tables and the
+  relational schema
+- *MultiAssaySpatialExperiment cheatsheet*: one-page API reference
 
 # Session info
 

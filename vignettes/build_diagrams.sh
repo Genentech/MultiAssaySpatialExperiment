@@ -2,12 +2,12 @@
 # Build MASE diagrams with Mermaid CLI
 # Usage: ./build_diagrams.sh [white|transparent]
 
-BACKGROUND="${1:-transparent}"
+BACKGROUND="${1:-white}"
 
 echo "🎨 Building MASE diagrams with background: $BACKGROUND"
 echo ""
 
-mmdc -i mase_erd.mmd -o mase_erd.png -w 800 -H 1200 -b "$BACKGROUND"
+mmdc -i mase_erd.mmd -o mase_erd.png -w 800 -H 1200 -s 4 -b "$BACKGROUND"
 echo "  ✓ mase_erd.png"
 
 echo ""

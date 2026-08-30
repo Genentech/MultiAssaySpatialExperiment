@@ -1,3 +1,44 @@
+# MultiAssaySpatialExperiment 0.99.11
+
+## Documentation
+
+- A fresh review of the current vignettes against the standards the
+  Bioconductor review has consistently applied (prose over bullets, runnable
+  code over listings, consistent heading conventions) found four residual
+  issues, all fixed:
+  - The introduction vignette's own "Next steps" section was never actually
+    renamed to "See also", unlike its two siblings: it still read
+    `# Where to go next`, in a full-sentence bullet style that didn't match
+    the "*Title*: short phrase" convention `-workflows.Rmd` and
+    `-usecases.Rmd` already use consistently. Brought into line.
+  - *Working with MultiAssaySpatialExperiment*'s "Validation checklist"
+    section listed construction invariants but never demonstrated any of
+    them, the same "listing instead of demonstrating" pattern already fixed
+    elsewhere in that vignette. Added two runnable, verified examples: a
+    `sampleMap` mismatch that is silently dropped with a message during
+    harmonization, and a broken `spatialMap` that fails `validObject()`
+    outright, since a dangling geometry reference cannot be silently
+    dropped the way a sampleMap row can.
+  - Converted six narrative/comparison bulleted lists in `-usecases.Rmd` and
+    `-workflows.Rmd` to prose (transcript use cases, two Xenium/Visium
+    background comparisons, a data-preparation listing, the aggregation
+    strategy rationale, and the rasterization/vectorization preview).
+    Structural lists (vendor output file listings, parameter tables, the
+    numbered platform-integration rationale, "See also") were left alone;
+    those are legitimate uses of a list, not the pattern being fixed.
+  - The entity-relationship diagram's `experiments(mase)` box had no visible
+    connection to the `ExperimentList` class named in the surrounding prose;
+    relabeled to `experiments(mase) (ExperimentList)`, matching the
+    `Experiment (SummarizedExperiment)` convention the same diagram already
+    uses for a different entity.
+- While regenerating the diagram above, found that `build_diagrams.sh`
+  itself would silently regenerate it at 784x527, the exact low resolution
+  from a previous round of review, since the script never recorded the
+  scale factor actually used to produce the checked-in 3168x2128 image, and
+  its default background (`transparent`) rendered incorrectly in at least
+  one viewer. Both fixed (`-s 4`, default background changed to `white`);
+  the diagram is now reproducible from the script as checked in.
+
 # MultiAssaySpatialExperiment 0.99.10
 
 ## Documentation
