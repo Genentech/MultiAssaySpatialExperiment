@@ -1,6 +1,6 @@
 Package: MultiAssaySpatialExperiment
-Version: 0.99.9
-Date: 2026-08-28
+Version: 0.99.10
+Date: 2026-08-29
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
@@ -40,6 +40,7 @@ Suggests:
     sfarrow,
     terra,
     ggplot2,
+    Matrix,
     RBioFormats,
     SpatialFeatureExperiment,
     spdep,

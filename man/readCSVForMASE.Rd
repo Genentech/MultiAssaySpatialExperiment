@@ -18,7 +18,8 @@ readCSVForMASE(file_path, ...)
 DataFrame
 }
 \description{
-Read a CSV file into a \linkS4class{DataFrame} for MASE component assembly.
+Read a CSV file into a \link[S4Vectors:DataFrame-class]{DataFrame} for MASE
+component assembly.
 }
 \examples{
 tmp <- tempfile(fileext = ".csv")

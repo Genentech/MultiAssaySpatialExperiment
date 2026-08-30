@@ -18,30 +18,32 @@ NULL
 #'
 #' @description
 #' The \linkS4class{SpatialLayerList} class is a virtual base extending
-#' \linkS4class{SimpleList}. Concrete subclasses \linkS4class{RasterLayerList},
-#' \linkS4class{PointsLayerList}, and \linkS4class{ShapesLayerList} provide
-#' typed containers for raster data (images, labels), point coordinates, and
-#' shape geometries.
+#' \link[S4Vectors:SimpleList-class]{SimpleList}. Concrete subclasses
+#' \linkS4class{RasterLayerList}, \linkS4class{PointsLayerList}, and
+#' \linkS4class{ShapesLayerList} provide typed containers for raster data
+#' (images, labels), point coordinates, and shape geometries.
 #'
 #' @details
 #' All layers must be named and have unique names. Element-type validity is
 #' enforced by each concrete class: \linkS4class{RasterLayerList} requires
 #' \code{dim()} with length >= 2 (e.g., \code{matrix}, \code{array},
-#' \code{DelayedArray}, \code{StoredSpatialImage}); \linkS4class{PointsLayerList}
-#' requires \code{DataFrame} elements with at least 2 columns (typically x, y)
-#' and often an instance identifier; \linkS4class{ShapesLayerList} requires
-#' \code{DataFrame} elements (with \pkg{sf} a geometry column may be present).
+#' \code{DelayedArray}, \code{StoredSpatialImage});
+#' \linkS4class{PointsLayerList} requires \code{DataFrame} elements with at
+#' least 2 columns (typically x, y) and often an instance identifier;
+#' \linkS4class{ShapesLayerList} requires \code{DataFrame} elements (with
+#' \pkg{sf} a geometry column may be present).
 #'
 #' @section Constructors:
 #' \describe{
 #'   \item{\code{RasterLayerList(...)}:}{
 #'     Creates a \linkS4class{RasterLayerList}. Accepts named arguments, a
-#'     single named list, or a single \linkS4class{List}. Each element must
-#'     have \code{dim()} with length >= 2.
+#'     single named list, or a single \link[S4Vectors:List-class]{List}. Each
+#'     element must have \code{dim()} with length >= 2.
 #'   }
 #'   \item{\code{PointsLayerList(...)}:}{
 #'     Creates a \linkS4class{PointsLayerList}. Accepts named \code{DataFrame}
-#'     elements or a single list/List. Each element must have at least 2 columns.
+#'     elements or a single list/List. Each element must have at least 2
+#'     columns.
 #'   }
 #'   \item{\code{ShapesLayerList(...)}:}{
 #'     Creates a \linkS4class{ShapesLayerList}. Accepts named \code{DataFrame}
@@ -54,15 +56,16 @@ NULL
 #' \describe{
 #'   \item{\code{as(x, "RasterLayerList")}, \code{as(x, "PointsLayerList")},
 #'     \code{as(x, "ShapesLayerList")}:}{
-#'     Coerce \code{list} or \linkS4class{List} to the target class.
-#'     For \code{ShapesLayerList}, \code{data.frame} elements are converted to
-#'     \code{DataFrame}.
+#'     Coerce \code{list} or \link[S4Vectors:List-class]{List} to the target
+#'     class. For \code{ShapesLayerList}, \code{data.frame} elements are
+#'     converted to \code{DataFrame}.
 #'   }
 #' }
 #'
 #' @section Displaying:
 #' The \code{show()} method prints the class name, length, and for each layer:
-#' index, name, element class, and dimensions (raster) or row x col (points/shapes).
+#' index, name, element class, and dimensions (raster) or row x col
+#' (points/shapes).
 #'
 #' @note
 #' \strong{Terminology alignment with spatialdata:}
@@ -70,9 +73,9 @@ NULL
 #' MASE uses the "Layer" suffix (\code{PointsLayerList}, \code{ShapesLayerList},
 #' \code{RasterLayerList}) rather than "Element" to avoid naming collisions with
 #' R base classes and Bioconductor conventions. The Python spatialdata package
-#' uses "element" as an internal discriminator (e.g., \code{element_type} column,
-#' \code{sdata.points}, \code{sdata.shapes}) but does not define List container
-#' classes.
+#' uses "element" as an internal discriminator (e.g., \code{element_type}
+#' column, \code{sdata.points}, \code{sdata.shapes}) but does not define List
+#' container classes.
 #'
 #' MASE's \code{element_type} column in \code{spatialMap} corresponds to
 #' spatialdata's element type discriminator, routing to the appropriate spatial
@@ -127,8 +130,9 @@ NULL
 #'
 #' @seealso
 #' \itemize{
-#'   \item \linkS4class{MultiAssaySpatialExperiment} for usage in multi-assay context
-#'   \item \linkS4class{SimpleList} for the base class
+#'   \item \linkS4class{MultiAssaySpatialExperiment} for usage in multi-assay
+#'     context
+#'   \item \link[S4Vectors:SimpleList-class]{SimpleList} for the base class
 #' }
 #'
 #' @keywords classes methods

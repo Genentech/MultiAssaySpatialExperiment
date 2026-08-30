@@ -13,29 +13,31 @@ buildSpatialMap(
 )
 }
 \arguments{
-\item{sampleMap}{A \linkS4class{DataFrame} with MAE columns \code{assay},
-\code{primary}, and \code{colname}.}
+\item{sampleMap}{A \link[S4Vectors:DataFrame-class]{DataFrame} with MAE
+columns \code{assay}, \code{primary}, and \code{colname}.}
 
-\item{region}{Character. Name of the points or shapes layer (must match a name in
-\code{spatialPoints} or \code{spatialShapes} when the object is constructed).}
+\item{region}{Character. Name of the points or shapes layer (must match a
+name in \code{spatialPoints} or \code{spatialShapes} when the object is
+constructed).}
 
 \item{element_type}{Character. \code{"points"} or \code{"shapes"}.}
 
-\item{assays}{Optional character vector limiting which assays from \code{sampleMap}
-are included.}
+\item{assays}{Optional character vector limiting which assays from
+\code{sampleMap} are included.}
 
 \item{instance_from}{Character. Column of \code{sampleMap} used for
-\code{instance_id} values (default \code{"colname"}, i.e. observation id equals
-spatial instance id).}
+\code{instance_id} values (default \code{"colname"}, i.e. observation id
+equals spatial instance id).}
 }
 \value{
-A \linkS4class{DataFrame} with columns \code{assay}, \code{colname},
-  \code{element_type}, \code{region}, and \code{instance_id}.
+A \link[S4Vectors:DataFrame-class]{DataFrame} with columns
+  \code{assay}, \code{colname}, \code{element_type}, \code{region}, and
+  \code{instance_id}.
 }
 \description{
-Assemble a \code{spatialMap} \linkS4class{DataFrame} linking assay observations
-to spatial layer instances, analogous to \code{\link[MultiAssayExperiment]{listToMap}}
-for \code{sampleMap}.
+Assemble a \code{spatialMap} \link[S4Vectors:DataFrame-class]{DataFrame}
+linking assay observations to spatial layer instances, analogous to
+\code{\link[MultiAssayExperiment]{listToMap}} for \code{sampleMap}.
 }
 \examples{
 sm <- S4Vectors::DataFrame(
@@ -46,5 +48,6 @@ buildSpatialMap(sm, region = "tissue1", element_type = "points")
 
 }
 \seealso{
-\code{\link{prepMASE}}, \code{\link[MultiAssayExperiment]{listToMap}}
+\code{\link{prepMASE}},
+  \code{\link[MultiAssayExperiment]{listToMap}}
 }

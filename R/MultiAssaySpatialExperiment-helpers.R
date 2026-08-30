@@ -15,21 +15,26 @@ NULL
 #'
 #' @param ExperimentList A \link[MultiAssayExperiment]{ExperimentList} or named
 #'   list of assays passed to \code{\link[MultiAssayExperiment]{prepMultiAssay}}.
-#' @param colData A \linkS4class{DataFrame} of specimen-level metadata (one row
-#'   per \code{sampleMap$primary}), passed to \code{prepMultiAssay}.
-#' @param sampleMap A \linkS4class{DataFrame} with MAE columns \code{assay},
-#'   \code{primary}, and \code{colname}, passed to \code{prepMultiAssay}.
+#' @param colData A \link[S4Vectors:DataFrame-class]{DataFrame} of
+#'   specimen-level metadata (one row per \code{sampleMap$primary}), passed to
+#'   \code{prepMultiAssay}.
+#' @param sampleMap A \link[S4Vectors:DataFrame-class]{DataFrame} with MAE
+#'   columns \code{assay}, \code{primary}, and \code{colname}, passed to
+#'   \code{prepMultiAssay}.
 #' @param points A \linkS4class{PointsLayerList} or named list of point layers.
 #' @param shapes A \linkS4class{ShapesLayerList} or named list of shape layers.
 #' @param images A \linkS4class{RasterLayerList} of image layers (default empty).
 #' @param labels A \linkS4class{RasterLayerList} of label layers (default empty).
-#' @param imgData Optional specimen-level image metadata \linkS4class{DataFrame}.
-#' @param spatialMap Optional instance-level mapping \linkS4class{DataFrame}.
-#' @param ... Additional arguments passed to \code{prepMultiAssay} (\code{metadata},
-#'   \code{drops}).
+#' @param imgData Optional specimen-level image metadata
+#'   \link[S4Vectors:DataFrame-class]{DataFrame}.
+#' @param spatialMap Optional instance-level mapping
+#'   \link[S4Vectors:DataFrame-class]{DataFrame}.
+#' @param ... Additional arguments passed to \code{prepMultiAssay}
+#'   (\code{metadata}, \code{drops}).
 #'
 #' @return A \code{list} with elements \code{experiments}, \code{colData},
-#'   \code{sampleMap}, \code{metadata}, \code{drops}, and spatial slot components.
+#'   \code{sampleMap}, \code{metadata}, \code{drops}, and spatial slot
+#'   components.
 #'
 #' @seealso \code{\link{buildSpatialMap}},
 #'   \code{\link[MultiAssayExperiment]{prepMultiAssay}}

@@ -1,3 +1,27 @@
+# MultiAssaySpatialExperiment 0.99.10
+
+## Documentation
+
+- Fixed the `R CMD check` "Rd cross-references" NOTE: 34 roxygen `\linkS4class{}`
+  references to classes defined in other packages (`DataFrame` and `List`/
+  `SimpleList` in `S4Vectors`; `SpatialExperiment`; `SingleCellExperiment`;
+  `MultiAssayExperiment` and `ExperimentList` in `MultiAssayExperiment`;
+  `SummarizedExperiment`) had no package anchor, across 7 source files and
+  the 12 man pages they generate. `\linkS4class{X}` only resolves without a
+  warning for classes in the current package; cross-package references now
+  use `\link[pkg:X-class]{X}`. Classes defined in this package itself
+  (`MultiAssaySpatialExperiment`, `RasterLayerList`, `PointsLayerList`,
+  `ShapesLayerList`, `SpatialLayerList`) were left as plain `\linkS4class{}`,
+  since those never needed anchoring.
+- Fixed the stale `http://` Bioconductor badge URL in `README.md` (`R CMD
+  check` flagged it as a 301 redirect to `https://`).
+
+## Bug fixes
+
+- Added the missing `Matrix` `Suggests` dependency, used directly in
+  `tests/` but not declared, which `R CMD check` flagged as an unstated
+  test dependency.
+
 # MultiAssaySpatialExperiment 0.99.9
 
 ## Documentation

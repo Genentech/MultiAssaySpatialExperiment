@@ -12,9 +12,11 @@ checkSpatialMap(
 )
 }
 \arguments{
-\item{spatialMap}{A \code{spatialMap} \linkS4class{DataFrame} or \code{NULL}.}
+\item{spatialMap}{A \code{spatialMap}
+\link[S4Vectors:DataFrame-class]{DataFrame} or \code{NULL}.}
 
-\item{sampleMap}{A MAE \code{sampleMap} \linkS4class{DataFrame}.}
+\item{sampleMap}{A MAE \code{sampleMap}
+\link[S4Vectors:DataFrame-class]{DataFrame}.}
 
 \item{points}{A \linkS4class{PointsLayerList} or named list of point layers.}
 

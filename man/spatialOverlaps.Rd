@@ -5,8 +5,8 @@
 \alias{spatialOverlaps,DataFrame-method}
 \title{Spatial overlap predicate for DataFrame}
 \arguments{
-\item{x}{A \code{\linkS4class{DataFrame}} with spatial data (coordinate
-columns or a geometry column).}
+\item{x}{A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with spatial
+data (coordinate columns or a geometry column).}
 
 \item{y}{A spatial region to test against.  Typically an \code{sfc},
 \code{sfg}, or similar geometry object from \pkg{sf}.}
@@ -27,10 +27,10 @@ A logical vector of length \code{nrow(x)}.  \code{TRUE} for rows
   whose spatial data intersects \code{y}.
 }
 \description{
-Test which rows of a \code{\linkS4class{DataFrame}} spatially intersect a
-region.  Analogous to \code{is.na} or \code{duplicated} from
-\pkg{S4Vectors}: returns a logical vector that can be used for subsetting
-via \code{x[spatialOverlaps(x, y, ...), ]}.
+Test which rows of a \code{\link[S4Vectors:DataFrame-class]{DataFrame}}
+spatially intersect a region.  Analogous to \code{is.na} or \code{duplicated}
+from \pkg{S4Vectors}: returns a logical vector that can be used for
+subsetting via \code{x[spatialOverlaps(x, y, ...), ]}.
 }
 \details{
 The \code{DataFrame} method uses \pkg{sf} functions (\code{st_as_sfc},

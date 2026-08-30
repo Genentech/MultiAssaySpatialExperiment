@@ -5,11 +5,11 @@
 \alias{spatialMatch,DataFrame,DataFrame-method}
 \title{Spatial match for DataFrame}
 \arguments{
-\item{x}{A \code{\linkS4class{DataFrame}} with coordinate columns
-representing point locations.}
+\item{x}{A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with coordinate
+columns representing point locations.}
 
-\item{table}{A \code{\linkS4class{DataFrame}} with a geometry column
-representing spatial regions.}
+\item{table}{A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with a
+geometry column representing spatial regions.}
 
 \item{...}{Additional arguments passed to methods.  Common arguments:
 \describe{

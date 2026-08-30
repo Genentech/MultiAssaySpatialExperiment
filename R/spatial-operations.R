@@ -22,13 +22,13 @@ NULL
 #' Spatial overlap predicate for DataFrame
 #'
 #' @description
-#' Test which rows of a \code{\linkS4class{DataFrame}} spatially intersect a
-#' region.  Analogous to \code{is.na} or \code{duplicated} from
-#' \pkg{S4Vectors}: returns a logical vector that can be used for subsetting
-#' via \code{x[spatialOverlaps(x, y, ...), ]}.
+#' Test which rows of a \code{\link[S4Vectors:DataFrame-class]{DataFrame}}
+#' spatially intersect a region.  Analogous to \code{is.na} or \code{duplicated}
+#' from \pkg{S4Vectors}: returns a logical vector that can be used for
+#' subsetting via \code{x[spatialOverlaps(x, y, ...), ]}.
 #'
-#' @param x A \code{\linkS4class{DataFrame}} with spatial data (coordinate
-#'   columns or a geometry column).
+#' @param x A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with spatial
+#'   data (coordinate columns or a geometry column).
 #' @param y A spatial region to test against.  Typically an \code{sfc},
 #'   \code{sfg}, or similar geometry object from \pkg{sf}.
 #' @param ... Additional arguments passed to methods.  Common arguments:
@@ -108,10 +108,10 @@ setMethod("spatialOverlaps", "DataFrame",
 #' from \pkg{S4Vectors}: returns an integer vector of positions in
 #' \code{table}.
 #'
-#' @param x A \code{\linkS4class{DataFrame}} with coordinate columns
-#'   representing point locations.
-#' @param table A \code{\linkS4class{DataFrame}} with a geometry column
-#'   representing spatial regions.
+#' @param x A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with coordinate
+#'   columns representing point locations.
+#' @param table A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with a
+#'   geometry column representing spatial regions.
 #' @param ... Additional arguments passed to methods.  Common arguments:
 #'   \describe{
 #'     \item{\code{coords}}{Character vector of length 2 naming the
@@ -193,11 +193,12 @@ setMethod("spatialMatch", c("DataFrame", "DataFrame"),
 #' Spatial join between spatial layer tables
 #'
 #' @description
-#' Join two spatial \code{\linkS4class{DataFrame}} layers on a spatial
-#' predicate. The \code{DataFrame} method uses \pkg{sf} attribute joins
-#' via \code{\link[sf:st_join]{st_join}}.
+#' Join two spatial \code{\link[S4Vectors:DataFrame-class]{DataFrame}} layers on
+#' a spatial predicate. The \code{DataFrame} method uses \pkg{sf} attribute
+#' joins via \code{\link[sf:st_join]{st_join}}.
 #'
-#' @param x A \code{\linkS4class{DataFrame}} with spatial data.
+#' @param x A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with spatial
+#'   data.
 #' @param y A spatial table to join against.
 #' @param join Spatial predicate function (default
 #'   \code{\link[sf:st_intersects]{st_intersects}}).

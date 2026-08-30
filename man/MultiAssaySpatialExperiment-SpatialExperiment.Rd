@@ -20,7 +20,8 @@
 \value{
 Coercion returns the requested object: a
 \linkS4class{MultiAssaySpatialExperiment} from a
-\linkS4class{SpatialExperiment}, or a \linkS4class{SpatialExperiment} from a
+\link[SpatialExperiment:SpatialExperiment-class]{SpatialExperiment}, or a
+\link[SpatialExperiment:SpatialExperiment-class]{SpatialExperiment} from a
 MASE. \code{spatialCoords()} returns a numeric coordinate matrix and
 \code{scaleFactors()} a numeric vector. The image methods return image data
 (\code{getImg()}) or an updated MASE for the modifying methods (such as
@@ -28,7 +29,8 @@ MASE. \code{spatialCoords()} returns a numeric coordinate matrix and
 assay, or \code{NULL}.
 }
 \description{
-Coercion between \linkS4class{SpatialExperiment} and
+Coercion between
+\link[SpatialExperiment:SpatialExperiment-class]{SpatialExperiment} and
 \linkS4class{MultiAssaySpatialExperiment}, plus methods for
 \code{spatialCoords}, \code{imgData}, \code{scaleFactors}, \code{getImg},
 \code{addImg}, \code{rmvImg}, and related SpatialExperiment-derived
@@ -38,15 +40,18 @@ functionality.
 
 \describe{
   \item{\code{as(spe, "MultiAssaySpatialExperiment")}:}{
-    Stores the assay data as a plain \linkS4class{SingleCellExperiment} (the
-    \linkS4class{SpatialExperiment} class itself is not retained);
-    \code{spatialCoords} are copied to \code{points} (with a matching
-    \code{spatialMap}), and \code{imgData} is passed through. This keeps all
-    spatial content in MASE's own layers, which is what
+    Stores the assay data as a plain
+    \link[SingleCellExperiment:SingleCellExperiment-class]{SingleCellExperiment}
+    (the
+    \link[SpatialExperiment:SpatialExperiment-class]{SpatialExperiment} class
+    itself is not retained); \code{spatialCoords} are copied to \code{points}
+    (with a matching \code{spatialMap}), and \code{imgData} is passed through.
+    This keeps all spatial content in MASE's own layers, which is what
     \code{writeParquet()} understands.
   }
   \item{\code{as(mase, "SpatialExperiment")}:}{
-    Requires exactly one assay. Builds a \linkS4class{SpatialExperiment}
+    Requires exactly one assay. Builds a
+    \link[SpatialExperiment:SpatialExperiment-class]{SpatialExperiment}
     from that assay's data plus \code{spatialCoords} resolved from
     \code{points(mase)} and \code{imgData(mase)}.
   }
@@ -123,7 +128,8 @@ as(mase, "SpatialExperiment")
 \seealso{
 \itemize{
   \item \linkS4class{MultiAssaySpatialExperiment} for the main class
-  \item \linkS4class{SpatialExperiment} for single-assay spatial data
+  \item \link[SpatialExperiment:SpatialExperiment-class]{SpatialExperiment}
+  for single-assay spatial data
 }
 }
 \author{

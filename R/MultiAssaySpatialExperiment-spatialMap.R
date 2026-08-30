@@ -89,25 +89,28 @@ VALID_ELEMENT_TYPES <- c("points", "shapes")
 #' Build a spatialMap table from sampleMap
 #'
 #' @description
-#' Assemble a \code{spatialMap} \linkS4class{DataFrame} linking assay observations
-#' to spatial layer instances, analogous to \code{\link[MultiAssayExperiment]{listToMap}}
-#' for \code{sampleMap}.
+#' Assemble a \code{spatialMap} \link[S4Vectors:DataFrame-class]{DataFrame}
+#' linking assay observations to spatial layer instances, analogous to
+#' \code{\link[MultiAssayExperiment]{listToMap}} for \code{sampleMap}.
 #'
-#' @param sampleMap A \linkS4class{DataFrame} with MAE columns \code{assay},
-#'   \code{primary}, and \code{colname}.
-#' @param region Character. Name of the points or shapes layer (must match a name in
-#'   \code{spatialPoints} or \code{spatialShapes} when the object is constructed).
+#' @param sampleMap A \link[S4Vectors:DataFrame-class]{DataFrame} with MAE
+#'   columns \code{assay}, \code{primary}, and \code{colname}.
+#' @param region Character. Name of the points or shapes layer (must match a
+#'   name in \code{spatialPoints} or \code{spatialShapes} when the object is
+#'   constructed).
 #' @param element_type Character. \code{"points"} or \code{"shapes"}.
-#' @param assays Optional character vector limiting which assays from \code{sampleMap}
-#'   are included.
+#' @param assays Optional character vector limiting which assays from
+#'   \code{sampleMap} are included.
 #' @param instance_from Character. Column of \code{sampleMap} used for
-#'   \code{instance_id} values (default \code{"colname"}, i.e. observation id equals
-#'   spatial instance id).
+#'   \code{instance_id} values (default \code{"colname"}, i.e. observation id
+#'   equals spatial instance id).
 #'
-#' @return A \linkS4class{DataFrame} with columns \code{assay}, \code{colname},
-#'   \code{element_type}, \code{region}, and \code{instance_id}.
+#' @return A \link[S4Vectors:DataFrame-class]{DataFrame} with columns
+#'   \code{assay}, \code{colname}, \code{element_type}, \code{region}, and
+#'   \code{instance_id}.
 #'
-#' @seealso \code{\link{prepMASE}}, \code{\link[MultiAssayExperiment]{listToMap}}
+#' @seealso \code{\link{prepMASE}},
+#'   \code{\link[MultiAssayExperiment]{listToMap}}
 #'
 #' @examples
 #' sm <- S4Vectors::DataFrame(
@@ -156,8 +159,10 @@ function(sampleMap, region, element_type = c("points", "shapes"), assays = NULL,
 #' \linkS4class{MultiAssaySpatialExperiment}. Returns a character vector of
 #' problems (empty if valid).
 #'
-#' @param spatialMap A \code{spatialMap} \linkS4class{DataFrame} or \code{NULL}.
-#' @param sampleMap A MAE \code{sampleMap} \linkS4class{DataFrame}.
+#' @param spatialMap A \code{spatialMap}
+#'   \link[S4Vectors:DataFrame-class]{DataFrame} or \code{NULL}.
+#' @param sampleMap A MAE \code{sampleMap}
+#'   \link[S4Vectors:DataFrame-class]{DataFrame}.
 #' @param points A \linkS4class{PointsLayerList} or named list of point layers.
 #' @param shapes A \linkS4class{ShapesLayerList} or named list of shape layers.
 #'

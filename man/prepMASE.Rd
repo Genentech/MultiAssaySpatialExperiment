@@ -21,11 +21,13 @@ prepMASE(
 \item{ExperimentList}{A \link[MultiAssayExperiment]{ExperimentList} or named
 list of assays passed to \code{\link[MultiAssayExperiment]{prepMultiAssay}}.}
 
-\item{colData}{A \linkS4class{DataFrame} of specimen-level metadata (one row
-per \code{sampleMap$primary}), passed to \code{prepMultiAssay}.}
+\item{colData}{A \link[S4Vectors:DataFrame-class]{DataFrame} of
+specimen-level metadata (one row per \code{sampleMap$primary}), passed to
+\code{prepMultiAssay}.}
 
-\item{sampleMap}{A \linkS4class{DataFrame} with MAE columns \code{assay},
-\code{primary}, and \code{colname}, passed to \code{prepMultiAssay}.}
+\item{sampleMap}{A \link[S4Vectors:DataFrame-class]{DataFrame} with MAE
+columns \code{assay}, \code{primary}, and \code{colname}, passed to
+\code{prepMultiAssay}.}
 
 \item{points}{A \linkS4class{PointsLayerList} or named list of point layers.}
 
@@ -35,16 +37,19 @@ per \code{sampleMap$primary}), passed to \code{prepMultiAssay}.}
 
 \item{labels}{A \linkS4class{RasterLayerList} of label layers (default empty).}
 
-\item{imgData}{Optional specimen-level image metadata \linkS4class{DataFrame}.}
+\item{imgData}{Optional specimen-level image metadata
+\link[S4Vectors:DataFrame-class]{DataFrame}.}
 
-\item{spatialMap}{Optional instance-level mapping \linkS4class{DataFrame}.}
+\item{spatialMap}{Optional instance-level mapping
+\link[S4Vectors:DataFrame-class]{DataFrame}.}
 
-\item{...}{Additional arguments passed to \code{prepMultiAssay} (\code{metadata},
-\code{drops}).}
+\item{...}{Additional arguments passed to \code{prepMultiAssay}
+(\code{metadata}, \code{drops}).}
 }
 \value{
 A \code{list} with elements \code{experiments}, \code{colData},
-  \code{sampleMap}, \code{metadata}, \code{drops}, and spatial slot components.
+  \code{sampleMap}, \code{metadata}, \code{drops}, and spatial slot
+  components.
 }
 \description{
 Wraps \code{\link[MultiAssayExperiment]{prepMultiAssay}} and harmonizes spatial

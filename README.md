@@ -3,7 +3,7 @@
 **Multi-modal spatial transcriptomics with Bioconductor**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Bioconductor](https://img.shields.io/badge/Bioconductor-devel-brightgreen.svg)](http://bioconductor.org/packages/devel/bioc/html/MultiAssaySpatialExperiment.html)
+[![Bioconductor](https://img.shields.io/badge/Bioconductor-devel-brightgreen.svg)](https://bioconductor.org/packages/devel/bioc/html/MultiAssaySpatialExperiment.html)
 
 ## Overview
 

@@ -16,7 +16,8 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #' MultiAssaySpatialExperiment objects
 #'
 #' @description
-#' The MultiAssaySpatialExperiment class extends \linkS4class{MultiAssayExperiment}
+#' The MultiAssaySpatialExperiment class extends
+#' \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment}
 #' with spatial context: raster data (images, labels), points, and shapes.
 #'
 #' @details
@@ -34,7 +35,8 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #' @section Slots:
 #' \describe{
 #'   \item{\code{ExperimentList}, \code{colData}, \code{sampleMap}, \code{drops}}{
-#'     Inherited from \linkS4class{MultiAssayExperiment}.
+#'     Inherited from
+#'     \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment}.
 #'   }
 #'   \item{\code{images}}{
 #'     A \linkS4class{RasterLayerList} of user-attached image rasters (not the
@@ -52,8 +54,8 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'   }
 #'   \item{\code{imgData}}{
 #'     Optional \code{DataFrame} linking specimens to images (same structure as
-#'     \code{SpatialExperiment}, including \code{sample_id}, \code{image_id}, and
-#'     \code{scaleFactor}). Populated by vendor readers; distinct from
+#'     \code{SpatialExperiment}, including \code{sample_id}, \code{image_id},
+#'     and \code{scaleFactor}). Populated by vendor readers; distinct from
 #'     \code{spatialImages()} raster layers.
 #'   }
 #'   \item{\code{spatialMap}}{
@@ -105,22 +107,27 @@ replaceSlots <- BiocGenerics:::replaceSlots
 #'     Creates a MultiAssaySpatialExperiment object.
 #'     \describe{
 #'       \item{\code{experiments}}{
-#'         An \linkS4class{ExperimentList} or list of experiments.
+#'         An \link[MultiAssayExperiment:ExperimentList-class]{ExperimentList}
+#'         or list of experiments.
 #'       }
 #'       \item{\code{colData}}{
-#'         A \linkS4class{DataFrame} of specimen-level metadata (one row per
-#'         primary identifier in \code{sampleMap$primary}).
+#'         A \link[S4Vectors:DataFrame-class]{DataFrame} of specimen-level
+#'         metadata (one row per primary identifier in
+#'         \code{sampleMap$primary}).
 #'       }
 #'       \item{\code{sampleMap}}{
-#'         A \linkS4class{DataFrame} with columns \code{assay}, \code{primary},
-#'         \code{colname}.
+#'         A \link[S4Vectors:DataFrame-class]{DataFrame} with columns
+#'         \code{assay}, \code{primary}, \code{colname}.
 #'       }
 #'       \item{\code{metadata}, \code{drops}}{
-#'         Additional \linkS4class{MultiAssayExperiment} arguments.
+#'         Additional
+#'         \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment}
+#'         arguments.
 #'       }
 #'       \item{\code{images}, \code{labels}}{
-#'         \linkS4class{RasterLayerList} of user-attached raster layers (distinct
-#'         from \code{imgData}, which vendor readers use for image metadata).
+#'         \linkS4class{RasterLayerList} of user-attached raster layers
+#'         (distinct from \code{imgData}, which vendor readers use for image
+#'         metadata).
 #'       }
 #'       \item{\code{points}, \code{shapes}}{
 #'         \linkS4class{PointsLayerList} and \linkS4class{ShapesLayerList}

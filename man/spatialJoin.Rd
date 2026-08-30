@@ -8,7 +8,8 @@
 spatialJoin(x, y, join = st_intersects, sparse = TRUE, ...)
 }
 \arguments{
-\item{x}{A \code{\linkS4class{DataFrame}} with spatial data.}
+\item{x}{A \code{\link[S4Vectors:DataFrame-class]{DataFrame}} with spatial
+data.}
 
 \item{y}{A spatial table to join against.}
 
@@ -27,9 +28,9 @@ Join result. The \code{DataFrame} method returns an \code{sf}
   object from \code{st_join}.
 }
 \description{
-Join two spatial \code{\linkS4class{DataFrame}} layers on a spatial
-predicate. The \code{DataFrame} method uses \pkg{sf} attribute joins
-via \code{\link[sf:st_join]{st_join}}.
+Join two spatial \code{\link[S4Vectors:DataFrame-class]{DataFrame}} layers on
+a spatial predicate. The \code{DataFrame} method uses \pkg{sf} attribute
+joins via \code{\link[sf:st_join]{st_join}}.
 }
 \examples{
 library(sf)

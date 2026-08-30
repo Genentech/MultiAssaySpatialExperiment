@@ -21,7 +21,8 @@ SummarizedExperiment
 }
 \description{
 Read an HDF5 matrix file (10x or AnnData/h5ad) into a
-\linkS4class{SummarizedExperiment} for MASE assembly.
+\link[SummarizedExperiment:SummarizedExperiment-class]{SummarizedExperiment}
+for MASE assembly.
 }
 \examples{
 \dontrun{

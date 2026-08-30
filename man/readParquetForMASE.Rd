@@ -20,8 +20,8 @@ readParquetForMASE(file_path, ...)
 DataFrame
 }
 \description{
-Read a Parquet file into a \linkS4class{DataFrame} for use in MASE component
-assembly or custom readers.
+Read a Parquet file into a \link[S4Vectors:DataFrame-class]{DataFrame} for
+use in MASE component assembly or custom readers.
 }
 \examples{
 if (requireNamespace("arrow", quietly = TRUE)) {
