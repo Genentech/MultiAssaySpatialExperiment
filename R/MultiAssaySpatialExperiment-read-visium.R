@@ -28,7 +28,7 @@
 #' @seealso \code{\link{readVisiumHDMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' ## Requires a Space Ranger output directory (see package tests for mock layout)
 #' mase <- readVisiumMASE("path/to/visium")
 #' names(mase)

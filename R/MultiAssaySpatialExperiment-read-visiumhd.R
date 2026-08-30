@@ -27,7 +27,7 @@
 #' @seealso \code{\link{readVisiumMASE}}, \code{\link{readXeniumMASE}}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' ## Requires a Visium HD Space Ranger output directory
 #' mase <- readVisiumHDMASE("path/to/visium_hd", bin_size = "008")
 #' names(mase)

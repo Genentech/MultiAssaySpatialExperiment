@@ -50,7 +50,7 @@ Reads cell-by-gene counts, cell coordinates, optional segmentation polygons
 set \code{load_images = TRUE} to load raster data.
 }
 \examples{
-\dontrun{
+\donttest{
 ## Requires a Xenium output directory (see package tests for mock layout)
 mase <- readXeniumMASE("path/to/xenium")
 names(mase)

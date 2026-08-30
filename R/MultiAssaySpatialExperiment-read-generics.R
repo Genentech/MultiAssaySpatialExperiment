@@ -96,7 +96,7 @@ setMethod("readGeoParquetForMASE", "character",
 #' @return SummarizedExperiment
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' ## Requires DropletUtils and a 10x filtered_feature_bc_matrix.h5 file
 #' readHDF5ForMASE("filtered_feature_bc_matrix.h5", type = "10x")
 #' }

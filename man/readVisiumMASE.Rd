@@ -48,7 +48,7 @@ H&E image metadata (\code{images}). Coordinates may be returned in pixels or
 microns (\code{unit}). For Visium HD data, use \code{\link{readVisiumHDMASE}}.
 }
 \examples{
-\dontrun{
+\donttest{
 ## Requires a Space Ranger output directory (see package tests for mock layout)
 mase <- readVisiumMASE("path/to/visium")
 names(mase)

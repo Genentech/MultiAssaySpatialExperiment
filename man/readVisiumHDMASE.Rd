@@ -43,7 +43,7 @@ Visium HD provides binned expression at 2 µm, 8 µm, and 16 µm resolution
 becomes a separate assay in the returned object.
 }
 \examples{
-\dontrun{
+\donttest{
 ## Requires a Visium HD Space Ranger output directory
 mase <- readVisiumHDMASE("path/to/visium_hd", bin_size = "008")
 names(mase)

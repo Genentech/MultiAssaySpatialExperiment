@@ -1,3 +1,17 @@
+# MultiAssaySpatialExperiment 0.99.12
+
+## Documentation
+
+- Replaced `\dontrun{}` with `\donttest{}` in the four platform-reader
+  examples that need real vendor output (`readHDF5ForMASE()`,
+  `readVisiumMASE()`, `readVisiumHDMASE()`, `readXeniumMASE()`), per
+  `BiocCheck`: `\dontrun{}` examples never run, even under
+  `R CMD check --run-donttest` or interactive `example()`, while
+  `\donttest{}` ones do, which is what lets Bioconductor's periodic checks
+  catch these examples rotting out from under a real file-format change.
+  Verified directly with `BiocCheck`: no ERROR or WARNING, and its
+  dontrun/donttest usage NOTE now reports only `\donttest{}` tags.
+
 # MultiAssaySpatialExperiment 0.99.11
 
 ## Documentation

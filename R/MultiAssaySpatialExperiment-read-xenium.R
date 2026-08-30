@@ -31,7 +31,7 @@
 #'   \code{\link{readCosMxMASE}}, \code{\link{readMERSCOPEMASE}}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' ## Requires a Xenium output directory (see package tests for mock layout)
 #' mase <- readXeniumMASE("path/to/xenium")
 #' names(mase)
