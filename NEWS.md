@@ -1,3 +1,16 @@
+# MultiAssaySpatialExperiment 0.99.13
+
+## Bug fixes
+
+- `as(mase, "SpatialFeatureExperiment")` failed with `'arg' should be one of
+  "full_res_image_pixel", "micron"` for any MASE built from an SFE that
+  stores its unit as `"full_res_image_pixels"`, which is how older SFE
+  objects, including the `SFEData` example datasets, record it. The SFE
+  constructor only accepts the singular spelling, and the coercion passed the
+  stored value through unchanged. The legacy spelling is now normalized both
+  when the unit is stored in `metadata(mase)` and when it is read back, so
+  MASE objects written before this fix also convert.
+
 # MultiAssaySpatialExperiment 0.99.12
 
 ## Documentation

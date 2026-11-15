@@ -116,6 +116,26 @@ test_that("SFE -> MASE -> SFE round-trips multiple colGeometries and an annotGeo
     expect_equal(ncol(sfe2), ncol(sfe))
 })
 
+test_that("an SFE carrying the legacy 'full_res_image_pixels' unit round-trips through MASE", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    sfe <- .make_populated_sfe()
+    SingleCellExperiment::int_metadata(sfe)$unit <- "full_res_image_pixels"
+    expect_identical(unit(sfe), "full_res_image_pixels")
+
+    mase <- as(sfe, "MultiAssaySpatialExperiment")
+    expect_identical(S4Vectors::metadata(mase)[["spatialUnit"]], "full_res_image_pixel")
+
+    sfe2 <- as(mase, "SpatialFeatureExperiment")
+    expect_true(validObject(sfe2))
+    expect_identical(unit(sfe2), "full_res_image_pixel")
+    expect_equal(ncol(sfe2), ncol(sfe))
+
+    # a MASE written before this fix still carries the legacy spelling
+    S4Vectors::metadata(mase)[["spatialUnit"]] <- "full_res_image_pixels"
+    expect_identical(unit(as(mase, "SpatialFeatureExperiment")), "full_res_image_pixel")
+})
+
 test_that("col-margin spatialGraphs round-trip through MASE natively and via SFE", {
     skip_if_not_installed("SpatialFeatureExperiment")
     library(SpatialFeatureExperiment)

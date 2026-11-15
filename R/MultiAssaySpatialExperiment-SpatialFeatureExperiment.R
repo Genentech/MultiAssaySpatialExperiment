@@ -30,6 +30,13 @@ NULL
 ### Helpers: sf <-> MASE-native DataFrame, listw <-> SelfHits
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# Older SFE objects (e.g. the SFEData datasets) store the unit as
+# "full_res_image_pixels", which the SFE constructor no longer accepts.
+.normalize_sfe_unit <- function(u) {
+    if (is.null(u)) return(NULL)
+    sub("^full_res_image_pixels$", "full_res_image_pixel", u)
+}
+
 #' @importFrom S4Vectors DataFrame
 .sf_to_shapes_df <- function(sfobj, instance_ids = NULL) {
     df <- DataFrame(sfobj)
@@ -192,7 +199,7 @@ NULL
             u <- tryCatch(SpatialFeatureExperiment::unit(from),
                 error = function(e) NULL)
             if (!is.null(u))
-                metadata(mase)[["spatialUnit"]] <- u
+                metadata(mase)[["spatialUnit"]] <- .normalize_sfe_unit(u)
             mase
         },
         where = .sfe_ext_env
@@ -253,7 +260,7 @@ NULL
         lapply(names(cps), function(nm) .selfhits_to_listw(cps[[nm]], cn)),
         names(cps))
 
-    u <- metadata(x)[["spatialUnit"]]
+    u <- .normalize_sfe_unit(metadata(x)[["spatialUnit"]])
     if (is.null(u)) u <- "full_res_image_pixel"
 
     sample_ids <- unique(as.character(colData(exp)[["sample_id"]]))
