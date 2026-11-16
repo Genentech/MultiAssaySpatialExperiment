@@ -14,7 +14,7 @@
 - **Instance-level mapping**: Link assay columns to specific spatial features via `spatialMap`
 - **Built-in readers**: Load data from Xenium, Visium, Visium HD, MERSCOPE, and CosMx
 - **Spatial operations**: Annotate, aggregate, subset by spatial criteria
-- **Full interoperability**: Coercion to/from SpatialExperiment and SpatialFeatureExperiment
+- **Interoperability**: Coercion to/from SpatialExperiment, SpatialFeatureExperiment and spatialdataR's SpatialData
 
 ## Installation
 
@@ -90,6 +90,10 @@ mase <- as(spe, "MultiAssaySpatialExperiment")
 # From SpatialFeatureExperiment
 sfe <- SpatialFeatureExperiment(...)
 mase <- as(sfe, "MultiAssaySpatialExperiment")
+
+# From a spatialdataR SpatialData
+sd <- spatialdataR::readSpatialData("path/to/data.zarr")
+mase <- as(sd, "MultiAssaySpatialExperiment")
 ```
 
 ## Core Features
@@ -200,6 +204,20 @@ mase <- MultiAssaySpatialExperiment(
 )
 ```
 
+### For spatialdataR users
+
+**Problem**: A `SpatialData` object holds tables, points, shapes, images and labels, and you want them alongside other assays in one multi-assay object.
+
+**Solution**: `as(sd, "MultiAssaySpatialExperiment")` turns each table into an assay and collects the points and shapes into layers, linked through `spatialMap` wherever a table names the element it annotates. `as(mase, "SpatialData")` writes the assays back as tables. Both need the `spatialdataR` package to be loaded, and once it is loaded MASE also answers its own generics (`points()`, `shapes()`, `tables()`, `layer()`, `element()` and so on).
+
+```r
+sd <- spatialdataR::readSpatialData("path/to/data.zarr")
+mase <- as(sd, "MultiAssaySpatialExperiment")
+sd2 <- as(mase, "SpatialData")
+```
+
+Images and labels are not converted yet: both directions warn and name what was dropped, and a table that annotated a dropped element loses that annotation on the way back. Coordinate transformations of points and shapes are not converted either, and a warning names the elements whose coordinates are used as stored. Points and shapes are loaded into memory, because `spatialdataR` holds them as lazy DuckDB queries. Element names must be unique across points, shapes and tables. See `?"coerce-SpatialData"`.
+
 ## Architecture
 
 ### Core Components
@@ -280,21 +298,23 @@ browseVignettes("MultiAssaySpatialExperiment")
 - `spatialMap()`, `imgData()`
 
 **Coercion**:
-- `as(x, "MultiAssaySpatialExperiment")`: From SPE/SFE
+- `as(x, "MultiAssaySpatialExperiment")`: From SPE, SFE or a spatialdataR `SpatialData`
 - `as(mase, "SpatialExperiment")`: To SPE
+- `as(mase, "SpatialFeatureExperiment")`: To SFE
+- `as(mase, "SpatialData")`: To a spatialdataR `SpatialData`
 
 ## Design Principles
 
 ### Terminology and spatialdata alignment
 
-MASE aligns with [spatialdata](https://spatialdata.scverse.org/) (Python) for interoperability:
+MASE aligns with [spatialdata](https://spatialdata.scverse.org/) (Python) and its R implementation, `spatialdataR`, for interoperability:
 
 - **Specimen**: a row in `colData` (primary identifier); often a tissue section,
   patient, or replicate
 - **Observation**: a column in an assay matrix (cell, spot, bin)
-- **LayerList** vs **Element**: MASE uses "LayerList" (PointsLayerList, ShapesLayerList) to avoid R name collisions. Maps to spatialdata "elements" conceptually.
+- **LayerList** vs **Element**: following `spatialdataR`, a *layer* is one of images, labels, points, shapes or tables, and an *element* is a named entry in a layer. A `PointsLayerList` holds the elements of the points layer. MASE uses the "LayerList" suffix to avoid R name collisions.
 - **element_type**: Discriminates point vs shape layers in `spatialMap` (spatialdata uses slot names; MASE needs explicit column)
-- **region**: Layer name within element type (spatialdata "region", MASE "layer" — same concept)
+- **region**: Name of an element within its layer (the spatialdata "region")
 - **instance_id**: Row identifier within layer (consistent across both)
 
 See `?MultiAssaySpatialExperiment` for detailed terminology documentation.
@@ -329,28 +349,25 @@ Add new platforms without modifying core code.
 
 ## Package Statistics
 
-- **20 R source files**
-- **11 test files**
-- **3 vignettes**
 - **5 technology readers**
-- **Coercion**: SpatialExperiment and SpatialFeatureExperiment ↔ MASE
+- **Coercion**: SpatialExperiment, SpatialFeatureExperiment and spatialdataR's SpatialData ↔ MASE
 
 ## Development Status
 
-**Version 0.9.3** - Pre-release for community feedback
+**Pre-release** (Bioconductor devel) for community feedback. See `NEWS.md` for the current version and changes.
 
 - ✅ Core class implementation complete
 - ✅ Spatial operations (annotate, aggregate, subset)
 - ✅ Reader architecture (5 technologies)
-- ✅ Full interoperability (SPE, SFE)
+- ✅ Interoperability (SPE, SFE, spatialdataR)
 - ✅ Comprehensive documentation
-- ⏳ Bioconductor submission planned
+- ⏳ Under Bioconductor review
 
 ## Getting Help
 
 - **Documentation**: `?MultiAssaySpatialExperiment`
 - **Vignettes**: `browseVignettes("MultiAssaySpatialExperiment")`
-- **Issues**: [GitLab Issues](https://code.roche.com/GP/MultiAssaySpatialExperiment/-/issues)
+- **Issues**: [GitHub Issues](https://github.com/Genentech/MultiAssaySpatialExperiment/issues)
 
 ## License
 

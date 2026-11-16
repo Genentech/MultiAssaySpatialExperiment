@@ -1,34 +1,80 @@
-### =========================================================================
+### ============================================================================
 ### Package load / unload
-### -------------------------------------------------------------------------
+### ----------------------------------------------------------------------------
 ###
 ### Optional integrations register during .onLoad when their namespace is
-### already loaded. SpatialData integration lives in inst/scripts/ (not in
-### Suggests yet) and is sourced on demand via .register_SpatialData_all().
+### already loaded. Both integrations register into their own environment
+### (.sfe_ext_env, .sd_ext_env), because the namespace is sealed by then.
 ###
-### -------------------------------------------------------------------------
+### ----------------------------------------------------------------------------
 
 .sfe_ext_env <- new.env(parent = asNamespace("MultiAssaySpatialExperiment"))
+.sd_ext_env <- new.env(parent = asNamespace("MultiAssaySpatialExperiment"))
+
+## The integration is registered once per loaded namespace of the optional
+## package. If that package is unloaded and loaded again its generics are new
+## objects, so what was registered on the old ones is gone and the generics
+## imported from them are stale: forget both and register afresh.
+.needs_registration <- function(env, pkg) {
+    ns <- asNamespace(pkg)
+    if (identical(get0(".namespace", envir = env, inherits = FALSE), ns))
+        return(FALSE)
+    rm(list = ls(env, all.names = TRUE), envir = env)
+    assign(".namespace", ns, envir = env)
+    TRUE
+}
 
 .register_SFE_all <- function() {
-    if (isTRUE(get0(".sfe_registered", envir = .sfe_ext_env, inherits = FALSE)))
+    if (!.needs_registration(.sfe_ext_env, "SpatialFeatureExperiment"))
         return(invisible(NULL))
+    ## unset again if registration fails, so that a later load retries
+    ok <- FALSE
+    on.exit(if (!ok) rm(".namespace", envir = .sfe_ext_env))
     .register_SFE_coercion()
     .register_SFE_methods()
-    assign(".sfe_registered", TRUE, envir = .sfe_ext_env)
+    ok <- TRUE
+    invisible(NULL)
+}
+
+.optional_packages <- c("SpatialFeatureExperiment", "spatialdataR")
+
+## Hooks this package installs carry an attribute so that they can be found
+## again: reloading the package replaces them instead of stacking duplicates,
+## and .onUnload removes them without touching other packages' hooks.
+.is_mase_hook <- function(f)
+    isTRUE(attr(f, "MultiAssaySpatialExperiment"))
+
+.remove_optional_hooks <- function(pkg) {
+    event <- packageEvent(pkg, "onLoad")
+    hooks <- getHook(event)
+    mine <- vapply(hooks, .is_mase_hook, logical(1))
+    if (any(mine)) {
+        setHook(event, NULL, action = "replace")
+        for (f in hooks[!mine])
+            setHook(event, f, action = "append")
+    }
+    invisible(NULL)
+}
+
+## A failed registration must not surface as a bare hook error. It leaves
+## the integration off (the registered flag is only set on success, so a
+## later load can retry) and says which integration and why.
+.register_optional <- function(pkg, register_fn) {
+    tryCatch(register_fn(), error = function(e)
+        warning("MultiAssaySpatialExperiment: the ", pkg, " integration ",
+                "could not be fully registered, so some of its methods may ",
+                "be missing: ", conditionMessage(e), call. = FALSE))
     invisible(NULL)
 }
 
 .optional_package_hook <- function(pkg, register_fn) {
-    do_register <- function() {
-        if (!requireNamespace(pkg, quietly = TRUE))
-            return(invisible(NULL))
-        register_fn()
-    }
-    setHook(packageEvent(pkg, "onLoad"), function(...) do_register(),
-            action = "append")
+    .remove_optional_hooks(pkg)
+    hook <- function(...) .register_optional(pkg, register_fn)
+    attr(hook, "MultiAssaySpatialExperiment") <- TRUE
+    setHook(packageEvent(pkg, "onLoad"), hook, action = "append")
     if (isNamespaceLoaded(pkg))
-        do_register()
+        .register_optional(pkg, register_fn)
+    invisible(NULL)
 }
 
 .import_SFE_generic <- function(name, package = "SpatialFeatureExperiment") {
@@ -56,18 +102,16 @@
     invisible(NULL)
 }
 
+
 .register_SpatialData_all <- function() {
-    pkgname <- "MultiAssaySpatialExperiment"
-    ns <- asNamespace(pkgname)
-    if (isTRUE(get0(".spatialdata_registered", envir = ns, inherits = FALSE)))
+    if (!.needs_registration(.sd_ext_env, "spatialdataR"))
         return(invisible(NULL))
-    script <- system.file("scripts", "MultiAssaySpatialExperiment-SpatialData.R",
-                          package = pkgname)
-    if (!nzchar(script))
-        return(invisible(NULL))
-    sys.source(script, envir = ns)
-    utils::getFromNamespace(".register_SpatialData_activate", pkgname)()
-    assign(".spatialdata_registered", TRUE, envir = ns)
+    ok <- FALSE
+    on.exit(if (!ok) rm(".namespace", envir = .sd_ext_env))
+    .import_SD_generics()
+    .register_SpatialData_coercion()
+    .register_SpatialData_methods()
+    ok <- TRUE
     invisible(NULL)
 }
 
@@ -75,10 +119,12 @@
     ## Register data reader technologies
     .onLoad_register_technologies()
 
-    if (isNamespaceLoaded("SpatialFeatureExperiment"))
-        .register_SFE_all()
-    else
-        .optional_package_hook("SpatialFeatureExperiment", .register_SFE_all)
+    .optional_package_hook("SpatialFeatureExperiment", .register_SFE_all)
+    .optional_package_hook("spatialdataR", .register_SpatialData_all)
+}
 
-    .optional_package_hook("SpatialData", .register_SpatialData_all)
+.onUnload <- function(libpath) {
+    for (pkg in .optional_packages)
+        .remove_optional_hooks(pkg)
+    invisible(NULL)
 }

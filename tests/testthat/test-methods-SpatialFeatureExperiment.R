@@ -12,8 +12,8 @@ test_that("SFE methods work via ephemeral reconstruction from a plain SPE-derive
         spatialCoords = matrix(rnorm(8), 4, 2)
     )
     mase <- as(spe, "MultiAssaySpatialExperiment")
-    u <- unit(mase)
-    expect_true(is.character(u) || is.null(u))
+    ## a plain SPE has no unit of its own, so MASE falls back to its default
+    expect_identical(unit(mase), "full_res_image_pixel")
 })
 
 test_that("SFE methods delegate when SFE assay present", {
@@ -27,8 +27,8 @@ test_that("SFE methods delegate when SFE assay present", {
     )
     sfe <- as(spe, "SpatialFeatureExperiment")
     mase <- as(sfe, "MultiAssaySpatialExperiment")
-    u <- unit(mase)
-    expect_true(is.character(u) || is.null(u))
+    expect_identical(unit(mase), "full_res_image_pixel")
+    expect_identical(unit(mase), unit(as(mase, "SpatialFeatureExperiment")))
 })
 
 test_that("dimGeometry errors when the MASE has more than one assay", {
@@ -61,8 +61,11 @@ test_that("bbox delegates to SFE when present", {
     sfe <- as(spe, "SpatialFeatureExperiment")
     mase <- as(sfe, "MultiAssaySpatialExperiment")
     b <- bbox(mase)
-    expect_true(is.numeric(b))
-    expect_true(length(b) >= 4L)
+    expect_identical(names(b), c("xmin", "ymin", "xmax", "ymax"))
+    co <- SpatialExperiment::spatialCoords(spe)
+    expect_equal(unname(b), c(min(co[, "x"]), min(co[, "y"]),
+                              max(co[, "x"]), max(co[, "y"])))
+    expect_equal(b, bbox(as(mase, "SpatialFeatureExperiment")))
 })
 
 .make_populated_sfe <- function() {
@@ -144,7 +147,7 @@ test_that("col-margin spatialGraphs round-trip through MASE natively and via SFE
 
     mase <- as(sfe, "MultiAssaySpatialExperiment")
     expect_setequal(spatialGraphNames(mase, MARGIN = 2L), "knn")
-    g2 <- spatialGraphs(mase, MARGIN = 2L, name = "knn")
+    g2 <- spatialGraph(mase, "knn", MARGIN = 2L)
     expect_s3_class(g2, "listw")
     expect_equal(unname(as.list(g2[["neighbours"]])),
         unname(as.list(g[["neighbours"]])))
@@ -170,5 +173,185 @@ test_that("dimGeometry/aggregate/findDebrisCells work against a real populated S
     expect_s4_class(agg, "MultiAssaySpatialExperiment")
 
     dc <- findDebrisCells(mase)
-    expect_false(is.null(dc))
+    expect_s4_class(dc, "MultiAssaySpatialExperiment")
+})
+
+## One 6-cell sample as an SFE with a 2-nearest-neighbour column graph.
+.sfe_sample <- function(id, seed) {
+    set.seed(seed)
+    n <- 6L
+    mat <- matrix(rpois(n * 3L, 3), 3L, n,
+        dimnames = list(paste0("g", 1:3), paste0(id, "_c", seq_len(n))))
+    co <- matrix(c(0, 0, 1, 0, 2, 0, 0, 1, 1, 1, 2, 1), n, 2L, byrow = TRUE,
+        dimnames = list(NULL, c("x", "y")))
+    s <- as(SpatialExperiment::SpatialExperiment(list(counts = mat),
+        spatialCoords = co, sample_id = id), "SpatialFeatureExperiment")
+    colGraph(s, "knn") <- findSpatialNeighbors(s, MARGIN = 2L,
+        method = "knearneigh", k = 2)
+    s
+}
+
+test_that("a multi-sample SFE round-trips with each sample's graph intact", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    two <- cbind(.sfe_sample("A", 1), .sfe_sample("B", 2))
+
+    mase <- as(two, "MultiAssaySpatialExperiment")
+    expect_setequal(rownames(SummarizedExperiment::colData(mase)), c("A", "B"))
+    back <- as(mase, "SpatialFeatureExperiment")
+    expect_equal(dim(back), dim(two))
+    expect_setequal(sampleIDs(back), c("A", "B"))
+    for (s in c("A", "B")) {
+        was <- colGraph(two, "knn", sample_id = s)
+        now <- colGraph(back, "knn", sample_id = s)
+        expect_equal(unclass(now$neighbours), unclass(was$neighbours),
+                     check.attributes = FALSE, info = s)
+        expect_equal(unlist(now$weights), unlist(was$weights),
+                     check.attributes = FALSE, info = s)
+        expect_equal(nrow(colGeometry(back, "centroids", sample_id = s)), 6L,
+                     info = s)
+    }
+})
+
+test_that("an SFE graph with the 'raw' weight style survives the round trip", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    s <- .sfe_sample("A", 3)
+    colGraph(s, "rawg") <- findSpatialNeighbors(s, MARGIN = 2L,
+        method = "knearneigh", k = 2, dist_type = "idw", style = "raw")
+
+    back <- as(as(s, "MultiAssaySpatialExperiment"), "SpatialFeatureExperiment")
+    now <- colGraph(back, "rawg")
+    expect_identical(now$style, "raw")
+    expect_equal(unlist(now$weights), unlist(colGraph(s, "rawg")$weights),
+                 check.attributes = FALSE)
+})
+
+test_that("SFE content the coercion cannot carry is reported", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    s <- .sfe_sample("A", 4)
+    rg <- sf::st_sf(geometry = sf::st_sfc(lapply(1:3, function(i) sf::st_point(c(i, i)))))
+    rownames(rg) <- rownames(s)
+    rowGeometry(s, "pts") <- rg
+    ag <- sf::st_sf(sample_id = "A", geometry = sf::st_sfc(
+        sf::st_polygon(list(rbind(c(-1, -1), c(3, -1), c(3, 2), c(-1, 2), c(-1, -1)))),
+        sf::st_polygon(list(rbind(c(5, 5), c(8, 5), c(8, 8), c(5, 8), c(5, 5))))))
+    annotGeometry(s, "reg") <- ag
+    suppressWarnings({
+        annotGraph(s, "regg") <- findSpatialNeighbors(s, MARGIN = 3L, type = "reg",
+            method = "poly2nb")
+        rowGraph(s, "rg") <- findSpatialNeighbors(s, MARGIN = 1L, type = "pts",
+            method = "knearneigh", k = 1)
+    })
+    expect_warning(
+        as(s, "MultiAssaySpatialExperiment"),
+        "not carried over.*rowGeometries \\(pts\\).*row graphs \\(rg\\).*annotation graphs \\(regg\\)")
+    # and nothing is reported when there is nothing to lose
+    expect_no_warning(as(.sfe_sample("A", 5), "MultiAssaySpatialExperiment"))
+})
+
+test_that("unit() of a MASE comes from its metadata", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    mase <- as(.sfe_sample("A", 6), "MultiAssaySpatialExperiment")
+    expect_identical(unit(mase), "full_res_image_pixel")
+    S4Vectors::metadata(mase)[["spatialUnit"]] <- "micron"
+    expect_identical(unit(mase), "micron")
+    S4Vectors::metadata(mase)[["spatialUnit"]] <- "full_res_image_pixels"
+    expect_identical(unit(mase), "full_res_image_pixel")
+    S4Vectors::metadata(mase)[["spatialUnit"]] <- NULL
+    expect_identical(unit(mase), "full_res_image_pixel")
+
+    # it does not need a single assay to rebuild an SFE from
+    one <- function() SingleCellExperiment::SingleCellExperiment(list(
+        counts = matrix(1:4, 2, dimnames = list(c("g1", "g2"), c("c1", "c2")))))
+    two_assay <- MultiAssaySpatialExperiment(
+        experiments = ExperimentList(a = one(), b = one()),
+        colData = DataFrame(row.names = "s"),
+        sampleMap = DataFrame(assay = factor(rep(c("a", "b"), each = 2), c("a", "b")),
+                              primary = "s", colname = rep(c("c1", "c2"), 2)))
+    expect_identical(unit(two_assay), "full_res_image_pixel")
+})
+
+test_that("findDebrisCells flags cells and returns a MASE, as SFE does", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    s <- .sfe_sample("A", 1)
+    mase <- as(s, "MultiAssaySpatialExperiment")
+    want <- findDebrisCells(s, max_cells = 2, distance_cutoff = 0.5)
+    got <- findDebrisCells(mase, max_cells = 2, distance_cutoff = 0.5)
+    expect_s4_class(got, "MultiAssaySpatialExperiment")
+    expect_identical(
+        unname(SummarizedExperiment::colData(experiments(got)[[1L]])$is_debris),
+        unname(want$is_debris))
+})
+
+test_that("localResults on a MASE agrees with localResultNames", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    mase <- as(.sfe_sample("A", 1), "MultiAssaySpatialExperiment")
+    expect_identical(localResultNames(mase), character(0))
+    expect_length(localResults(mase), 0L)
+    expect_error(localResults(mase, name = "moran"), "not carried over")
+})
+
+test_that("spatial graph methods read one sample at a time, as SFE does", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    two <- cbind(.sfe_sample("A", 1), .sfe_sample("B", 2))
+    mase <- as(two, "MultiAssaySpatialExperiment")
+
+    expect_identical(spatialGraphNames(mase, MARGIN = 2, sample_id = "A"),
+                     spatialGraphNames(two, MARGIN = 2, sample_id = "A"))
+    for (s in c("A", "B")) {
+        want <- spatialGraph(two, "knn", MARGIN = 2, sample_id = s)
+        got <- spatialGraph(mase, "knn", MARGIN = 2, sample_id = s)
+        expect_equal(unclass(got$neighbours), unclass(want$neighbours),
+                     check.attributes = FALSE, info = s)
+        expect_equal(unlist(got$weights), unlist(want$weights),
+                     check.attributes = FALSE, info = s)
+    }
+    all2 <- spatialGraphs(mase, MARGIN = 2)
+    expect_identical(names(all2), c("A", "B"))
+    expect_identical(names(all2$A), "knn")
+    one <- spatialGraphs(mase, MARGIN = 2, sample_id = "B", name = "knn")
+    expect_identical(names(one), "B")
+    byMargin <- spatialGraphs(mase)
+    expect_identical(names(byMargin$A), c("row", "col", "annot"))
+    expect_null(byMargin$A$row)
+    expect_error(spatialGraphs(mase, name = "knn"), "different margins")
+    expect_error(spatialGraphs(mase, MARGIN = 2, name = "nope"), "No spatial graph")
+    expect_error(spatialGraph(mase, "knn", MARGIN = 2, sample_id = "zzz"),
+                 "sample_id not found")
+})
+
+test_that("the metadata of an SFE goes through the round trip", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    s <- .sfe_sample("A", 1)
+    S4Vectors::metadata(s)$note <- "kept"
+    mase <- as(s, "MultiAssaySpatialExperiment")
+    expect_identical(S4Vectors::metadata(mase)$note, "kept")
+    back <- as(mase, "SpatialFeatureExperiment")
+    expect_identical(S4Vectors::metadata(back)$note, "kept")
+    expect_null(S4Vectors::metadata(back)$spatialUnit)
+})
+
+test_that("each sample keeps its own graph weight style", {
+    skip_if_not_installed("SpatialFeatureExperiment")
+    library(SpatialFeatureExperiment)
+    a <- .sfe_sample("A", 1)
+    b <- .sfe_sample("B", 2)
+    colGraph(b, "knn") <- findSpatialNeighbors(b, MARGIN = 2L,
+        method = "knearneigh", k = 2, style = "B")
+    two <- cbind(a, b)
+    expect_identical(colGraph(two, "knn", sample_id = "A")$style, "W")
+    expect_identical(colGraph(two, "knn", sample_id = "B")$style, "B")
+
+    back <- as(as(two, "MultiAssaySpatialExperiment"), "SpatialFeatureExperiment")
+    expect_identical(colGraph(back, "knn", sample_id = "A")$style, "W")
+    expect_identical(colGraph(back, "knn", sample_id = "B")$style, "B")
+    mase <- as(two, "MultiAssaySpatialExperiment")
+    expect_identical(spatialGraph(mase, "knn", MARGIN = 2, sample_id = "B")$style, "B")
 })

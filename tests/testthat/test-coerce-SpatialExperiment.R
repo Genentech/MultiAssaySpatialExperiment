@@ -28,6 +28,11 @@ test_that("as(MultiAssaySpatialExperiment, 'SpatialExperiment') works with singl
     expect_true(validObject(spe2))
     expect_equal(ncol(spe2), ncol(spe))
     expect_equal(nrow(spe2), nrow(spe))
+    expect_equal(SummarizedExperiment::assay(spe2, "counts"),
+                 SummarizedExperiment::assay(spe, "counts"))
+    expect_identical(colnames(spe2), colnames(spe))
+    expect_equal(unname(SpatialExperiment::spatialCoords(spe2)),
+                 unname(SpatialExperiment::spatialCoords(spe)))
 })
 
 test_that("SpatialFeatureExperiment coerces via SpatialExperiment", {
@@ -58,6 +63,10 @@ test_that("MASE to SpatialFeatureExperiment round-trip works", {
     expect_s4_class(sfe2, "SpatialFeatureExperiment")
     expect_true(validObject(sfe2))
     expect_equal(ncol(sfe2), ncol(sfe))
+    expect_equal(SummarizedExperiment::assay(sfe2, "counts"),
+                 SummarizedExperiment::assay(sfe, "counts"))
+    expect_equal(unname(SpatialExperiment::spatialCoords(sfe2)),
+                 unname(SpatialExperiment::spatialCoords(sfe)))
 })
 
 test_that("empty SpatialExperiment coerces to MASE", {

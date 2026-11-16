@@ -3,8 +3,8 @@
 ### =========================================================================
 
 test_that("SpatialData API: images, labels, points, shapes, tables", {
-    skip_if_not_installed("SpatialData")
-    library(SpatialData)
+    skip_if_not_installed("spatialdataR")
+    library(spatialdataR)
     mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
         dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
     img <- matrix(1:12, 3, 4)
@@ -35,12 +35,12 @@ test_that("SpatialData API: images, labels, points, shapes, tables", {
     expect_equal(shapeNames(mase), "regions")
     expect_equal(length(tables(mase)), 1L)
     expect_equal(tableNames(mase), "assay1")
-    expect_equal(SpatialData::table(mase, 1), experiments(mase)[[1L]])
+    expect_equal(spatialdataR::table(mase, 1), experiments(mase)[[1L]])
 })
 
 test_that("SpatialData API: layer and element", {
-    skip_if_not_installed("SpatialData")
-    library(SpatialData)
+    skip_if_not_installed("spatialdataR")
+    library(spatialdataR)
     mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
         dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
     img <- matrix(1:12, 3, 4)
@@ -54,15 +54,25 @@ test_that("SpatialData API: layer and element", {
         ),
         images = RasterLayerList(brightfield = img)
     )
-    expect_equal(layer(mase, "images"), spatialImages(mase))
-    expect_equal(layer(mase, 1L), spatialImages(mase))
-    expect_equal(element(mase, "images", "brightfield"), img)
-    expect_equal(element(mase, "images", 1L), img)
+    ## as in spatialdataR, layer(x, i) is the layer that holds element 'i'
+    expect_identical(layer(mase, "brightfield"), "images")
+    expect_identical(layer(mase, "assay1"), "tables")
+    expect_error(layer(mase, "nope"), "invalid 'i'")
+    expect_error(layer(mase, 1L), "invalid 'i'")
+
+    expect_equal(element(mase, "brightfield"), img)
+    expect_equal(element(mase, "assay1"), mat)
+    expect_equal(element(mase, 1L), img)
+    expect_equal(element(mase), img)
+    expect_error(element(mase, 99L), "invalid 'i'")
+
+    element(mase, "brightfield") <- img * 2L
+    expect_equal(element(mase, "brightfield"), img * 2L)
 })
 
 test_that("SpatialData API: images<-, labels<-, etc. (batch setters)", {
-    skip_if_not_installed("SpatialData")
-    library(SpatialData)
+    skip_if_not_installed("spatialdataR")
+    library(spatialdataR)
     mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
         dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
     mase <- MultiAssaySpatialExperiment(
@@ -85,8 +95,8 @@ test_that("SpatialData API: images<-, labels<-, etc. (batch setters)", {
 })
 
 test_that("SpatialData API: image<-, label<-, etc. (single-element setters)", {
-    skip_if_not_installed("SpatialData")
-    library(SpatialData)
+    skip_if_not_installed("spatialdataR")
+    library(spatialdataR)
     mat <- matrix(rnorm(20), nrow = 5, ncol = 4,
         dimnames = list(paste0("G", 1:5), paste0("S", 1:4)))
     img <- matrix(1:12, 3, 4)

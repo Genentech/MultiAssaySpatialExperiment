@@ -46,10 +46,11 @@ least 2 columns (typically x, y) and often an instance identifier;
 
 MASE uses the "Layer" suffix (\code{PointsLayerList}, \code{ShapesLayerList},
 \code{RasterLayerList}) rather than "Element" to avoid naming collisions with
-R base classes and Bioconductor conventions. The Python spatialdata package
-uses "element" as an internal discriminator (e.g., \code{element_type}
-column, \code{sdata.points}, \code{sdata.shapes}) but does not define List
-container classes.
+R base classes and Bioconductor conventions. In spatialdata, \emph{element}
+means a named entry (e.g., \code{sdata.points["cells"]}) and \emph{layer} one
+of images, labels, points, shapes or tables, so a \code{PointsLayerList} holds
+the elements of the points layer. spatialdata does not define List container
+classes.
 
 MASE's \code{element_type} column in \code{spatialMap} corresponds to
 spatialdata's element type discriminator, routing to the appropriate spatial
@@ -57,11 +58,11 @@ slot: \code{"points"} → \code{PointsLayerList}, \code{"shapes"} →
 \code{ShapesLayerList}. See \code{?MultiAssaySpatialExperiment} for details
 on the \code{spatialMap} linkage model.
 
-Other intentional differences: MASE uses \code{spatialPoints()},
-\code{spatialShapes()}, etc. (with "spatial" prefix) as S4 generic accessors,
-while spatialdata uses bare attribute access (\code{sdata.points},
-\code{sdata.shapes}). This follows Bioconductor S4 conventions and avoids
-conflicts with base R functions.
+MASE's own accessors carry a "spatial" prefix (\code{spatialPoints()},
+\code{spatialShapes()}, etc.), which follows Bioconductor S4 conventions and
+avoids conflicts with base R functions. When \pkg{spatialdataR} is loaded,
+MASE also answers its bare generics (\code{points()}, \code{shapes()}, etc.);
+see \code{?"coerce-SpatialData"}.
 }
 \section{Constructors}{
 

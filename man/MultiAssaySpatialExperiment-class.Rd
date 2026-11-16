@@ -105,26 +105,34 @@ or shape layers via explicit foreign key.
 
 \section{Terminology and spatialdata alignment}{
 
-MASE adopts terminology from Python spatialdata where practical while following
-Bioconductor S4 conventions:
+MASE adopts terminology from spatialdata (Python), and from its R implementation
+\pkg{spatialdataR}, where practical while following Bioconductor S4
+conventions:
 \itemize{
   \item \code{element_type}: Matches spatialdata's element type discriminator
     (values: \code{"points"}, \code{"shapes"}, \code{"images"}, \code{"labels"}).
     Currently only \code{"points"} and \code{"shapes"} are supported in
     \code{spatialMap} linkage; images and labels are reference layers accessed
     via \code{spatialImages()} and \code{spatialLabels()}.
-  \item \code{region}: Corresponds to spatialdata's region (layer name within an
-    element type).
+  \item \code{region}: Corresponds to spatialdata's region, the name of an
+    element within its layer.
   \item \code{instance_id}: Matches spatialdata's instance identifier (row ID
     within a region). Recommended types: integer, character, or factor. Must be
     unique within each (\code{element_type}, \code{region}) combination.
+  \item Layers and elements: as in \pkg{spatialdataR}, a \emph{layer} is one of
+    images, labels, points, shapes or tables, and an \emph{element} is a named
+    entry in a layer. A \code{PointsLayerList} holds the elements of the points
+    layer. \code{layer(x, i)} returns the layer that holds element \code{i}, and
+    \code{element(x, i)} returns the element.
   \item Class naming: MASE uses "Layer" suffix (\code{PointsLayerList},
     \code{ShapesLayerList}) rather than "Element" to avoid R naming collisions.
     See \code{?SpatialLayerList} for details.
-  \item Accessor naming: MASE uses \code{spatialPoints()}, \code{spatialShapes()}
-    (with "spatial" prefix) as S4 generics, while spatialdata uses bare attribute
-    access (\code{sdata.points}, \code{sdata.shapes}). This follows Bioconductor
-    conventions and avoids conflicts with base R functions.
+  \item Accessor naming: MASE's own accessors carry a "spatial" prefix
+    (\code{spatialPoints()}, \code{spatialShapes()}), which follows Bioconductor
+    conventions and avoids conflicts with base R functions. When
+    \pkg{spatialdataR} is loaded, MASE also answers its bare generics
+    (\code{points()}, \code{shapes()} and so on); see
+    \code{?"coerce-SpatialData"}.
 }
 }
 

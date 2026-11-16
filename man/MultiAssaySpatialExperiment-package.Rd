@@ -5,7 +5,7 @@
 \alias{MultiAssaySpatialExperiment-package}
 \title{MultiAssaySpatialExperiment: Multi-Assay Experiment with Spatial Context}
 \description{
-Extends MultiAssayExperiment with spatial context elements (images, labels, points, shapes) for integrative analysis of spatially resolved multi-omics data. Supports coercion to and from SpatialExperiment and SpatialFeatureExperiment.
+Extends MultiAssayExperiment with spatial context elements (images, labels, points, shapes) for integrative analysis of spatially resolved multi-omics data. Supports coercion to and from SpatialExperiment, SpatialFeatureExperiment and spatialdataR's SpatialData.
 }
 \seealso{
 Useful links:

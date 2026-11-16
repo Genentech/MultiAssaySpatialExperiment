@@ -1,11 +1,12 @@
 Package: MultiAssaySpatialExperiment
-Version: 0.99.13
-Date: 2026-11-15
+Version: 0.99.14
+Date: 2026-11-16
 Title: Multi-Assay Experiment with Spatial Context
 Description: Extends MultiAssayExperiment with spatial context elements
     (images, labels, points, shapes) for integrative analysis of spatially
     resolved multi-omics data. Supports coercion to and from
-    SpatialExperiment and SpatialFeatureExperiment.
+    SpatialExperiment, SpatialFeatureExperiment and spatialdataR's
+    SpatialData.
 Authors@R:
     c(
         person("Patrick", "Aboyoun", role=c("aut", "cre"), email="aboyounp@gene.com"),
@@ -43,6 +44,9 @@ Suggests:
     Matrix,
     RBioFormats,
     SpatialFeatureExperiment,
+    spatialdataR,
+    duckspatial,
+    DBI,
     spdep,
     zellkonverter
 biocViews: Infrastructure, DataRepresentation, Spatial
@@ -51,6 +55,7 @@ Collate:
     'SpatialGenerics.R'
     'SpatialLayerList-class.R'
     'MultiAssaySpatialExperiment-class.R'
+    'MultiAssaySpatialExperiment-SpatialData.R'
     'MultiAssaySpatialExperiment-SpatialExperiment.R'
     'MultiAssaySpatialExperiment-SpatialFeatureExperiment.R'
     'MultiAssaySpatialExperiment-combine.R'

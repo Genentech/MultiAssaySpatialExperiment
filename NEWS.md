@@ -1,3 +1,155 @@
+# MultiAssaySpatialExperiment 0.99.14
+
+## Bug fixes
+
+- A `SpatialData` points or shapes element now links to its table through the
+  table's `instance_key`, whatever that column is called. Before, only an
+  `instance_id` or `id` column worked, so a table keyed on, say, `cell_id`
+  produced a `spatialMap` that pointed at nothing.
+- Converting to `SpatialData` could give a shapes element with no rows, with
+  no error: a table annotating the shapes was read and written with its region
+  and instance ids in `colData`, where spatialdataR keeps them in `int_colData`
+  and matches them to the element through the element's `instance_key`. spatialdataR then
+  kept none of the shapes. Tables now carry their keys where spatialdataR looks,
+  elements declare their `instance_key`, and a table built by spatialdataR is
+  read the same way. A layer that loses rows in the `SpatialData` now warns.
+- The CRS of points and shapes was dropped, silently, going to `SpatialData`. It
+  is now carried over.
+- A failed conversion to `SpatialData` removed none of the DuckDB tables it had
+  written. It now does. (After a successful one the tables stay on the
+  connection, because the `SpatialData` reads from them.)
+- Unloading and loading `SpatialFeatureExperiment` or `spatialdataR` again left
+  the integration's methods missing without a word, because the record that
+  they were registered outlived the old namespace. Registration is now tied to
+  the namespace that is loaded.
+- The `spatialGraphs()`, `spatialGraph()` and `spatialGraphNames()` methods
+  ignored `sample_id` and returned one merged graph. They now read one sample at
+  a time and return the shape SpatialFeatureExperiment does.
+- The spatialdataR accessors agree with spatialdataR: looking up a name or
+  position that is not there is an error, `NULL` empties a layer, and
+  `element(x, i) <- value` takes a position. `point(x, 10) <- v` no longer
+  invents an element called `point3`. The names of images, labels, points and
+  shapes can be replaced, and the `spatialMap` follows.
+- Going to `SpatialData` now warns that the sample-level `colData` is dropped,
+  and a layer whose instance ids do not match the assay's column names warns
+  that its rows are taken in stored order.
+- `dimGeometries()` no longer declares a default for `MARGIN` that could never
+  apply.
+- The metadata of a `SpatialFeatureExperiment` was dropped by the coercion, and
+  so was the weight style of every sample's graph but the first. Both now
+  survive the round trip.
+- `findDebrisCells()` on a `MultiAssaySpatialExperiment` now returns a
+  `MultiAssaySpatialExperiment` with the `is_debris` flag in the experiment's
+  `colData`, as `aggregate()` and `splitByCol()` already did. It returned a
+  bare `SpatialFeatureExperiment` before.
+- `localResults()` agrees with `localResultNames()`: with nothing requested it
+  returns an empty list instead of an error. Asking for a named result still
+  fails, with a message that says local results are not carried over.
+
+- Reloading the package no longer stacks duplicate load hooks for
+  SpatialFeatureExperiment and spatialdataR, and unloading removes them
+  (new `.onUnload`). A registration that fails now warns, naming the
+  integration and the cause, instead of printing a bare hook error.
+- The SpatialData integration never activated against the real package. It
+  waited for a package called `SpatialData`, but the Bioconductor package is
+  `spatialdataR`, and it called constructors (`PointFrame()`, `ShapeFrame()`)
+  that spatialdataR no longer has. It now targets `spatialdataR`:
+  - Points and shapes are materialized with `as.data.frame()`, because
+    spatialdataR holds them as lazy DuckDB queries, and are built with
+    `SpatialDataPoint()` and `SpatialDataShape()`.
+  - `labels()` is registered as `base::labels(object, ...)`, which is what it
+    is in spatialdataR.
+  - `layer(x, i)` returns the layer that holds element `i`, and `element(x, i)`
+    takes an element name or a position counted across the layers, as in
+    spatialdataR. The earlier `layer(x, "images")` and
+    `element(x, "images", name)` forms are gone. `element<-` is new.
+  - The registration now works whichever package loads first. Before, it only
+    worked if spatialdataR was loaded before this package, because it tried to
+    define objects in an already sealed namespace.
+  - Images and labels are still not converted. Both directions now say so in a
+    warning that names them, and a table that annotates an element that was
+    not converted has that region annotation removed when converting back,
+    instead of producing a SpatialData that spatialdataR rejects.
+  - The integration used `int_metadata()` without importing it, and called
+    `layer()` and `element()` without qualifying them. It only worked in a
+    session that had attached SingleCellExperiment and spatialdataR. Elsewhere
+    a table that annotates a points or shapes element came out with no
+    `spatialMap` at all, without an error, because one call sat inside a
+    `tryCatch()` that returned `NULL`, and `element()` failed outright when
+    spatialdataR was loaded but not attached.
+  - Converting to SpatialData with more than one points or shapes element gave
+    every element the data of the last one built, because spatialdataR's
+    constructors write all elements of a kind to one table. Each element is now
+    written to a table of its own, and its rows are checked afterwards. Element
+    names must now be unique across points, shapes and tables, and a clash is
+    reported instead of failing with an unrelated message.
+  - Points whose coordinate columns are not `x` and `y`, such as the `imageX`
+    and `imageY` of a MASE made from an SFE, now convert; they use the first two
+    columns other than `instance_id`, as the rest of the package does.
+  - A `spatialMap` that covers only some of an assay's columns no longer throws
+    away the instance ids of the rest: the mapped columns keep theirs and the
+    others get `NA`, with a warning. A table that annotates several regions is
+    read and written per column. A table keeps its own region and instance keys,
+    and column names such as `__null_dask_index__` are no longer made
+    syntactic.
+  - `images<-`, `labels<-`, `points<-`, `shapes<-` and `tables<-` accept the
+    layer lists their getters return, not only a plain `list`.
+  - Coordinate transformations of points and shapes are not converted; a
+    warning now names the elements whose transformations are not the identity.
+  - The integration's code moved from `inst/scripts`, where it was sourced at
+    run time and so never seen by `R CMD check` or BiocCheck, into
+    `R/MultiAssaySpatialExperiment-SpatialData.R`, laid out like the
+    SpatialFeatureExperiment one: its generics are imported into a private
+    environment and every method is registered there with an explicit `where`.
+    It no longer shadows `setMethod()`, `setReplaceMethod()` and `setAs()`.
+  - `spatialdataR` is now in `Suggests`, and the integration's tests moved from
+    `inst/scripts` to `tests/testthat`, where `R CMD check` runs them. They
+    include two clean R sessions, one per load order, which is the only way to
+    see the failures above.
+
+- Converting a `SpatialFeatureExperiment` to a MASE had several problems that
+  showed up on anything but a single sample with simple graphs:
+  - With several samples, `colGraph()` and `colGeometry()` were called with
+    their defaults, which return only the first sample, and the coercion
+    failed or was silently partial. Objects with several samples now convert
+    both ways: geometries are taken for all samples, and each sample's column
+    graph is merged into one graph over all columns and split again per sample.
+  - A graph with the `"raw"` weight style made the converted MASE unusable
+    (`"Style raw invalid"`), because the graph was rebuilt with `nb2listw()`,
+    which does not accept it. It is now assembled directly, as SFE does.
+  - `unit()` rebuilt a whole `SpatialFeatureExperiment` on every call and
+    returned `NULL` if that failed. It now reads the unit from the object's
+    metadata, or from the assay when that is itself an SFE.
+  - Row geometries, row graphs and annotation graphs were dropped without a word.
+    A warning now names them, as the message about `localResults` already did.
+
+## Documentation
+
+- The help pages for both integrations list their methods as aliases, so
+  `?spatialGraphs` and the like find them, and say where the results differ from
+  the upstream objects (`dimGeometry()` columns, `bbox()`, graphs, DuckDB tables).
+  The README no longer carries file counts and points to the right issue
+  tracker, and the use-cases vignette no longer loads `ggplot2`, which it did
+  not use.
+- New help page `?MultiAssaySpatialExperiment-SpatialFeatureExperiment`, which
+  error messages already pointed to. It covers what the coercion keeps and
+  drops, what each method does, the cost of rebuilding a view per call, and how
+  `unit()` and `localResults()` differ from SFE's.
+- The docs say the `spatialdataR` and `SpatialFeatureExperiment` integrations
+  need the package *loaded*, not just installed, since they register when it
+  loads. The package description now mentions `spatialdataR`, and the README
+  no longer carries a hard-coded version.
+
+- Documented the spatialdataR integration: a new help page,
+  `?"coerce-SpatialData"`, a "From SpatialData" section in the use-cases
+  vignette, two rows in the cheatsheet's coercion table, and a README section.
+  The README's coercion list also now includes `as(mase,
+  "SpatialFeatureExperiment")`, which was missing.
+- Corrected the terminology sections that said MASE has no bare accessors, and
+  that called a named entry in a list a "layer". As in spatialdataR, a layer is
+  one of images, labels, points, shapes or tables, and an element is a named
+  entry in a layer.
+
 # MultiAssaySpatialExperiment 0.99.13
 
 ## Bug fixes

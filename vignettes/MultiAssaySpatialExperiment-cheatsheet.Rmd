@@ -99,8 +99,10 @@ for example `sf::st_nearest_feature`.
 |:-----------|:---------|
 | `as(spe, "MultiAssaySpatialExperiment")` | a `SpatialExperiment` |
 | `as(mase, "SpatialExperiment")` | exactly one compatible assay |
-| `as(sfe, "MultiAssaySpatialExperiment")` | `SpatialFeatureExperiment` installed |
+| `as(sfe, "MultiAssaySpatialExperiment")` | `SpatialFeatureExperiment` loaded |
 | `as(mase, "SpatialFeatureExperiment")` | exactly one compatible assay |
+| `as(sd, "MultiAssaySpatialExperiment")` | `spatialdataR` loaded, and a `SpatialData` with a table |
+| `as(mase, "SpatialData")` | `spatialdataR` loaded, and assays that convert to a `SingleCellExperiment` |
 
 ## Combining
 

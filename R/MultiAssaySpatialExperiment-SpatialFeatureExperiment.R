@@ -26,6 +26,106 @@
 #' @include MultiAssaySpatialExperiment-class.R
 NULL
 
+#' Interoperating with SpatialFeatureExperiment
+#'
+#' @description
+#' When the \pkg{SpatialFeatureExperiment} package is loaded, a
+#' \code{MultiAssaySpatialExperiment} converts to and from a
+#' \code{SpatialFeatureExperiment} and answers its generics. Nothing is
+#' registered until \pkg{SpatialFeatureExperiment} is loaded, and it does not
+#' matter which package is loaded first.
+#'
+#' @details
+#' \code{as(sfe, "MultiAssaySpatialExperiment")} stores a plain
+#' \code{SingleCellExperiment}, with the spatial content in the layers. The
+#' centroids become the \code{coordinates} points layer. Other
+#' \code{colGeometries} become shapes layers linked through \code{spatialMap},
+#' and \code{annotGeometries} become shapes layers with no \code{spatialMap}
+#' rows, which is how they are told apart on the way back. Column graphs become
+#' \code{colPair}s; with several samples the graphs are merged into one
+#' \code{colPair} and split per sample again by
+#' \code{as(mase, "SpatialFeatureExperiment")}.
+#'
+#' Not carried over, with a warning that names them: row geometries, row
+#' graphs, annotation graphs, and local results.
+#'
+#' @section Methods:
+#' \code{dimGeometry}, \code{annotGeometry}, \code{bbox},
+#' \code{splitByCol}, \code{aggregate} and \code{findDebrisCells} work by
+#' building a \code{SpatialFeatureExperiment} from the object on each call
+#' (the same conversion as \code{as()}) and calling the SFE method on it, so a
+#' call costs a conversion. \code{aggregate}, \code{splitByCol} and
+#' \code{findDebrisCells} convert the result back, so they return a
+#' \code{MultiAssaySpatialExperiment} when the object has a single assay.
+#' These methods need exactly one assay.
+#'
+#' \code{spatialGraphs}, \code{spatialGraph} and \code{spatialGraphNames} read
+#' the \code{colPair}s, one sample at a time, and return what the
+#' \pkg{SpatialFeatureExperiment} methods return: a list by sample (of
+#' \code{row}, \code{col} and \code{annot} graphs, or of the column graphs
+#' when \code{MARGIN = 2}), and a single \code{listw} from \code{spatialGraph}.
+#' Only column graphs exist, so \code{row} and \code{annot} are \code{NULL}.
+#' Like the others they are registered once \pkg{SpatialFeatureExperiment} is
+#' loaded.
+#'
+#' \code{localResultNames} is always empty and \code{localResults} returns an
+#' empty list, because local results are not carried over; asking for a named
+#' result is an error.
+#'
+#' Two results differ from those of the original \code{SpatialFeatureExperiment}
+#' because the conversion rebuilds the object. \code{dimGeometry} returns the
+#' geometries with an \code{instance_id} column, where SFE has
+#' \code{sample_id}. \code{bbox} is computed from the geometries, so it can
+#' differ from a bounding box stored on the original SFE.
+#'
+#' \code{unit} is the SFE unit when the single assay is a
+#' \code{SpatialFeatureExperiment}, else the \code{spatialUnit} in the
+#' metadata, else \code{"full_res_image_pixel"}. An SFE with no unit set gives
+#' \code{NULL}, so the two can differ for such an object.
+#'
+#' @return
+#' The coercions return the converted object. The methods return what the
+#' \pkg{SpatialFeatureExperiment} method returns, with the exceptions above.
+#'
+#' @author Patrick Aboyoun
+#' @name MultiAssaySpatialExperiment-SpatialFeatureExperiment
+#' @aliases coerce,SpatialFeatureExperiment,MultiAssaySpatialExperiment-method
+#' @aliases coerce,MultiAssaySpatialExperiment,SpatialFeatureExperiment-method
+#' @aliases dimGeometry,MultiAssaySpatialExperiment-method
+#' @aliases dimGeometries,MultiAssaySpatialExperiment-method
+#' @aliases dimGeometryNames,MultiAssaySpatialExperiment-method
+#' @aliases annotGeometries,MultiAssaySpatialExperiment-method
+#' @aliases annotGeometryNames,MultiAssaySpatialExperiment-method
+#' @aliases spatialGraphs,MultiAssaySpatialExperiment-method
+#' @aliases spatialGraph,MultiAssaySpatialExperiment-method
+#' @aliases spatialGraphNames,MultiAssaySpatialExperiment-method
+#' @aliases unit,MultiAssaySpatialExperiment-method
+#' @aliases aggregate,MultiAssaySpatialExperiment-method
+#' @aliases splitByCol,MultiAssaySpatialExperiment,sf-method
+#' @aliases splitByCol,MultiAssaySpatialExperiment,sfc-method
+#' @aliases splitByCol,MultiAssaySpatialExperiment,list-method
+#' @aliases annotGeometry,MultiAssaySpatialExperiment-method
+#' @aliases bbox,MultiAssaySpatialExperiment-method
+#' @aliases localResults,MultiAssaySpatialExperiment-method
+#' @aliases localResultNames,MultiAssaySpatialExperiment-method
+#' @aliases findDebrisCells,MultiAssaySpatialExperiment-method
+#' @seealso \link{coerce-SpatialData} for the spatialdataR counterpart.
+#' @examples
+#' ## Needs SpatialFeatureExperiment to be loaded
+#' if (requireNamespace("SpatialFeatureExperiment", quietly = TRUE)) {
+#'     library(SpatialFeatureExperiment)
+#'     sfe <- as(SpatialExperiment::SpatialExperiment(
+#'         list(counts = matrix(1:12, 3, 4,
+#'             dimnames = list(letters[1:3], LETTERS[1:4]))),
+#'         spatialCoords = cbind(x = 1:4, y = 4:1),
+#'         sample_id = "s1"), "SpatialFeatureExperiment")
+#'     mase <- as(sfe, "MultiAssaySpatialExperiment")
+#'     bbox(mase)
+#'     back <- as(mase, "SpatialFeatureExperiment")
+#' }
+NULL
+
+
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Helpers: sf <-> MASE-native DataFrame, listw <-> SelfHits
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -63,8 +163,14 @@ NULL
             return(NULL)
         sfobj <- sf::st_as_sf(d, coords = coord_cols[seq_len(2L)])
     }
-    if (!is.null(cn) && !is.null(rownames(sfobj)) && all(cn %in% rownames(sfobj)))
-        sfobj <- sfobj[cn, , drop = FALSE]
+    if (!is.null(cn)) {
+        if (!is.null(rownames(sfobj)) && all(cn %in% rownames(sfobj)))
+            sfobj <- sfobj[cn, , drop = FALSE]
+        else if ("instance_id" %in% colnames(d) && nrow(sfobj) == length(cn))
+            warning("the instance ids of the layer do not match the column ",
+                    "names of the assay, so its rows are taken in the order ",
+                    "stored", call. = FALSE)
+    }
     sfobj
 }
 
@@ -100,7 +206,48 @@ NULL
     wl <- unname(split(w, fr))
     style <- metadata(hits)[["style"]]
     if (is.null(style)) style <- "W"
-    spdep::nb2listw(nb, glist = wl, style = style, zero.policy = TRUE)
+    if (style %in% c("W", "B", "C", "U", "S", "minmax"))
+        return(spdep::nb2listw(nb, glist = wl, style = style, zero.policy = TRUE))
+    ## SFE's "raw" style keeps the weights as given, which nb2listw() does not
+    ## accept, so the listw is assembled directly, as SFE does.
+    listw <- list(style = style, neighbours = nb, weights = wl)
+    attr(listw, "region.id") <- attr(nb, "region.id")
+    attr(listw, "zero.policy") <- TRUE
+    class(listw) <- c("listw", "nb")
+    listw
+}
+
+# One graph over all columns from the graphs of each sample. 'idx' holds, for
+# each sample, the positions of its columns in the whole object.
+#' @importFrom S4Vectors SelfHits from to mcols mcols<- metadata metadata<-
+.merge_selfhits <- function(hits, idx, nnode, samples = names(hits)) {
+    fr <- unlist(Map(function(h, i) i[from(h)], hits, idx), use.names = FALSE)
+    to_ <- unlist(Map(function(h, i) i[to(h)], hits, idx), use.names = FALSE)
+    w <- unlist(lapply(hits, function(h) mcols(h)[["weight"]]), use.names = FALSE)
+    o <- order(fr, to_)
+    out <- SelfHits(fr[o], to_[o], nnode = nnode)
+    mcols(out) <- DataFrame(weight = w[o])
+    ## SFE keeps a weight style per sample; the merged graph keeps them all
+    styles <- vapply(hits, function(h) metadata(h)[["style"]] %||% "W", "")
+    if (!is.null(samples)) names(styles) <- samples
+    metadata(out) <- list(style = styles[[1L]], styles = styles)
+    out
+}
+
+# The graph among the columns at positions 'idx' of the whole object.
+.subset_selfhits <- function(hits, idx, sample = NULL) {
+    fr <- match(from(hits), idx)
+    to_ <- match(to(hits), idx)
+    keep <- !is.na(fr) & !is.na(to_)
+    out <- SelfHits(fr[keep], to_[keep], nnode = length(idx))
+    mcols(out) <- DataFrame(weight = mcols(hits)[["weight"]][keep])
+    md <- metadata(hits)
+    styles <- md[["styles"]]
+    if (!is.null(sample) && !is.null(styles) && sample %in% names(styles))
+        md[["style"]] <- styles[[sample]]
+    md[["styles"]] <- NULL
+    metadata(out) <- md
+    out
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -120,6 +267,10 @@ NULL
             n <- ncol(from)
             cn <- colnames(from)
             sce <- as(from, "SingleCellExperiment")
+            sids <- if ("sample_id" %in% colnames(SummarizedExperiment::colData(from)))
+                as.character(SummarizedExperiment::colData(from)[["sample_id"]])
+            else rep("sample01", n)
+            samples <- unique(sids)
 
             # Primary centroid geometry -> points("coordinates"), exactly
             # like the SpatialExperiment forward coercion.
@@ -142,7 +293,8 @@ NULL
             other_cg <- setdiff(SpatialFeatureExperiment::colGeometryNames(from),
                                 "centroids")
             for (nm in other_cg) {
-                cg <- SpatialFeatureExperiment::colGeometry(from, type = nm)
+                cg <- SpatialFeatureExperiment::colGeometry(from, type = nm,
+                    sample_id = "all")
                 cg_inst <- rownames(cg)
                 if (is.null(cg_inst) || length(cg_inst) != nrow(cg))
                     cg_inst <- cn
@@ -159,17 +311,37 @@ NULL
             # back (they are not one-row-per-cell).
             ag_names <- SpatialFeatureExperiment::annotGeometryNames(from)
             shapes_list[ag_names] <- lapply(ag_names, function(nm)
-                .sf_to_shapes_df(SpatialFeatureExperiment::annotGeometry(from, type = nm)))
+                .sf_to_shapes_df(SpatialFeatureExperiment::annotGeometry(from,
+                    type = nm, sample_id = "all")))
 
-            # Col-margin spatial graphs -> colPair()s on the stored SCE.
-            graph_names <- tryCatch(SpatialFeatureExperiment::colGraphNames(from),
-                error = function(e) character(0L))
+            # Col-margin spatial graphs -> colPair()s on the stored SCE. SFE keeps
+            # one graph per sample, so those are merged into one over all columns.
+            idx <- lapply(samples, function(s) which(sids == s))
+            graph_names <- unique(unlist(lapply(samples, function(s)
+                SpatialFeatureExperiment::colGraphNames(from, sample_id = s))))
             for (nm in graph_names) {
-                g <- tryCatch(SpatialFeatureExperiment::colGraph(from, type = nm),
-                    error = function(e) NULL)
-                if (!is.null(g))
-                    colPair(sce, nm) <- .listw_to_selfhits(g)
+                parts <- lapply(samples, function(s) {
+                    if (nm %in% SpatialFeatureExperiment::colGraphNames(from, sample_id = s))
+                        .listw_to_selfhits(SpatialFeatureExperiment::colGraph(
+                            from, type = nm, sample_id = s))
+                })
+                have <- !vapply(parts, is.null, NA)
+                colPair(sce, nm) <- .merge_selfhits(parts[have], idx[have], n, samples[have])
             }
+
+            # Said out loud, because nothing here carries them over.
+            lost <- c(
+                if (length(rg <- SpatialFeatureExperiment::rowGeometryNames(from)))
+                    paste0("rowGeometries (", toString(rg), ")"),
+                if (length(rgr <- unique(unlist(lapply(samples, function(s)
+                        SpatialFeatureExperiment::rowGraphNames(from, sample_id = s))))))
+                    paste0("row graphs (", toString(rgr), ")"),
+                if (length(agr <- unique(unlist(lapply(samples, function(s)
+                        SpatialFeatureExperiment::annotGraphNames(from, sample_id = s))))))
+                    paste0("annotation graphs (", toString(agr), ")"))
+            if (length(lost))
+                warning("not carried over by this coercion: ",
+                        paste(lost, collapse = "; "), call. = FALSE)
 
             lr <- tryCatch(SpatialFeatureExperiment::localResults(from),
                 error = function(e) NULL)
@@ -179,9 +351,6 @@ NULL
                         "the original object before coercing.")
 
             experiments <- ExperimentList(stats::setNames(list(sce), assay_name))
-            sids <- if ("sample_id" %in% colnames(SummarizedExperiment::colData(from)))
-                as.character(SummarizedExperiment::colData(from)[["sample_id"]])
-            else rep("sample01", n)
             primaries <- unique(sids)
             if (length(primaries) == 0L)
                 primaries <- "sample01"
@@ -196,6 +365,9 @@ NULL
                 points = pts, shapes = ShapesLayerList(shapes_list),
                 imgData = imgData(from), spatialMap = spatial_map)
 
+            ## the object's own metadata goes with it
+            if (length(metadata(from)))
+                metadata(mase) <- metadata(from)
             u <- tryCatch(SpatialFeatureExperiment::unit(from),
                 error = function(e) NULL)
             if (!is.null(u))
@@ -218,7 +390,7 @@ NULL
 #' @importFrom MultiAssayExperiment experiments
 #' @importFrom SingleCellExperiment colPairs
 #' @importFrom SummarizedExperiment assays colData rowData
-#' @importFrom S4Vectors metadata
+#' @importFrom S4Vectors metadata metadata<-
 .materialize_SFE_view <- function(x, assay = 1L) {
     exps <- experiments(x)
     if (length(exps) != 1L)
@@ -256,19 +428,24 @@ NULL
     annots <- Filter(Negate(is.null), annots)
 
     cps <- colPairs(exp)
-    graphs <- stats::setNames(
-        lapply(names(cps), function(nm) .selfhits_to_listw(cps[[nm]], cn)),
-        names(cps))
 
     u <- .normalize_sfe_unit(metadata(x)[["spatialUnit"]])
     if (is.null(u)) u <- "full_res_image_pixel"
 
-    sample_ids <- unique(as.character(colData(exp)[["sample_id"]]))
-    if (length(sample_ids) == 0L)
-        sample_ids <- "sample01"
-    graphs_arg <- if (length(graphs))
-            stats::setNames(lapply(sample_ids, function(sid)
-                list(row = NULL, col = graphs, annot = NULL)), sample_ids)
+    sids <- as.character(colData(exp)[["sample_id"]])
+    if (length(sids) == 0L)
+        sids <- rep("sample01", length(cn))
+    sample_ids <- unique(sids)
+    ## one graph per sample, over that sample's columns only
+    graphs_arg <- if (length(cps))
+            stats::setNames(lapply(sample_ids, function(sid) {
+                idx <- which(sids == sid)
+                col <- stats::setNames(
+                    lapply(names(cps), function(nm)
+                        .selfhits_to_listw(.subset_selfhits(cps[[nm]], idx, sid), cn[idx])),
+                    names(cps))
+                list(row = NULL, col = col, annot = NULL)
+            }), sample_ids)
         else NULL
 
     sfe <- SpatialFeatureExperiment::SpatialFeatureExperiment(
@@ -277,6 +454,10 @@ NULL
         annotGeometries = if (length(annots)) annots else NULL,
         spatialGraphs = graphs_arg, unit = u)
 
+    md <- metadata(x)
+    md[["spatialUnit"]] <- NULL
+    if (length(md))
+        metadata(sfe) <- md
     mase_img <- imgData(x)
     if (!is.null(mase_img))
         SpatialExperiment::imgData(sfe) <- mase_img
@@ -302,6 +483,42 @@ NULL
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Spatial graphs: one merged colPair per name, read back one sample at a time
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+.sfe_graph_experiment <- function(x, what) {
+    exps <- experiments(x)
+    if (length(exps) != 1L)
+        stop("'", what, "' requires exactly one assay; found ", length(exps),
+             call. = FALSE)
+    exps[[1L]]
+}
+
+.sfe_sample_ids <- function(exp) {
+    sids <- as.character(SummarizedExperiment::colData(exp)[["sample_id"]])
+    if (length(sids) == 0L) rep("sample01", ncol(exp)) else sids
+}
+
+# The sample ids selected by 'sample_id' ("all", names, or positions), as
+# SpatialFeatureExperiment reads them.
+.sfe_graph_samples <- function(exp, sample_id) {
+    have <- unique(.sfe_sample_ids(exp))
+    if (identical(sample_id, "all")) return(have)
+    sid <- if (is.numeric(sample_id)) have[sample_id] else sample_id
+    if (anyNA(sid) || !all(sid %in% have))
+        stop("sample_id not found: ", toString(sample_id), call. = FALSE)
+    sid
+}
+
+.sfe_graph_of <- function(exp, name, sample_id) {
+    idx <- which(.sfe_sample_ids(exp) == sample_id)
+    .selfhits_to_listw(
+        .subset_selfhits(SingleCellExperiment::colPairs(exp)[[name]], idx,
+                         sample_id),
+        colnames(exp)[idx])
+}
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Methods (registered in .onLoad when SFE available)
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -321,7 +538,7 @@ NULL
     )
 
     setMethod("dimGeometries", "MultiAssaySpatialExperiment",
-        function(x, MARGIN = 2, withDimnames = TRUE) {
+        function(x, MARGIN, withDimnames = TRUE) {
             exp <- tryCatch(.materialize_SFE_view(x), error = function(e) e)
             if (inherits(exp, "error"))
                 stop("Cannot materialize a SpatialFeatureExperiment view ",
@@ -380,60 +597,60 @@ NULL
     # spatialGraphs/spatialGraph/spatialGraphNames are MASE-native (read
     # colPair()s on the stored experiment directly) rather than routed
     # through .materialize_SFE_view(), and work whether or not SFE is even
-    # installed. Only col-margin (MARGIN = 2) graphs are supported -- see
+    # loaded. Only col-margin (MARGIN = 2) graphs are supported -- see
     # the plan doc for why row/annotation margins are out of scope.
     setMethod("spatialGraphs", "MultiAssaySpatialExperiment",
         function(x, MARGIN = NULL, sample_id = "all", name = "all") {
-            exps <- experiments(x)
-            if (length(exps) != 1L)
-                stop("'spatialGraphs' requires exactly one assay; found ",
-                     length(exps))
+            exp <- .sfe_graph_experiment(x, "spatialGraphs")
             if (!is.null(MARGIN) && !isTRUE(MARGIN == 2))
                 stop("Only col-margin (MARGIN = 2) spatial graphs are ",
                      "currently supported")
-            exp <- exps[[1L]]
-            cps <- SingleCellExperiment::colPairs(exp)
-            nms <- names(cps)
-            if (!identical(name, "all"))
-                nms <- intersect(nms, name)
-            graphs <- stats::setNames(
-                lapply(nms, function(nm) .selfhits_to_listw(cps[[nm]], colnames(exp))),
-                nms)
-            if (length(graphs) == 1L && is.character(name) && !identical(name, "all"))
-                graphs[[1L]]
-            else
-                graphs
+            if (is.null(MARGIN) && !identical(name, "all"))
+                stop("Cannot get graphs of the same name across different ",
+                     "margins")
+            sids <- .sfe_graph_samples(exp, sample_id)
+            nms <- names(SingleCellExperiment::colPairs(exp))
+            if (!identical(name, "all")) {
+                if (!all(name %in% nms))
+                    stop("No spatial graph named ",
+                         toString(setdiff(name, nms)), " found")
+                nms <- name
+            }
+            lapply(stats::setNames(sids, sids), function(sid) {
+                col <- stats::setNames(
+                    lapply(nms, function(nm) .sfe_graph_of(exp, nm, sid)), nms)
+                if (is.null(MARGIN)) list(row = NULL, col = col, annot = NULL)
+                else col
+            })
         },
         where = .sfe_ext_env
     )
 
     setMethod("spatialGraph", "MultiAssaySpatialExperiment",
         function(x, type = 1L, MARGIN, sample_id = 1L) {
-            exps <- experiments(x)
-            if (length(exps) != 1L)
-                stop("'spatialGraph' requires exactly one assay; found ",
-                     length(exps))
+            exp <- .sfe_graph_experiment(x, "spatialGraph")
             if (!missing(MARGIN) && !isTRUE(MARGIN == 2))
                 stop("Only col-margin (MARGIN = 2) spatial graphs are ",
                      "currently supported")
-            exp <- exps[[1L]]
-            cps <- SingleCellExperiment::colPairs(exp)
-            nm <- if (is.numeric(type)) names(cps)[[type]] else type
-            if (is.null(nm) || !nm %in% names(cps))
+            nms <- names(SingleCellExperiment::colPairs(exp))
+            nm <- if (is.numeric(type)) nms[type] else type
+            if (anyNA(nm) || length(nm) != 1L || !nm %in% nms)
                 stop("No spatial graph named '", type, "' found")
-            .selfhits_to_listw(cps[[nm]], colnames(exp))
+            sid <- .sfe_graph_samples(exp, sample_id)
+            if (length(sid) != 1L)
+                stop("Only one sample can be specified at a time.")
+            .sfe_graph_of(exp, nm, sid)
         },
         where = .sfe_ext_env
     )
 
     setMethod("spatialGraphNames", "MultiAssaySpatialExperiment",
         function(x, MARGIN, sample_id = 1L) {
-            exps <- experiments(x)
-            if (length(exps) != 1L)
-                return(character(0L))
+            exp <- .sfe_graph_experiment(x, "spatialGraphNames")
             if (!missing(MARGIN) && !isTRUE(MARGIN == 2))
                 return(character(0L))
-            names(SingleCellExperiment::colPairs(exps[[1L]]))
+            .sfe_graph_samples(exp, sample_id)
+            names(SingleCellExperiment::colPairs(exp))
         },
         where = .sfe_ext_env
     )
@@ -451,10 +668,11 @@ NULL
 
     setMethod("unit", "MultiAssaySpatialExperiment",
         function(x) {
-            exp <- tryCatch(.materialize_SFE_view(x), error = function(e) e)
-            if (inherits(exp, "error"))
-                return(NULL)
-            SpatialFeatureExperiment::unit(exp)
+            exps <- experiments(x)
+            if (length(exps) == 1L && is(exps[[1L]], "SpatialFeatureExperiment"))
+                return(SpatialFeatureExperiment::unit(exps[[1L]]))
+            .normalize_sfe_unit(metadata(x)[["spatialUnit"]]) %||%
+                "full_res_image_pixel"
         },
         where = .sfe_ext_env
     )
@@ -463,10 +681,16 @@ NULL
         function(x, sample_id = "all", name = "all", features = NULL,
                  colGeometryName = NULL, annotGeometryName = NULL,
                  withDimnames = TRUE, swap_rownames = NULL, ...) {
-            stop("'localResults' is not supported on a ",
-                 "MultiAssaySpatialExperiment: it is not carried over by ",
-                 "the SpatialFeatureExperiment coercion (see ?",
-                 "MultiAssaySpatialExperiment-SpatialFeatureExperiment).")
+            ## No local results are carried over, so there is nothing to
+            ## return (an empty list, as SFE gives when none are stored);
+            ## asking for a specific result cannot be satisfied.
+            if (!identical(name, "all") || !is.null(features))
+                stop("'localResults' are not carried over by the ",
+                     "SpatialFeatureExperiment coercion, so '", name[1L],
+                     "' is not available on a MultiAssaySpatialExperiment ",
+                     "(see ?MultiAssaySpatialExperiment-",
+                     "SpatialFeatureExperiment).")
+            list()
         },
         where = .sfe_ext_env
     )
@@ -538,9 +762,10 @@ NULL
             if (inherits(exp, "error"))
                 stop("Cannot materialize a SpatialFeatureExperiment view ",
                      "from 'x': ", conditionMessage(exp))
-            SpatialFeatureExperiment::findDebrisCells(exp,
+            res <- SpatialFeatureExperiment::findDebrisCells(exp,
                 max_cells = max_cells, distance_cutoff = distance_cutoff,
                 BNPARAM = BNPARAM, BPPARAM = BPPARAM)
+            .sfe_to_mase(res, x)
         },
         where = .sfe_ext_env
     )

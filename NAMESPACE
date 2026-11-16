@@ -160,7 +160,11 @@ importFrom(S4Vectors,
 )
 importFrom(SingleCellExperiment,
   "colPair<-",
-  colPairs
+  "int_colData<-",
+  "int_metadata<-",
+  colPairs,
+  int_colData,
+  int_metadata
 )
 importFrom(SpatialExperiment,
   "imgData<-",
