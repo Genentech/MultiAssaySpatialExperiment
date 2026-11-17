@@ -108,7 +108,14 @@ NULL
         all = TRUE, sort = FALSE, stringsAsFactors = FALSE)
     rownames(cdatz) <- cdatz[["Row.names"]]
     cdatz <- cdatz[, names(cdatz) != "Row.names", drop = FALSE]
-    metaz <- c(metadata(x), metadata(y))
+    metax <- metadata(x)
+    metay <- metadata(y)
+    tfz <- c(metax[["transforms"]], metay[["transforms"]])
+    others <- function(m)
+        if (is.null(names(m))) m else m[names(m) != "transforms"]
+    metaz <- c(others(metax), others(metay))
+    if (length(tfz))
+        metaz[["transforms"]] <- tfz
     imgx <- imgData(x)
     imgy <- imgData(y)
     new_img <- if (is.null(imgx) && is.null(imgy)) NULL

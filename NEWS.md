@@ -1,3 +1,26 @@
+# MultiAssaySpatialExperiment 0.99.15
+
+## Bug fixes
+
+- Points converted from a `SpatialData` had no `x` or `y` column: the
+  coordinates stayed in spatialdataR's point geometry, next to the Python index
+  column, so the layer could not be used by MASE's own operations. For
+  example, `subsetByBoundingBox()` over the whole extent of the blobs example
+  took its points layer from 200 rows to none. The geometry is now turned into
+  `x` and `y` (and `z` when there is one), placed first, and every other
+  column, including `__null_dask_index__` and any feature column, is kept as
+  stored, so the element still goes back unchanged.
+- `c()` of two `MultiAssaySpatialExperiment` objects lost the coordinate
+  transforms of the second one. Joining the two metadata lists left two
+  entries called `transforms`, and only the first is ever found. The
+  transforms of both objects are now kept in one entry. They are filed per
+  element and element names are unique across the two objects, so they do not
+  collide.
+- Renaming an element with `pointNames<-`, `shapeNames<-`, `imageNames<-` or
+  `labelNames<-` left the element's coordinate transforms filed under its old
+  name, where nothing found them (for points and shapes it already updated the
+  `spatialMap`). The transforms now follow the rename.
+
 # MultiAssaySpatialExperiment 0.99.14
 
 ## Bug fixes

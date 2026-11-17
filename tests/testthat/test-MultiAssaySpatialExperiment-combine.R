@@ -126,3 +126,26 @@ test_that("cbind() merges spatial point layers with same name", {
     expect_equal(nrow(spatialPoints(combined)[["centroids"]]), 4L)
     expect_true(validObject(combined))
 })
+
+test_that("c() keeps the coordinate transforms of both objects", {
+    m1 <- .simpleMASE_with_spatial("a1", "pts1", "S", 4L)
+    m2 <- .simpleMASE_with_spatial("a2", "pts2", "S", 4L)
+    S4Vectors::metadata(m1)$transforms <- list(
+        "points/pts1" = list(global = list(type = "scale", scale = c(2, 3))))
+    S4Vectors::metadata(m2)$transforms <- list(
+        "points/pts2" = list(global = list(type = "translation",
+                                           translation = c(5, 6))))
+    S4Vectors::metadata(m2)$note <- "from the second"
+    both <- c(m1, m2)
+    tf <- S4Vectors::metadata(both)$transforms
+    expect_identical(sort(names(tf)), c("points/pts1", "points/pts2"))
+    expect_identical(tf[["points/pts2"]]$global$type, "translation")
+    # one entry only, so the second object's transforms are not shadowed
+    expect_identical(sum(names(S4Vectors::metadata(both)) == "transforms"), 1L)
+    expect_identical(S4Vectors::metadata(both)$note, "from the second")
+
+    # an object with no transforms combines as before
+    plain <- .simpleMASE_with_spatial("a3", "pts3", "S", 4L)
+    only1 <- c(m1, plain)
+    expect_identical(names(S4Vectors::metadata(only1)$transforms), "points/pts1")
+})

@@ -46,8 +46,18 @@ NULL
 
 #' @importFrom S4Vectors DataFrame
 .pointFrameToDataFrame <- function(pf, key = NULL) {
-    .sd_with_instance_id(DataFrame(as.data.frame(pf), check.names = FALSE),
-                         key)
+    d <- as.data.frame(pf)
+    is_sfc <- vapply(d, inherits, NA, what = "sfc")
+    if (any(is_sfc)) {
+        gcol <- names(d)[which(is_sfc)[1L]]
+        xy <- sf::st_coordinates(d[[gcol]])
+        xyz <- intersect(c("X", "Y", "Z"), colnames(xy))
+        co <- as.data.frame(xy[, xyz, drop = FALSE])
+        names(co) <- tolower(xyz)
+        keep <- setdiff(names(d), c(gcol, names(co)))
+        d <- cbind(co, as.data.frame(d)[keep])
+    }
+    .sd_with_instance_id(DataFrame(d, check.names = FALSE), key)
 }
 
 #' @importFrom S4Vectors DataFrame
@@ -733,6 +743,16 @@ function(sce, assay_name, spmap, rk, ik)
         hit <- sm[["element_type"]] == type & sm[["region"]] %in% old
         sm[["region"]][hit] <- value[match(sm[["region"]][hit], old)]
         spatialMap(x) <- sm
+    }
+    # the coordinate transforms of an element are filed under "<layer>/<name>"
+    tf <- S4Vectors::metadata(x)[["transforms"]]
+    if (length(tf) && !is.null(names(tf))) {
+        key <- names(tf)
+        was <- paste0(layer, "/", old)
+        hit <- match(key, was)
+        key[!is.na(hit)] <- paste0(layer, "/", value[hit[!is.na(hit)]])
+        names(tf) <- key
+        S4Vectors::metadata(x)[["transforms"]] <- tf
     }
     x
 }

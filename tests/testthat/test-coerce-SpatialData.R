@@ -703,3 +703,49 @@ test_that("renaming an element renames the region the spatialMap names", {
     expect_error(spatialdataR::pointNames(mase) <- "t1", "unique across")
     expect_error(spatialdataR::tableNames(mase) <- "x", "cannot be renamed")
 })
+
+test_that("points imported from a SpatialData have x and y, and work in MASE's own operations", {
+    skip_if_not_installed("spatialdataR")
+    library(SingleCellExperiment)
+    sce <- SingleCellExperiment(
+        list(counts = matrix(1:12, 3, 4)),
+        colData = DataFrame(rk = rep("tx", 4), instance_id = paste0("t", 1:4),
+                            row.names = paste0("t", 1:4)))
+    int_metadata(sce)[["spatialdata_attrs"]] <- list(
+        region = "tx", region_key = "rk", instance_key = "instance_id")
+    pts <- data.frame(x = c(1, 2, 3, 4), y = c(10, 20, 30, 40),
+                      gene = c("A", "B", "A", "C"),
+                      instance_id = paste0("t", 1:4))
+    sd <- spatialdataR::SpatialData(
+        points = list(tx = spatialdataR::SpatialDataPoint(data = pts)),
+        tables = list(t = sce))
+
+    mase <- as(sd, "MultiAssaySpatialExperiment")
+    got <- spatialPoints(mase)[["tx"]]
+    expect_identical(colnames(got)[1:2], c("x", "y"))
+    expect_false("geometry" %in% colnames(got))
+    expect_identical(as.character(got$gene), pts$gene)
+    expect_equal(got$x, pts$x)
+    expect_equal(got$y, pts$y)
+
+    # the layer can be subset by a box, which needs x and y
+    sub <- subsetByBoundingBox(mase, xmin = 0, xmax = 2.5, ymin = 0, ymax = 25)
+    expect_identical(nrow(spatialPoints(sub)[["tx"]]), 2L)
+
+    # and goes back to a SpatialData with the same points
+    back <- suppressWarnings(as(mase, "SpatialData"))
+    expect_identical(length(spatialdataR::point(back, "tx")), 4L)
+})
+
+test_that("renaming an element renames its coordinate transforms too", {
+    skip_if_not_installed("spatialdataR")
+    mase <- .mase_with(
+        points = PointsLayerList(p = DataFrame(x = 1:2, y = 1:2,
+                                               instance_id = c("i1", "i2"))))
+    S4Vectors::metadata(mase)$transforms <- list(
+        "points/p" = list(global = list(type = "scale", scale = c(2, 2))))
+    spatialdataR::pointNames(mase) <- "cells"
+    tf <- S4Vectors::metadata(mase)$transforms
+    expect_identical(names(tf), "points/cells")
+    expect_identical(tf[["points/cells"]]$global$type, "scale")
+})
