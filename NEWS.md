@@ -1,3 +1,14 @@
+# MultiAssaySpatialExperiment 0.99.16
+
+## Internal changes
+
+- Converting a `SpatialExperiment` or a `SpatialFeatureExperiment` adds a helper
+  column to a copy of the sample map, which `buildSpatialMap()` reads the instance
+  ids from. It is named `__instance_id__`. It used to be `.instance_id`, and now
+  follows the style of the columns that reach files and schemas, such as
+  `__name__` and `__index__`. Only the name changed: the helper column is not
+  kept, and the `instance_id` column of the spatial map is the same.
+
 # MultiAssaySpatialExperiment 0.99.15
 
 ## Bug fixes

@@ -188,10 +188,10 @@ setAs("SpatialExperiment", "MultiAssaySpatialExperiment", function(from) {
             pt_df[["instance_id"]] <- if (!is.null(rn) && length(rn) > 0L) rn else colnms
             pts <- PointsLayerList(coordinates = pt_df)
             sm_inst <- sm
-            sm_inst[[".instance_id"]] <- pt_df[["instance_id"]]
+            sm_inst[["__instance_id__"]] <- pt_df[["instance_id"]]
             spatial_map <- buildSpatialMap(sm_inst, region = "coordinates",
                 element_type = "points",
-                instance_from = ".instance_id")
+                instance_from = "__instance_id__")
         }
     }
     new("MultiAssaySpatialExperiment",

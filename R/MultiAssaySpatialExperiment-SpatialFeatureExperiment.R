@@ -283,9 +283,9 @@ NULL
             sm <- DataFrame(assay = factor(rep(assay_name, n), assay_name),
                             colname = cn)
             sm_pts <- sm
-            sm_pts[[".instance_id"]] <- pt_df[["instance_id"]]
+            sm_pts[["__instance_id__"]] <- pt_df[["instance_id"]]
             spatial_map <- buildSpatialMap(sm_pts, region = "coordinates",
-                element_type = "points", instance_from = ".instance_id")
+                element_type = "points", instance_from = "__instance_id__")
 
             # Every other colGeometry -> a per-cell 'shapes' entry, with
             # matching spatialMap rows.
@@ -300,10 +300,10 @@ NULL
                     cg_inst <- cn
                 shapes_list[[nm]] <- .sf_to_shapes_df(cg, cg_inst)
                 sm_cg <- sm
-                sm_cg[[".instance_id"]] <- cg_inst
+                sm_cg[["__instance_id__"]] <- cg_inst
                 spatial_map <- .rbindSpatialMaps(spatial_map,
                     buildSpatialMap(sm_cg, region = nm, element_type = "shapes",
-                        instance_from = ".instance_id"))
+                        instance_from = "__instance_id__"))
             }
 
             # annotGeometries -> 'shapes' entries with NO spatialMap rows;
