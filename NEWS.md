@@ -1,3 +1,15 @@
+# MultiAssaySpatialExperiment 0.99.17
+
+## Changes
+
+- Added the `SingleCell` biocView to the DESCRIPTION, since the package reads
+  data from single-cell spatial platforms such as Xenium, CosMx and MERSCOPE.
+- The `Description` field of the DESCRIPTION is longer. It now says that a spatial
+  map links the columns of each assay to the instances of the spatial elements,
+  and that the package provides readers for Visium, Visium HD, Xenium, CosMx and
+  MERSCOPE data.
+- Only the metadata of the package changed.
+
 # MultiAssaySpatialExperiment 0.99.16
 
 ## Internal changes
